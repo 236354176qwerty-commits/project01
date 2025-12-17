@@ -1,0 +1,2408 @@
+{% extends "base.html" %}
+
+{% block title %}个人资料 - 武术赛事管理系统{% endblock %}
+
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/dashboard.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<!-- 欢迎区域 -->
+<div class="welcome-section mb-4">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <h1 class="h3 mb-2">
+                <i class="fas fa-tachometer-alt me-2"></i>
+                欢迎回来，{{ current_user }}！
+            </h1>
+            <p class="text-white mb-0">
+                当前身份：
+                <span class="role-badge ms-1 {% if user_role == 'super_admin' %}super-admin{% elif user_role == 'admin' %}admin{% elif user_role == 'judge' %}judge{% else %}user{% endif %}">
+                    {% if user_role == 'super_admin' %}超级管理员
+                    {% elif user_role == 'admin' %}管理员
+                    {% elif user_role == 'judge' %}裁判
+                    {% else %}普通用户
+                    {% endif %}
+                </span>
+                | 今天是 <span id="current-date"></span>
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-primary" onclick="refreshDashboard()">
+                    <i class="fas fa-sync-alt me-1"></i>刷新
+                </button>
+                {% if user_role in ['admin', 'super_admin'] %}
+                <button type="button" class="btn btn-primary" onclick="showQuickCreateEventModal()">
+                    <i class="fas fa-plus me-1"></i>创建赛事
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 主要内容区域 -->
+<div class="row g-4">
+    <!-- 左侧内容 -->
+    <div class="col-lg-8">
+        <!-- 统计卡片 -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <a href="{{ url_for('results') }}" class="text-decoration-none">
+                    <div class="stat-card card border-0 shadow-sm hover-lift">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon rounded-circle me-3 text-white" style="background-color: {% if user_role == 'super_admin' %}#dc2626{% elif user_role == 'admin' %}#d97706{% elif user_role == 'judge' %}#059669{% else %}#2563eb{% endif %};">
+                                    <i class="fas fa-bullhorn"></i>
+                                </div>
+                                <div>
+                                    <h5 class="card-title mb-1" id="my-scores-count">-</h5>
+                                    <p class="card-text text-muted small mb-0">通知公告查询</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="col-md-6">
+                <a href="javascript:void(0)" onclick="viewNotifications()" class="text-decoration-none">
+                    <div class="stat-card card border-0 shadow-sm hover-lift">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon bg-info text-white rounded-circle me-3">
+                                    <i class="fas fa-bell"></i>
+                                </div>
+                                <div>
+                                    <h5 class="card-title mb-1" id="notifications-count">-</h5>
+                                    <p class="card-text text-muted small mb-0">待处理通知</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+        <!-- 我的赛程安排 -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-calendar-check me-2"></i>我的赛程安排
+                </h5>
+                <button class="btn btn-sm btn-primary" onclick="loadMySchedule()">
+                    <i class="fas fa-sync-alt me-1"></i>刷新
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="my-schedule" class="schedule-list">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-2 text-muted">正在加载赛程信息...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧边栏 -->
+    <div class="col-lg-4">
+        <!-- 快速操作 -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>快速操作
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if user_role in ['admin', 'super_admin'] %}
+                    <button class="btn btn-primary" onclick="showQuickCreateEventModal()">
+                        <i class="fas fa-plus me-2"></i>创建赛事
+                    </button>
+                    {% endif %}
+                    {% if user_role == 'super_admin' %}
+                    <button class="btn btn-outline-primary" onclick="window.location.href='/send_notification'">
+                        <i class="fas fa-paper-plane me-2"></i>发送通知
+                    </button>
+                    {% endif %}
+                    {% if user_role in ['admin', 'super_admin'] %}
+                    <button class="btn btn-outline-primary" onclick="manageParticipants()">
+                        <i class="fas fa-users me-2"></i>管理参赛者
+                    </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-outline-success" onclick="registerForEvent()">
+                        <i class="fas fa-user-plus me-2"></i>报名参赛
+                    </button>
+                    
+                    {% if user_role in ['judge', 'admin', 'super_admin'] %}
+                    <button class="btn btn-outline-warning" onclick="startScoring()">
+                        <i class="fas fa-star me-2"></i>开始评分
+                    </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-outline-info" onclick="viewResults()">
+                        <i class="fas fa-chart-bar me-2"></i>查看成绩
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 系统状态 - 仅管理员和超级管理员可见 -->
+        {% if user_role in ['admin', 'super_admin'] %}
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-server me-2"></i>系统状态
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="status-item d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted">数据库连接</span>
+                    <span class="badge bg-success">正常</span>
+                </div>
+                <div class="status-item d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-muted">服务器状态</span>
+                    <span class="badge bg-success">运行中</span>
+                </div>
+                <div class="status-item d-flex justify-content-between align-items-center">
+                    <span class="text-muted">最后更新</span>
+                    <span class="text-muted small" id="last-update">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 系统维护 - 仅管理员和超级管理员可见 -->
+        <div class="card border-0 shadow-sm mt-3">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-tools me-2 text-primary"></i>系统维护
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button id="maintenanceModeBtn" class="btn btn-warning" onclick="toggleMaintenanceMode()">
+                        <i class="fas fa-tools me-2"></i><span id="maintenanceBtnText">进行系统维护</span>
+                    </button>
+                </div>
+                <div class="mt-3 pt-2 border-top">
+                    <small class="text-muted" id="maintenanceStatus">
+                        <i class="fas fa-info-circle me-1"></i>当前状态: <span id="maintenanceStatusText">正常运行</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 引入共用的创建赛事模态框 -->
+{% include 'components/create_event_modal.html' %}
+
+<!-- 赛事详情模态框 -->
+<div class="modal" id="eventDetailModal" tabindex="-1" aria-labelledby="eventDetailTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventDetailTitle">赛事详情</h5>
+                <button type="button" class="btn-close" onclick="closeEventModal()" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="eventDetailContent">
+                <!-- 详情内容将通过JavaScript动态生成 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEventModal()">关闭</button>
+                <div id="eventDetailActions">
+                    <!-- 操作按钮将根据权限动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 卡片hover效果 */
+.hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+
+.hover-lift:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+a:hover .hover-lift {
+    transform: translateY(-5px);
+}
+
+/* 赛事详情模态框样式优化 */
+#eventDetailModal {
+    z-index: 9999 !important;
+}
+
+#eventDetailModal.show {
+    display: block !important;
+}
+
+#eventDetailModal .modal-dialog {
+    max-width: 800px;
+    z-index: 10000 !important;
+    position: relative;
+}
+
+#eventDetailModal .modal-content {
+    position: relative;
+    z-index: 10001 !important;
+}
+
+#eventDetailModal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+/* 核心信息表格样式 */
+#eventDetailModal .core-info .table {
+    margin-bottom: 0;
+    font-size: 1rem;
+}
+
+#eventDetailModal .core-info .table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+#eventDetailModal .core-info .table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+#eventDetailModal .core-info .table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* 描述信息样式 */
+#eventDetailModal .description-info h6 {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+/* 隐藏背景遮罩 */
+.modal-backdrop {
+    display: none !important;
+}
+
+/* 模态框定位和样式 */
+#eventDetailModal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    outline: 0 !important;
+    pointer-events: none !important; /* 允许点击穿透到下方 */
+}
+
+#eventDetailModal .modal-dialog {
+    pointer-events: auto !important; /* 模态框本身可点击 */
+}
+
+/* 为模态框添加阴影，使其在没有背景的情况下更突出 */
+#eventDetailModal .modal-content {
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/event_modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/event_fees.js') }}"></script>
+<script>
+// 检查数据库中是否有赛事数据
+function checkEvents() {
+    console.log('==================== 检查赛事数据 ====================');
+    
+    $.ajax({
+        url: '/api/events/',
+        method: 'GET',
+        success: function(response) {
+            console.log('✅ 赛事列表API成功');
+            if (response.success && response.events) {
+                console.log('数据库中的赛事总数:', response.events.length);
+                console.log('前3个赛事:', response.events.slice(0, 3));
+                
+                if (response.events.length > 0) {
+                    alert('✅ 数据库有赛事数据\n\n总数: ' + response.events.length + '\n第一个赛事: ' + response.events[0].name);
+                } else {
+                    alert('⚠️ 数据库中没有任何赛事！\n请先在"赛事管理"中创建赛事。');
+                }
+            }
+        },
+        error: function(xhr) {
+            console.error('❌ 获取赛事列表失败:', xhr.status);
+            alert('❌ 无法访问赛事列表API\n状态码: ' + xhr.status);
+        }
+    });
+}
+
+// 测试API连接
+function testAPI() {
+    console.log('==================== 测试API连接 ====================');
+    
+    // 1. 测试获取赛程列表
+    $.ajax({
+        url: '/api/dashboard/my-schedule',
+        method: 'GET',
+        success: function(response) {
+            console.log('✅ 赛程API调用成功!');
+            console.log('完整赛程数据:', response);
+            
+            if (response.success && response.schedules && response.schedules.length > 0) {
+                const firstEvent = response.schedules[0];
+                console.log('==================== 赛程详情 ====================');
+                console.log('赛程数量:', response.schedules.length);
+                console.log('第一个赛事完整数据:', firstEvent);
+                console.log('赛事ID:', firstEvent.id);
+                console.log('赛事ID类型:', typeof firstEvent.id);
+                console.log('赛事名称:', firstEvent.name);
+                
+                // 2. 测试获取赛事详情
+                const eventId = firstEvent.id;
+                const apiUrl = `/api/events/${eventId}`;
+                console.log('==================== 测试赛事详情API ====================');
+                console.log('请求URL:', apiUrl);
+                
+                $.ajax({
+                    url: apiUrl,
+                    method: 'GET',
+                    success: function(detailResponse) {
+                        console.log('✅ 赛事详情API调用成功!');
+                        console.log('详情数据:', detailResponse);
+                        
+                        if (detailResponse.success) {
+                            alert('✅ API测试成功！\n\n赛事名称: ' + detailResponse.event.name + '\n赛事ID: ' + eventId + '\n\n可以点击页面上的详情按钮了！');
+                        } else {
+                            alert('❌ API返回失败: ' + detailResponse.message);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('❌ 赛事详情API调用失败!');
+                        console.error('请求URL:', apiUrl);
+                        console.error('状态码:', xhr.status);
+                        console.error('响应文本:', xhr.responseText);
+                        
+                        try {
+                            const errorData = JSON.parse(xhr.responseText);
+                            console.error('错误详情:', errorData);
+                        } catch(e) {
+                            console.error('无法解析错误响应');
+                        }
+                        
+                        alert('❌ 赛事详情API失败！\n\n' +
+                              '状态码: ' + xhr.status + '\n' +
+                              '赛事ID: ' + eventId + '\n' +
+                              'URL: ' + apiUrl + '\n\n' +
+                              '可能原因：\n' +
+                              '1. 赛事在数据库中不存在\n' +
+                              '2. API路由未正确配置\n' +
+                              '3. 权限不足\n\n' +
+                              '建议：运行 checkEvents() 检查数据库');
+                    }
+                });
+            } else {
+                alert('⚠️ 没有赛程数据！\n\n您还没有参加任何赛事。\n请先去"赛事大全"页面报名参赛。');
+            }
+        },
+        error: function(xhr) {
+            console.error('❌ 赛程API调用失败!');
+            console.error('状态码:', xhr.status);
+            console.error('响应:', xhr.responseText);
+            alert('❌ 赛程API失败\n状态码: ' + xhr.status + '\n\n可能是未登录或session过期');
+        }
+    });
+}
+
+// 测试模态框显示功能
+function testModal() {
+    console.log('=== 开始测试模态框 ===');
+    
+    // 检查元素是否存在
+    const modalEl = document.getElementById('eventDetailModal');
+    console.log('1. 模态框元素存在:', !!modalEl);
+    
+    // 检查jQuery是否加载
+    console.log('2. jQuery已加载:', typeof jQuery !== 'undefined');
+    
+    // 检查Bootstrap是否加载
+    console.log('3. Bootstrap已加载:', typeof bootstrap !== 'undefined');
+    
+    if (!modalEl) {
+        alert('错误：找不到模态框元素！请刷新页面。');
+        return;
+    }
+    
+    // 设置测试内容
+    $('#eventDetailTitle').text('测试赛事');
+    $('#eventDetailContent').html('<p class="text-center py-5">这是测试内容，如果能看到这个说明模态框可以正常显示。</p>');
+    $('#eventDetailActions').html('');
+    
+    // 尝试显示
+    try {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+        console.log('4. 模态框显示成功！');
+        alert('模态框测试成功！如果你能看到模态框，说明功能正常。');
+    } catch (e) {
+        console.error('4. 模态框显示失败:', e);
+        alert('错误：模态框无法显示 - ' + e.message);
+    }
+}
+
+$(document).ready(function() {
+    // 设置当前日期
+    $('#current-date').text(new Date().toLocaleDateString('zh-CN'));
+    
+    // 设置最后更新时间
+    $('#last-update').text(new Date().toLocaleTimeString('zh-CN'));
+    
+    // 不再需要异步加载用户昵称，直接在模板中显示
+    
+    // 调试工具提示
+    console.log('==================== Dashboard页面已加载 ====================');
+    console.log('📋 可用的调试命令:');
+    console.log('  testAPI()      - 测试API连接和数据获取（推荐先运行）');
+    console.log('  checkEvents()  - 检查数据库中是否有赛事数据');
+    console.log('  testModal()    - 测试模态框是否能正常显示');
+    console.log('  viewEventDetail(ID) - 手动查看指定赛事详情');
+    console.log('================================================================');
+    
+    // 加载仪表板数据
+    loadDashboardData();
+    
+    // 每30秒刷新一次数据
+    setInterval(function() {
+        $('#last-update').text(new Date().toLocaleTimeString('zh-CN'));
+    }, 30000);
+});
+
+// 不再需要异步加载用户昵称函数
+
+function loadDashboardData() {
+    loadStatistics();
+    loadMySchedule();
+}
+
+function loadStatistics() {
+    // 加载统计数据
+    $.ajax({
+        url: '/api/dashboard/statistics',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                $('#my-scores-count').text(response.statistics.my_scores || 0);
+                $('#notifications-count').text(response.statistics.notifications || 0);
+            } else {
+                // 显示错误或默认值
+                $('#my-scores-count').text('0');
+                $('#notifications-count').text('0');
+            }
+        },
+        error: function() {
+            // 显示错误或默认值
+            $('#my-scores-count').text('0');
+            $('#notifications-count').text('0');
+        }
+    });
+}
+
+function loadMySchedule() {
+    const container = $('#my-schedule');
+    
+    // 显示加载中
+    container.html(`
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-2 text-muted">正在加载赛程信息...</p>
+        </div>
+    `);
+    
+    // 调用真实API获取赛程数据
+    $.ajax({
+        url: '/api/dashboard/my-schedule',
+        method: 'GET',
+        success: function(response) {
+            container.empty();
+            
+            if (!response.success) {
+                container.html(`
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-triangle text-warning fa-2x mb-2"></i>
+                        <p class="text-muted mb-0">${response.message || '加载失败'}</p>
+                    </div>
+                `);
+                return;
+            }
+            
+            const schedules = response.schedules || [];
+            
+            if (schedules.length === 0) {
+                container.html(`
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-times text-muted fa-2x mb-2"></i>
+                        <p class="text-muted mb-0">暂无参加的赛事</p>
+                    </div>
+                `);
+                return;
+            }
+            
+            schedules.forEach(function(schedule) {
+                const statusConfig = getScheduleStatus(schedule.status);
+                const countdown = getCountdown(schedule.event_time);
+                const eventTime = formatDateTimeShort(schedule.event_time);
+                
+                const scheduleHtml = `
+                    <div class="schedule-item border-start border-4 ps-3 mb-3" style="border-color: ${statusConfig.color} !important;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">${schedule.name}</h6>
+                                <div class="schedule-info">
+                                    <p class="text-muted small mb-1">
+                                        <i class="fas fa-clock me-1 text-primary"></i>
+                                        <strong>时间：</strong>${eventTime}
+                                        ${countdown ? `<span class="badge bg-warning text-dark ms-2">${countdown}</span>` : ''}
+                                    </p>
+                                    <p class="text-muted small mb-1">
+                                        <i class="fas fa-map-marker-alt me-1 text-danger"></i>
+                                        <strong>地点：</strong>${schedule.location}
+                                    </p>
+                                    <p class="text-muted small mb-0">
+                                        <i class="fas fa-trophy me-1 text-success"></i>
+                                        <strong>项目：</strong>${schedule.project}
+                                    </p>
+                                </div>
+                            </div>
+                            ${schedule.status !== 'pending' ? `<span class="badge" style="background-color: ${statusConfig.color};">
+                                ${statusConfig.text}
+                            </span>` : ''}
+                        </div>
+                        <div class="d-flex justify-content-center gap-2 mt-3">
+                            <button class="btn btn-lg btn-primary" onclick="viewEventDetail(${schedule.id})"><i class="fas fa-info-circle me-2"></i>查看详情</button>
+                        </div>
+                    </div>
+                `;
+                container.append(scheduleHtml);
+            });
+        },
+        error: function(xhr, status, error) {
+            container.html(`
+                <div class="text-center py-4">
+                    <i class="fas fa-exclamation-triangle text-danger fa-2x mb-2"></i>
+                    <p class="text-muted mb-0">加载赛程信息失败，请稍后重试</p>
+                </div>
+            `);
+            console.error('加载赛程失败:', error);
+        }
+    });
+}
+
+// 获取赛程状态配置
+function getScheduleStatus(status) {
+    const statusMap = {
+        'pending': { text: '待签到', color: '#3b82f6' },
+        'ongoing': { text: '进行中', color: '#f59e0b' },
+        'completed': { text: '已完成', color: '#10b981' }
+    };
+    return statusMap[status] || { text: '未知', color: '#6b7280' };
+}
+
+// 计算倒计时
+function getCountdown(eventTime) {
+    const now = new Date();
+    const event = new Date(eventTime);
+    const diff = event - now;
+    
+    if (diff < 0) return null; // 已过期
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}天后`;
+    if (hours > 0) return `${hours}小时后`;
+    if (minutes > 0) return `${minutes}分钟后`;
+    return '即将开始';
+}
+
+// 格式化日期时间（用于赛程列表）
+function formatDateTimeShort(dateString) {
+    if (!dateString) return '待定';
+    const date = new Date(dateString);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${month}月${day}日 ${hours}:${minutes}`;
+}
+
+// 签到功能
+function checkIn(eventId) {
+    // TODO: 调用后端签到接口
+    showMessage('签到功能开发中...', 'info');
+    console.log('签到赛事 ID:', eventId);
+}
+
+// 查看赛事详情
+function viewEventDetail(eventId) {
+    console.log('==================== 开始查看赛事详情 ====================');
+    console.log('1. 传入的 eventId:', eventId);
+    console.log('2. eventId 类型:', typeof eventId);
+    console.log('3. eventId 值是否有效:', eventId !== null && eventId !== undefined && eventId !== '');
+    
+    // 验证eventId
+    if (!eventId || eventId === 'undefined' || eventId === 'null') {
+        console.error('❌ 错误：赛事ID无效!');
+        alert('错误：赛事ID无效，无法获取详情');
+        return;
+    }
+    
+    const apiUrl = `/api/events/${eventId}`;
+    console.log('4. 完整API地址:', apiUrl);
+    
+    // 调用API获取赛事详情
+    $.ajax({
+        url: apiUrl,
+        method: 'GET',
+        beforeSend: function() {
+            console.log('5. 正在发送API请求...');
+        },
+        success: function(response) {
+            console.log('6. ✅ API请求成功!');
+            console.log('7. 完整响应数据:', response);
+            
+            if (response.success) {
+                console.log('8. 响应成功，赛事数据:', response.event);
+                showEventDetailModal(response.event);
+            } else {
+                console.error('9. ❌ 响应失败:', response.message);
+                if (typeof showMessage === 'function') {
+                    showMessage('获取赛事详情失败: ' + (response.message || '未知错误'), 'error');
+                } else {
+                    alert('获取赛事详情失败: ' + (response.message || '未知错误'));
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('==================== API调用失败 ====================');
+            console.error('状态码:', xhr.status);
+            console.error('状态文本:', xhr.statusText);
+            console.error('错误类型:', status);
+            console.error('错误信息:', error);
+            console.error('完整响应:', xhr.responseText);
+            
+            let errorMsg = '获取赛事详情失败';
+            
+            if (xhr.status === 401) {
+                errorMsg = '未登录或登录已过期，请重新登录';
+            } else if (xhr.status === 404) {
+                errorMsg = '赛事不存在或已被删除';
+            } else if (xhr.status === 500) {
+                errorMsg = '服务器错误，请稍后重试';
+            } else if (xhr.status === 0) {
+                errorMsg = '网络连接失败，请检查网络';
+            }
+            
+            console.error('最终错误消息:', errorMsg);
+            
+            if (typeof showMessage === 'function') {
+                showMessage(errorMsg, 'error');
+            } else {
+                alert(errorMsg);
+            }
+        }
+    });
+}
+
+// 显示赛事详情模态框（使用赛事大全的样式）
+function showEventDetailModal(event) {
+    console.log('显示赛事详情模态框, event:', event);
+    
+    if (!event) {
+        console.error('event对象为空');
+        if (typeof showMessage === 'function') {
+            showMessage('赛事数据为空', 'error');
+        } else {
+            alert('赛事数据为空');
+        }
+        return;
+    }
+    
+    // 从localStorage获取费用数据并增强event对象
+    event = enhanceEventWithFees(event);
+    
+    // 确保模态框元素存在
+    const modalElement = document.getElementById('eventDetailModal');
+    if (!modalElement) {
+        console.error('找不到模态框元素 #eventDetailModal');
+        if (typeof showMessage === 'function') {
+            showMessage('页面加载错误，请刷新后重试', 'error');
+        } else {
+            alert('页面加载错误，请刷新后重试');
+        }
+        return;
+    }
+    
+    console.log('设置模态框标题:', event.name);
+    $('#eventDetailTitle').text(event.name);
+    
+    // 使用赛事大全相同的详情样式
+    const detailContent = `
+        <div class="row">
+            <div class="col-12">
+                <h6>基本信息</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td width="40%">赛事名称:</td><td>${event.name}</td></tr>
+                            <tr><td>比赛地点:</td><td>${event.location || '待定'}</td></tr>
+                            <tr><td>比赛开始时间:</td><td>${formatDateTime(event.start_date)}</td></tr>
+                            <tr><td>比赛结束时间:</td><td>${formatDateTime(event.end_date)}</td></tr>
+                            <tr><td>最大人数:</td><td>${event.max_participants || '不限'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td width="40%">报名开始时间:</td><td>${formatDateTime(event.registration_start_time) || '未设置'}</td></tr>
+                            <tr><td>报名截止时间:</td><td>${formatDateTime(event.registration_deadline) || '未设置'}</td></tr>
+                            <tr><td>联系电话:</td><td>${event.contact_phone || '未设置'}</td></tr>
+                            <tr><td>主办单位:</td><td>${event.organizer || '未设置'}</td></tr>
+                            <tr><td>承办单位:</td><td>${event.co_organizer || '未设置'}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                ${(event.individual_fee > 0 || event.pair_practice_fee > 0 || event.team_competition_fee > 0) ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>报名费用</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">个人赛报名费用</small>
+                                    <strong class="text-success">¥${(event.individual_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">对练报名费用</small>
+                                    <strong class="text-success">¥${(event.pair_practice_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">团体赛报名费用</small>
+                                    <strong class="text-success">¥${(event.team_competition_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <strong>报名状态:</strong> <span class="badge ${getRegistrationStatus(event).color}">${getRegistrationStatus(event).text}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>比赛状态:</strong> <span class="badge ${getEventStatus(event).color}">${getEventStatus(event).text}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ${event.description ? `
+            <div class="mt-3">
+                <h6>赛事描述</h6>
+                <p class="text-muted">${event.description}</p>
+            </div>
+        ` : ''}
+    `;
+    
+    $('#eventDetailContent').html(detailContent);
+    
+    // 清空操作按钮区域（不显示报名按钮）
+    $('#eventDetailActions').html('');
+    
+    console.log('准备显示模态框（无背景遮罩）...');
+    
+    // 确保先隐藏其他可能存在的模态框
+    $('.modal').removeClass('show').hide();
+    $('.modal-backdrop').remove();
+    
+    const modalEl = document.getElementById('eventDetailModal');
+    
+    // 移除fade类避免动画
+    modalEl.classList.remove('fade');
+    
+    // 设置模态框为显示状态
+    modalEl.classList.add('show');
+    modalEl.style.display = 'block';
+    modalEl.setAttribute('aria-modal', 'true');
+    modalEl.removeAttribute('aria-hidden');
+    
+    console.log('✅ 模态框已显示（无背景遮罩）');
+}
+
+// 格式化日期时间
+function formatDateTime(dateString) {
+    if (!dateString) return '待定';
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN');
+}
+
+// 计算报名状态（与赛事大全保持一致）
+function getRegistrationStatus(event) {
+    const now = new Date();
+    const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+    const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+    
+    if (!regStart || !regEnd) {
+        return { text: '报名未设置', color: 'bg-light text-dark' };
+    }
+    
+    if (now < regStart) {
+        return { text: '报名未开始', color: 'bg-secondary' };
+    } else if (now >= regStart && now <= regEnd) {
+        return { text: '报名进行中', color: 'bg-success' };
+    } else {
+        return { text: '报名已截止', color: 'bg-danger' };
+    }
+}
+
+// 计算比赛状态（与赛事大全保持一致）
+function getEventStatus(event) {
+    const now = new Date();
+    const eventStart = event.start_date ? new Date(event.start_date) : null;
+    const eventEnd = event.end_date ? new Date(event.end_date) : null;
+    
+    if (!eventStart || !eventEnd) {
+        return { text: '时间未设置', color: 'bg-light text-dark' };
+    }
+    
+    if (now < eventStart) {
+        return { text: '未开始', color: 'bg-info' };
+    } else if (now >= eventStart && now <= eventEnd) {
+        return { text: '进行中', color: 'bg-warning' };
+    } else {
+        return { text: '已结束', color: 'bg-secondary' };
+    }
+}
+
+// 获取报名按钮状态
+function getRegistrationStatusForButton(event) {
+    const now = new Date();
+    const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+    const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+    
+    // 如果没有设置报名时间，默认可以报名
+    if (!regStart || !regEnd) {
+        return { 
+            canRegister: true, 
+            reason: '可以报名' 
+        };
+    }
+    
+    if (now < regStart) {
+        return { 
+            canRegister: false, 
+            reason: '报名未开始' 
+        };
+    } else if (now > regEnd) {
+        return { 
+            canRegister: false, 
+            reason: '报名已截止' 
+        };
+    } else {
+        return { 
+            canRegister: true, 
+            reason: '报名进行中' 
+        };
+    }
+}
+
+// 关闭赛事详情模态框
+function closeEventModal() {
+    console.log('关闭模态框');
+    const modalEl = document.getElementById('eventDetailModal');
+    modalEl.classList.remove('show');
+    modalEl.style.display = 'none';
+    
+    // 清理可能存在的背景遮罩
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+}
+
+// 报名参赛
+function registerForEvent(eventId) {
+    // 跳转到报名页面，选择该赛事
+    window.location.href = `/event_selection?event_id=${eventId}`;
+}
+
+function refreshDashboard() {
+    showMessage('正在刷新数据...', 'info');
+    loadDashboardData();
+    setTimeout(function() {
+        showMessage('数据刷新完成', 'success');
+    }, 1000);
+}
+
+function showQuickCreateEventModal() {
+    // 使用共用的创建模态框函数
+    showCreateEventModal();
+}
+
+// submitQuickCreateEvent 现在由共用的 submitEventForm 替代
+function submitQuickCreateEvent() {
+    submitEventForm();
+}
+
+function manageParticipants() {
+    window.location.href = '/participants';
+}
+
+function registerForEvent() {
+    window.location.href = '/events';
+}
+
+function startScoring() {
+    // showMessage('评分系统开发中...', 'info');
+    window.location.href = '/events';
+}
+
+function viewResults() {
+    window.location.href = '/results';
+}
+
+// 查看通知
+function viewNotifications() {
+    // 检查用户角色
+    const userRole = '{{ user_role }}';
+    if (userRole === 'super_admin') {
+        // 超级管理员跳转到发送通知页面
+        window.location.href = '/send_notification';
+    } else {
+        // 其他用户跳转到查看通知页面
+        window.location.href = '/notifications';
+    }
+}
+
+function getStatusColor(status) {
+    const colors = {
+        'draft': 'secondary',
+        'published': 'primary',
+        'ongoing': 'warning',
+        'completed': 'success',
+        'cancelled': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+
+function getStatusText(status) {
+    const texts = {
+        'draft': '报名未开始',
+        'published': '已发布',
+        'ongoing': '进行中',
+        'completed': '已完成',
+        'cancelled': '已取消'
+    };
+    return texts[status] || '未知';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '待定';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-CN');
+}
+
+// 根据时间自动计算赛事状态
+function getAutoStatus(event) {
+    const now = new Date();
+    const startDate = new Date(event.start_date);
+    const endDate = new Date(event.end_date);
+    
+    // 如果有报名时间，也考虑报名状态
+    if (event.registration_deadline) {
+        const regDeadline = new Date(event.registration_deadline);
+        const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+        
+        // 如果还在报名期间
+        if (regStart && now >= regStart && now <= regDeadline && now < startDate) {
+            return 'registration'; // 报名中
+        }
+        
+        // 如果报名已截止但赛事未开始
+        if (now > regDeadline && now < startDate) {
+            return 'registration_closed'; // 报名已截止
+        }
+    }
+    
+    if (now < startDate) {
+        // 如果是今天的赛事，显示为"即将开始"而不是"草稿"
+        const today = new Date();
+        const eventDate = new Date(startDate);
+        const isToday = today.toDateString() === eventDate.toDateString();
+        
+        if (isToday && event.status === 'draft') {
+            return 'upcoming'; // 即将开始
+        }
+        return event.status === 'draft' ? 'draft' : 'published'; // 未开始
+    } else if (now >= startDate && now <= endDate) {
+        return 'ongoing'; // 进行中
+    } else {
+        return event.status === 'cancelled' ? 'cancelled' : 'completed'; // 已结束或已取消
+    }
+}
+
+// 获取显示用的状态文本（基于时间自动判断）
+function getDisplayStatus(event) {
+    const autoStatus = getAutoStatus(event);
+    const statusTexts = {
+        'draft': '报名未开始',
+        'published': '未开始',
+        'upcoming': '即将开始',
+        'registration': '报名中',
+        'registration_closed': '报名截止',
+        'ongoing': '进行中',
+        'completed': '已结束',
+        'cancelled': '已取消'
+    };
+    return statusTexts[autoStatus] || '未知';
+}
+
+// 获取显示用的状态颜色（基于时间自动判断）
+function getDisplayStatusColor(event) {
+    const autoStatus = getAutoStatus(event);
+    const statusColors = {
+        'draft': 'secondary',
+        'published': 'info',
+        'upcoming': 'warning',
+        'registration': 'success',
+        'registration_closed': 'warning',
+        'ongoing': 'primary',
+        'completed': 'dark',
+        'cancelled': 'danger'
+    };
+    return statusColors[autoStatus] || 'secondary';
+}
+
+// ==================== 通用确认对话框 ====================
+
+// 显示统一的确认对话框
+function showConfirmDialog(title, message, confirmCallback, options = {}) {
+    const {
+        confirmText = '确认',
+        cancelText = '取消',
+        confirmClass = 'btn-primary',
+        icon = 'fas fa-question-circle',
+        danger = false
+    } = options;
+    
+    const modalClass = danger ? 'border-danger' : '';
+    const headerClass = danger ? 'bg-danger text-white' : 'bg-primary text-white';
+    const btnClass = danger ? 'btn-danger' : confirmClass;
+    
+    const modalHtml = `
+        <div class="modal fade" id="confirmDialog" tabindex="-1" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered ${modalClass}">
+                <div class="modal-content">
+                    <div class="modal-header ${headerClass}">
+                        <h5 class="modal-title">
+                            <i class="${icon} me-2"></i>${title}
+                        </h5>
+                        <button type="button" class="btn-close ${danger ? 'btn-close-white' : ''}" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${message.split('\n').map(line => `<p class="mb-2">${line}</p>`).join('')}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            ${cancelText}
+                        </button>
+                        <button type="button" class="btn ${btnClass}" id="confirmBtn">
+                            ${confirmText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除旧对话框
+    const oldModal = document.getElementById('confirmDialog');
+    if (oldModal) oldModal.remove();
+    
+    // 添加新对话框
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('confirmDialog'));
+    
+    // 绑定确认按钮事件
+    document.getElementById('confirmBtn').onclick = function() {
+        modal.hide();
+        setTimeout(() => {
+            if (confirmCallback) confirmCallback();
+        }, 150);
+    };
+    
+    modal.show();
+}
+
+// ==================== 系统维护功能 ====================
+
+// 备份数据库
+function maintenanceBackup() {
+    showConfirmDialog(
+        '确认备份数据库',
+        '此操作可能需要几分钟时间。\n确认要备份数据库吗？',
+        function() {
+            showCenterMessage('正在备份数据库，请稍候...', 'info');
+            
+            fetch('/api/admin/maintenance/backup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showCenterMessage('✅ ' + data.message, 'success');
+                    updateLastMaintTime();
+                } else {
+                    showCenterMessage('❌ ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('备份失败:', error);
+                showCenterMessage('❌ 备份失败: ' + error, 'error');
+            });
+        },
+        { icon: 'fas fa-save', confirmClass: 'btn-primary' }
+    );
+}
+
+// 优化数据库
+function maintenanceOptimize() {
+    showConfirmDialog(
+        '确认优化数据库',
+        '此操作会暂时锁定表，可能影响系统性能。\n确认要优化数据库吗？',
+        function() {
+            showCenterMessage('正在优化数据库，请稍候...', 'info');
+            
+            fetch('/api/admin/maintenance/optimize', {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showCenterMessage('✅ ' + data.message, 'success');
+                    updateLastMaintTime();
+                } else {
+                    showCenterMessage('❌ ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('优化失败:', error);
+                showCenterMessage('❌ 优化失败: ' + error, 'error');
+            });
+        },
+        { icon: 'fas fa-cog', confirmClass: 'btn-success' }
+    );
+}
+
+// 查看数据统计
+function maintenanceStats() {
+    showCenterMessage('正在加载统计信息...', 'info');
+    
+    fetch('/api/admin/maintenance/stats')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showStatsModal(data.stats);
+        } else {
+            showCenterMessage('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('获取统计失败:', error);
+        showCenterMessage('❌ 获取统计失败', 'error');
+    });
+}
+
+// 显示统计信息模态框
+function showStatsModal(stats) {
+    let userHtml = '';
+    if (stats.users && stats.users.length > 0) {
+        const roleNames = {
+            'super_admin': '超级管理员',
+            'admin': '管理员',
+            'judge': '裁判',
+            'user': '普通用户'
+        };
+        stats.users.forEach(u => {
+            userHtml += `<li><i class="fas fa-user-circle me-2"></i>${roleNames[u.role] || u.role}: <strong>${u.count}</strong> 人</li>`;
+        });
+    }
+    
+    let eventHtml = '';
+    if (stats.events && stats.events.length > 0) {
+        const statusNames = {
+            'draft': '草稿',
+            'published': '已发布',
+            'ongoing': '进行中',
+            'completed': '已完成',
+            'cancelled': '已取消'
+        };
+        stats.events.forEach(e => {
+            eventHtml += `<li><i class="fas fa-trophy me-2"></i>${statusNames[e.status] || e.status}: <strong>${e.count}</strong> 个</li>`;
+        });
+    }
+    
+    const modalHtml = `
+        <div class="modal fade maintenance-modal" id="statsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header stats-header">
+                        <h5 class="modal-title"><i class="fas fa-chart-line"></i>系统数据统计</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <div class="stats-card db-size">
+                                    <div class="card-body">
+                                        <i class="fas fa-database" style="font-size: 2.5rem; opacity: 0.9; margin-bottom: 1rem;"></i>
+                                        <h2>${stats.db_size || 0}</h2>
+                                        <p>数据库大小 (MB)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="stats-card participants">
+                                    <div class="card-body">
+                                        <i class="fas fa-users" style="font-size: 2.5rem; opacity: 0.9; margin-bottom: 1rem;"></i>
+                                        <h2>${stats.participants || 0}</h2>
+                                        <p>参赛人数总计</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stats-list">
+                            <h6><i class="fas fa-user-friends me-2" style="color: #5DADE2;"></i>用户统计</h6>
+                            <ul>${userHtml || '<li>暂无数据</li>'}</ul>
+                        </div>
+                        <div class="stats-list">
+                            <h6><i class="fas fa-calendar-alt me-2" style="color: #5DADE2;"></i>赛事统计</h6>
+                            <ul>${eventHtml || '<li>暂无数据</li>'}</ul>
+                        </div>
+                        <div class="info-alert">
+                            <i class="fas fa-clock me-2"></i>
+                            <strong>最后备份时间:</strong> ${stats.last_backup || '从未备份'}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('statsModal');
+    if (oldModal) oldModal.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('statsModal'));
+    modal.show();
+}
+
+// 查看操作日志
+function maintenanceLogs() {
+    showCenterMessage('正在加载日志...', 'info');
+    
+    fetch('/api/admin/maintenance/logs')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showLogsModal(data.logs);
+        } else {
+            showCenterMessage('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('获取日志失败:', error);
+        showCenterMessage('❌ 获取日志失败', 'error');
+    });
+}
+
+// 显示日志模态框
+function showLogsModal(logs) {
+    const opNames = {
+        'database_backup': '数据库备份',
+        'database_optimize': '数据库优化',
+        'database_restore': '数据库恢复',
+        'backup_delete': '删除备份',
+        'backup_download': '下载备份',
+        'file_cleanup': '文件清理'
+    };
+    
+    const logsHtml = logs.map(log => {
+        const statusBadge = log.status === 'success' 
+            ? '<span class="badge bg-success">成功</span>' 
+            : '<span class="badge bg-danger">失败</span>';
+        
+        const duration = log.duration ? `${log.duration}秒` : '-';
+        const fileSize = log.file_size ? `${log.file_size}MB` : '-';
+        
+        return `
+        <tr class="${log.status === 'failed' ? 'table-danger' : ''}">
+            <td>${log.created_at}</td>
+            <td>${opNames[log.operation] || log.operation}</td>
+            <td>${log.real_name || log.username}</td>
+            <td>${statusBadge}</td>
+            <td>${duration}</td>
+            <td>${fileSize}</td>
+            <td>
+                ${log.details}
+                ${log.error_message ? `<br><small class="text-danger">错误: ${log.error_message}</small>` : ''}
+            </td>
+        </tr>
+        `;
+    }).join('');
+    
+    const modalHtml = `
+        <div class="modal fade maintenance-modal" id="logsModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header logs-header">
+                        <h5 class="modal-title"><i class="fas fa-history"></i>系统维护日志</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive" style="max-height: 500px;">
+                            <table class="table logs-table">
+                                <thead class="sticky-top">
+                                    <tr>
+                                        <th width="140"><i class="fas fa-clock me-1"></i>时间</th>
+                                        <th width="100"><i class="fas fa-tasks me-1"></i>操作</th>
+                                        <th width="80"><i class="fas fa-user me-1"></i>操作人</th>
+                                        <th width="60"><i class="fas fa-check-circle me-1"></i>状态</th>
+                                        <th width="70"><i class="fas fa-stopwatch me-1"></i>耗时</th>
+                                        <th width="80"><i class="fas fa-file-archive me-1"></i>文件大小</th>
+                                        <th><i class="fas fa-info-circle me-1"></i>详情</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${logsHtml || '<tr><td colspan="7" class="text-center py-4"><i class="fas fa-inbox text-muted" style="font-size: 2rem;"></i><p class="mt-2 text-muted">暂无日志记录</p></td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('logsModal');
+    if (oldModal) oldModal.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+    modal.show();
+}
+
+// 清理文件
+function maintenanceClean() {
+    showConfirmDialog(
+        '确认清理系统文件',
+        '将删除临时文件和旧备份（保留最近10个）。\n确认要清理系统临时文件吗？',
+        function() {
+            showCenterMessage('正在清理文件...', 'info');
+            
+            fetch('/api/admin/maintenance/cleanup', {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showCenterMessage(`✅ ${data.message}\n清理: ${data.cleaned_files}个文件\n释放: ${data.freed_space}`, 'success');
+                    updateLastMaintTime();
+                } else {
+                    showCenterMessage('❌ ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('清理失败:', error);
+                showCenterMessage('❌ 清理失败: ' + error, 'error');
+            });
+        },
+        { icon: 'fas fa-broom', confirmClass: 'btn-warning' }
+    );
+}
+
+// 更新最后维护时间
+function updateLastMaintTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleString('zh-CN');
+    document.getElementById('lastMaintTime').textContent = timeStr;
+}
+
+// 系统健康检查
+function maintenanceHealth() {
+    showCenterMessage('正在检查系统健康状态...', 'info');
+    
+    fetch('/api/admin/maintenance/health')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showHealthModal(data);
+        } else {
+            showCenterMessage('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('健康检查失败:', error);
+        showCenterMessage('❌ 健康检查失败', 'error');
+    });
+}
+
+// 显示健康检查模态框
+function showHealthModal(data) {
+    const statusIcons = {
+        'healthy': '<i class="fas fa-check-circle text-success"></i>',
+        'warning': '<i class="fas fa-exclamation-triangle text-warning"></i>',
+        'error': '<i class="fas fa-times-circle text-danger"></i>',
+        'critical': '<i class="fas fa-skull-crossbones text-danger"></i>',
+        'info': '<i class="fas fa-info-circle text-info"></i>',
+        'unknown': '<i class="fas fa-question-circle text-secondary"></i>'
+    };
+    
+    const statusColors = {
+        'healthy': 'success',
+        'warning': 'warning',
+        'error': 'danger',
+        'critical': 'danger',
+        'info': 'info',
+        'unknown': 'secondary'
+    };
+    
+    const overallColor = statusColors[data.overall_status] || 'secondary';
+    const overallIcon = statusIcons[data.overall_status] || statusIcons['unknown'];
+    
+    const healthHtml = Object.entries(data.health).map(([key, item]) => {
+        const icon = statusIcons[item.status] || statusIcons['unknown'];
+        const color = statusColors[item.status] || 'secondary';
+        
+        const titles = {
+            'database': '数据库连接',
+            'disk': '磁盘空间',
+            'backup': '备份状态',
+            'tables': '数据表'
+        };
+        
+        const itemIcons = {
+            'database': 'fas fa-database',
+            'disk': 'fas fa-hdd',
+            'backup': 'fas fa-save',
+            'tables': 'fas fa-table'
+        };
+        
+        return `
+            <div class="health-check-card ${item.status}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <h6>
+                            <i class="${itemIcons[key] || 'fas fa-info-circle'}"></i>
+                            ${titles[key] || key}
+                        </h6>
+                        <p class="mb-2" style="color: #4a5568;">${item.message}</p>
+                        ${item.free_space ? `<div class="small text-muted"><i class="fas fa-chart-pie me-1"></i>可用空间: ${item.free_space} (已使用: ${item.used_percent})</div>` : ''}
+                        ${item.last_backup ? `<div class="small text-muted"><i class="fas fa-clock me-1"></i>最后备份: ${item.last_backup}</div>` : ''}
+                        ${item.backup_count !== undefined ? `<div class="small text-muted"><i class="fas fa-file-archive me-1"></i>备份文件数: ${item.backup_count}</div>` : ''}
+                        ${item.table_count !== undefined ? `<div class="small text-muted"><i class="fas fa-list me-1"></i>数据表数量: ${item.table_count}</div>` : ''}
+                    </div>
+                    <span class="health-status-badge bg-${color}">${icon}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    const overallStatusText = {
+        'healthy': '健康',
+        'warning': '警告',
+        'error': '错误',
+        'critical': '严重',
+        'info': '信息',
+        'unknown': '未知'
+    };
+    
+    const modalHtml = `
+        <div class="modal fade maintenance-modal" id="healthModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header health-header">
+                        <h5 class="modal-title"><i class="fas fa-heartbeat"></i>系统健康检查</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div style="background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%); color: white; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <h4 class="mb-1">${overallIcon} ${overallStatusText[data.overall_status] || data.overall_status}</h4>
+                                    <p class="mb-0 opacity-90"><i class="fas fa-clock me-2"></i>检查时间: ${data.check_time}</p>
+                                </div>
+                                <div style="font-size: 3rem; opacity: 0.8;">
+                                    ${data.overall_status === 'healthy' ? '✅' : data.overall_status === 'warning' ? '⚠️' : '❌'}
+                                </div>
+                            </div>
+                        </div>
+                        ${healthHtml}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>关闭
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="maintenanceHealth()">
+                            <i class="fas fa-sync-alt me-1"></i>重新检查
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('healthModal');
+    if (oldModal) oldModal.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('healthModal'));
+    modal.show();
+}
+
+// 查看备份管理
+function maintenanceViewBackups() {
+    showCenterMessage('正在加载备份列表...', 'info');
+    
+    fetch('/api/admin/maintenance/backups')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showBackupsModal(data.backups, data.total);
+        } else {
+            showCenterMessage('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('获取备份列表失败:', error);
+        showCenterMessage('❌ 获取备份列表失败', 'error');
+    });
+}
+
+// 显示备份管理模态框
+function showBackupsModal(backups, total) {
+    const userRole = '{{ user_role }}';
+    const backupsHtml = backups.map((b, index) => `
+        <tr class="backup-row" data-filename="${b.filename.toLowerCase()}">
+            <td>${index + 1}</td>
+            <td><code>${b.filename}</code></td>
+            <td>${b.size}</td>
+            <td>${b.created_at}</td>
+            <td>
+                <button class="btn btn-sm btn-primary me-1" onclick="downloadBackup('${b.filename}')" title="下载备份">
+                    <i class="fas fa-download"></i>
+                </button>
+                ${userRole === 'super_admin' ? `
+                    <button class="btn btn-sm btn-success me-1" onclick="restoreBackup('${b.filename}')" title="恢复数据库">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                ` : ''}
+                <button class="btn btn-sm btn-danger" onclick="deleteBackup('${b.filename}')" title="删除备份">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    const modalHtml = `
+        <div class="modal fade maintenance-modal" id="backupsModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header backup-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-server"></i>备份文件管理
+                            <span class="badge bg-white text-primary ms-2" style="font-weight: 700;">${total} 个文件</span>
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${backups.length > 0 ? `
+                            <div class="row mb-4">
+                                <div class="col-md-6 mb-3">
+                                    <div class="info-alert">
+                                        <i class="fas fa-shield-alt me-2"></i>
+                                        <strong>保护策略:</strong> 系统自动保留最近10个备份文件
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="input-group">
+                                        <span class="input-group-text" style="background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%); color: white; border: none;">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <input type="text" class="form-control backup-search" id="backupSearchInput" 
+                                               placeholder="🔍 搜索备份文件..." 
+                                               onkeyup="filterBackups()" style="border-left: none;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-responsive" style="max-height: 500px;">
+                                <table class="table backup-table">
+                                    <thead class="sticky-top">
+                                        <tr>
+                                            <th width="60"><i class="fas fa-hashtag me-1"></i>#</th>
+                                            <th><i class="fas fa-file-code me-1"></i>文件名</th>
+                                            <th width="120"><i class="fas fa-weight me-1"></i>大小</th>
+                                            <th width="180"><i class="fas fa-calendar me-1"></i>创建时间</th>
+                                            <th width="200"><i class="fas fa-cogs me-1"></i>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${backupsHtml}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ` : `
+                            <div class="text-center py-5">
+                                <i class="fas fa-folder-open" style="font-size: 4rem; color: #cbd5e0; margin-bottom: 1rem;"></i>
+                                <h5 style="color: #718096;">暂无备份文件</h5>
+                                <p class="text-muted">点击下方按钮创建第一个备份</p>
+                            </div>
+                        `}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>关闭
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="maintenanceBackup(); bootstrap.Modal.getInstance(document.getElementById('backupsModal')).hide();">
+                            <i class="fas fa-plus-circle me-1"></i>新建备份
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('backupsModal');
+    if (oldModal) oldModal.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('backupsModal'));
+    modal.show();
+}
+
+// 下载备份文件
+function downloadBackup(filename) {
+    showCenterMessage('正在准备下载...', 'info');
+    
+    // 直接通过链接下载
+    window.location.href = `/api/admin/maintenance/backups/${filename}/download`;
+    
+    setTimeout(() => {
+        showCenterMessage('✅ 下载已开始', 'success');
+    }, 500);
+}
+
+// 搜索过滤备份文件
+function filterBackups() {
+    const searchInput = document.getElementById('backupSearchInput');
+    const filter = searchInput.value.toLowerCase();
+    const rows = document.querySelectorAll('.backup-row');
+    
+    let visibleCount = 0;
+    rows.forEach(row => {
+        const filename = row.getAttribute('data-filename');
+        if (filename.includes(filter)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // 如果没有匹配结果，显示提示
+    if (visibleCount === 0 && filter) {
+        // 可以在这里添加"无搜索结果"的提示
+    }
+}
+
+// 删除备份文件
+function deleteBackup(filename) {
+    showConfirmDialog(
+        '确认删除备份文件',
+        `文件名: ${filename}\n\n此操作不可恢复！\n确认要删除此备份文件吗？`,
+        function() {
+            showCenterMessage('正在删除...', 'info');
+            
+            fetch(`/api/admin/maintenance/backups/${filename}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showCenterMessage('✅ ' + data.message, 'success');
+                    // 刷新备份列表
+                    setTimeout(() => maintenanceViewBackups(), 1000);
+                } else {
+                    showCenterMessage('❌ ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('删除失败:', error);
+                showCenterMessage('❌ 删除失败: ' + error, 'error');
+            });
+        },
+        { icon: 'fas fa-trash', danger: true, confirmText: '确认删除' }
+    );
+}
+
+// 恢复数据库备份
+function restoreBackup(filename) {
+    // 第一次确认
+    showConfirmDialog(
+        '⚠️ 危险操作警告',
+        `确认要恢复数据库吗？\n备份文件: ${filename}\n\n此操作将覆盖当前所有数据！\n建议先备份当前数据库再执行恢复操作。`,
+        function() {
+            // 显示确认码输入框
+            showRestoreConfirmModal(filename);
+        },
+        { icon: 'fas fa-exclamation-triangle', danger: true, confirmText: '继续操作' }
+    );
+}
+
+// 显示恢复确认模态框
+function showRestoreConfirmModal(filename) {
+    const modalHtml = `
+        <div class="modal fade maintenance-modal" id="restoreConfirmModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content" style="border: 3px solid #f56565;">
+                    <div class="modal-header danger-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-radiation-alt"></i>⚠️ 确认恢复数据库
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="restore-warning">
+                            <h6><i class="fas fa-skull-crossbones"></i>严重警告 - 危险操作</h6>
+                            <ul>
+                                <li>⛔ 此操作将<strong style="color: #c53030; font-size: 1.1em;">完全覆盖</strong>当前数据库</li>
+                                <li>💀 所有未备份的数据将<strong style="color: #c53030; font-size: 1.1em;">永久丢失</strong></li>
+                                <li>🚫 所有用户将被<strong style="color: #c53030; font-size: 1.1em;">强制下线</strong></li>
+                                <li>⚠️ 此操作<strong style="color: #c53030; font-size: 1.1em;">不可撤销</strong></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label" style="font-size: 1.1rem; color: #2d3748; font-weight: 600;">
+                                <i class="fas fa-file-archive me-2" style="color: #5DADE2;"></i>备份文件:
+                            </label>
+                            <div style="background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%); border: 2px solid #0097a7; border-radius: 12px; padding: 1rem;">
+                                <code style="font-size: 1.1rem; color: #00838f; font-weight: 600;">${filename}</code>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="restoreConfirmInput" class="form-label" style="font-size: 1.1rem; font-weight: 600; color: #2d3748;">
+                                <i class="fas fa-keyboard me-2" style="color: #e53e3e;"></i>
+                                请输入 <span style="background: #c53030; color: white; padding: 0.25rem 0.75rem; border-radius: 6px; font-family: monospace; font-size: 1.2rem;">RESTORE</span> 以确认恢复:
+                            </label>
+                            <input type="text" class="form-control confirm-input" id="restoreConfirmInput" 
+                                   placeholder="输入 RESTORE（区分大小写）" autocomplete="off">
+                            <small class="form-text" style="color: #c53030; font-weight: 500;">
+                                <i class="fas fa-info-circle me-1"></i>必须完全匹配，区分大小写
+                            </small>
+                        </div>
+                        
+                        <div style="background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%); border-left: 4px solid #fc8181; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                            <p class="mb-0" style="color: #742a2a; font-weight: 500;">
+                                <i class="fas fa-lightbulb me-2"></i>
+                                <strong>建议:</strong> 在执行恢复操作前，请确保已创建当前数据库的备份。
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="background: #fff5f5;">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-ban me-1"></i>取消操作
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="executeRestore('${filename}')" style="font-weight: 700; padding: 0.6rem 2rem;">
+                            <i class="fas fa-exclamation-triangle me-1"></i>确认恢复
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('restoreConfirmModal');
+    if (oldModal) oldModal.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('restoreConfirmModal'));
+    modal.show();
+    
+    // 聚焦到输入框
+    document.getElementById('restoreConfirmInput').focus();
+}
+
+// 执行数据库恢复
+function executeRestore(filename) {
+    const confirmInput = document.getElementById('restoreConfirmInput');
+    const confirmCode = confirmInput.value.trim();
+    
+    if (confirmCode !== 'RESTORE') {
+        showCenterMessage('❌ 确认码错误，请输入"RESTORE"', 'error');
+        confirmInput.focus();
+        confirmInput.select();
+        return;
+    }
+    
+    // 关闭确认模态框
+    const confirmModal = bootstrap.Modal.getInstance(document.getElementById('restoreConfirmModal'));
+    if (confirmModal) {
+        confirmModal.hide();
+    }
+    
+    // 显示恢复进度
+    showCenterMessage('⏳ 正在恢复数据库，请耐心等待...\n此过程可能需要几分钟', 'info');
+    
+    fetch('/api/admin/maintenance/restore', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            filename: filename,
+            confirm_code: confirmCode
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showCenterMessage('✅ ' + data.message + '\n\n页面将在3秒后刷新...', 'success');
+            
+            // 3秒后刷新页面
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        } else {
+            showCenterMessage('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('恢复失败:', error);
+        showCenterMessage('❌ 恢复失败: ' + error, 'error');
+    });
+}
+
+// 切换系统维护模式
+function toggleMaintenanceMode() {
+    // 获取当前按钮状态
+    const btn = document.getElementById('maintenanceModeBtn');
+    const btnText = document.getElementById('maintenanceBtnText');
+    const statusText = document.getElementById('maintenanceStatusText');
+    
+    // 先禁用按钮，防止重复点击
+    btn.disabled = true;
+    
+    // 调用API切换维护模式
+    fetch('/api/admin/maintenance/mode/toggle', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 更新按钮和状态显示
+            if (data.maintenance_mode) {
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-success');
+                btnText.textContent = '结束系统维护';
+                statusText.textContent = '维护模式';
+                statusText.parentElement.classList.remove('text-muted');
+                statusText.parentElement.classList.add('text-warning');
+                showCenterMessage('✅ ' + data.message, 'success');
+            } else {
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-warning');
+                btnText.textContent = '进行系统维护';
+                statusText.textContent = '正常运行';
+                statusText.parentElement.classList.remove('text-warning');
+                statusText.parentElement.classList.add('text-muted');
+                showCenterMessage('✅ ' + data.message, 'success');
+            }
+        } else {
+            showCenterMessage('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('切换维护模式失败:', error);
+        showCenterMessage('❌ 切换维护模式失败', 'error');
+    })
+    .finally(() => {
+        // 重新启用按钮
+        btn.disabled = false;
+    });
+}
+
+// 页面加载时获取当前维护模式状态
+function loadMaintenanceStatus() {
+    fetch('/api/admin/maintenance/mode')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const btn = document.getElementById('maintenanceModeBtn');
+            const btnText = document.getElementById('maintenanceBtnText');
+            const statusText = document.getElementById('maintenanceStatusText');
+            
+            if (btn && btnText && statusText) {
+                if (data.maintenance_mode) {
+                    btn.classList.remove('btn-warning');
+                    btn.classList.add('btn-success');
+                    btnText.textContent = '结束系统维护';
+                    statusText.textContent = '维护模式';
+                    statusText.parentElement.classList.remove('text-muted');
+                    statusText.parentElement.classList.add('text-warning');
+                } else {
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-warning');
+                    btnText.textContent = '进行系统维护';
+                    statusText.textContent = '正常运行';
+                    statusText.parentElement.classList.remove('text-warning');
+                    statusText.parentElement.classList.add('text-muted');
+                }
+            }
+        }
+    })
+    .catch(error => {
+        console.error('获取维护模式状态失败:', error);
+    });
+}
+
+// ==================== 美化模态框样式 ====================
+// 在页面加载时添加自定义样式
+document.addEventListener('DOMContentLoaded', function() {
+    // 加载维护模式状态
+    loadMaintenanceStatus();
+    const style = document.createElement('style');
+    style.textContent = `
+        /* 模态框美化样式 */
+        .maintenance-modal .modal-content {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .maintenance-modal .modal-header {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+            color: white;
+            border: none;
+            padding: 1.5rem 2rem;
+        }
+        
+        .maintenance-modal .modal-header.stats-header {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+        }
+        
+        .maintenance-modal .modal-header.logs-header {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+        }
+        
+        .maintenance-modal .modal-header.health-header {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+        }
+        
+        .maintenance-modal .modal-header.backup-header {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+        }
+        
+        .maintenance-modal .modal-header.danger-header {
+            background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%);
+        }
+        
+        .maintenance-modal .modal-title {
+            font-weight: 600;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .maintenance-modal .modal-title i {
+            font-size: 1.8rem;
+            margin-right: 12px;
+            animation: iconPulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes iconPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .maintenance-modal .modal-body {
+            padding: 2rem;
+            background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+        }
+        
+        .maintenance-modal .modal-footer {
+            border: none;
+            padding: 1.5rem 2rem;
+            background: #f8f9fa;
+        }
+        
+        /* 统计卡片美化 */
+        .stats-card {
+            border: none;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        }
+        
+        .stats-card.db-size {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+        }
+        
+        .stats-card.participants {
+            background: linear-gradient(135deg, #AED6F1 0%, #7FB3D5 100%);
+        }
+        
+        .stats-card .card-body {
+            padding: 2rem;
+            text-align: center;
+            color: white;
+        }
+        
+        .stats-card h2 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .stats-card p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+            margin: 0;
+        }
+        
+        /* 统计列表美化 */
+        .stats-list {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 1.5rem;
+        }
+        
+        .stats-list h6 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .stats-list ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .stats-list li {
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #f8f9fa, white);
+            border-radius: 8px;
+            border-left: 4px solid #5DADE2;
+            transition: all 0.3s ease;
+        }
+        
+        .stats-list li:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 日志表格美化 */
+        .logs-table {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .logs-table thead {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+            color: white;
+        }
+        
+        .logs-table thead th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+            padding: 1rem;
+            border: none;
+        }
+        
+        .logs-table tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        .logs-table tbody tr:hover {
+            background: #f8f9fa;
+            transform: scale(1.01);
+        }
+        
+        .logs-table tbody td {
+            padding: 1rem;
+            vertical-align: middle;
+        }
+        
+        .logs-table .badge {
+            padding: 0.4rem 0.8rem;
+            font-weight: 600;
+            border-radius: 20px;
+        }
+        
+        /* 健康检查卡片美化 */
+        .health-check-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            border-left: 5px solid transparent;
+        }
+        
+        .health-check-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+        
+        .health-check-card.healthy {
+            border-left-color: #48bb78;
+        }
+        
+        .health-check-card.warning {
+            border-left-color: #ed8936;
+        }
+        
+        .health-check-card.error {
+            border-left-color: #f56565;
+        }
+        
+        .health-check-card h6 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .health-check-card h6 i {
+            margin-right: 0.75rem;
+            font-size: 1.5rem;
+        }
+        
+        .health-status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        /* 备份列表美化 */
+        .backup-search {
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .backup-search:focus {
+            border-color: #5DADE2;
+            box-shadow: 0 0 0 3px rgba(93, 173, 226, 0.1);
+            outline: none;
+        }
+        
+        .backup-table {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .backup-table thead {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+            color: white;
+        }
+        
+        .backup-table thead th {
+            font-weight: 600;
+            padding: 1rem;
+            border: none;
+        }
+        
+        .backup-table tbody tr {
+            transition: all 0.3s ease;
+        }
+        
+        .backup-table tbody tr:hover {
+            background: #fef5e7;
+        }
+        
+        .backup-table .btn-sm {
+            border-radius: 8px;
+            padding: 0.4rem 0.8rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .backup-table .btn-sm:hover {
+            transform: scale(1.1);
+        }
+        
+        /* 恢复确认模态框美化 */
+        .restore-warning {
+            background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+            border: 2px solid #fc8181;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .restore-warning h6 {
+            color: #c53030;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .restore-warning h6 i {
+            margin-right: 0.75rem;
+            font-size: 1.5rem;
+            animation: warningPulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes warningPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+        
+        .restore-warning ul {
+            color: #742a2a;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .restore-warning li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .confirm-input {
+            border: 3px solid #fc8181;
+            border-radius: 8px;
+            padding: 0.75rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .confirm-input:focus {
+            border-color: #e53e3e;
+            box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.2);
+            outline: none;
+        }
+        
+        /* 按钮美化 */
+        .maintenance-modal .btn {
+            border-radius: 8px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        
+        .maintenance-modal .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .maintenance-modal .btn-primary {
+            background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%);
+        }
+        
+        .maintenance-modal .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+        
+        .maintenance-modal .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+        }
+        
+        /* 动画效果 */
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .maintenance-modal.show .modal-dialog {
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        /* 信息提示美化 */
+        .info-alert {
+            background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+            border: none;
+            border-left: 5px solid #0097a7;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .info-alert i {
+            font-size: 1.2rem;
+            color: #00838f;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}

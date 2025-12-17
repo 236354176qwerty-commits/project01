@@ -1,0 +1,763 @@
+{% extends "base.html" %}
+
+{% block title %}登录 - 武术赛事管理系统{% endblock %}
+
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/login.css') }}" rel="stylesheet">
+<style>
+    /* 验证码输入框样式 */
+    .code-input {
+        width: 50px;
+        height: 60px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .code-input:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        outline: none;
+    }
+    
+    .code-input:not(:placeholder-shown) {
+        border-color: #198754;
+        background-color: #f0f9f4;
+    }
+    
+    .verification-code-inputs {
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card card shadow-lg border-0">
+        <div class="row g-0">
+            <!-- Left side: Promotional content -->
+            <div class="col-lg-6 d-none d-lg-block">
+                <div class="login-promo-panel">
+                    <div class="promo-content">
+                        <h3>欢迎来到武术赛事管理系统</h3>
+                        <p>高效、公正、透明的赛事管理解决方案</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Right side: Login form -->
+            <div class="col-lg-6">
+                <div class="card-body p-5">
+                    <!-- Logo和标题 -->
+                    <div class="text-center mb-4">
+                        <div class="login-logo mb-3">
+                            <i class="fas fa-fist-raised"></i>
+                        </div>
+                        <h2 class="card-title mb-2">用户登录</h2>
+                        <p class="text-muted">武术赛事管理系统</p>
+                    </div>
+
+                    <!-- 登录表单 -->
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">
+                                <i class="fas fa-user me-2"></i>账号/手机号
+                            </label>
+                            <input type="text" class="form-control form-control-lg" id="username" 
+                                   placeholder="请输入账号或手机号" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock me-2"></i>密码
+                            </label>
+                            <div class="input-group">
+                                <input type="password" class="form-control form-control-lg" id="password" 
+                                       placeholder="请输入密码" required>
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 d-flex justify-content-between align-items-center">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="rememberMe">
+                                <label class="form-check-label" for="rememberMe">
+                                    记住我
+                                </label>
+                            </div>
+                            <a href="#" class="text-primary text-decoration-none" onclick="event.preventDefault(); showForgotPassword(); return false;">
+                                忘记账号/密码？
+                            </a>
+                        </div>
+
+                        <div class="d-grid mb-3">
+                            <button type="submit" class="btn btn-primary btn-lg" id="loginBtn">
+                                <i class="fas fa-sign-in-alt me-2"></i>登录
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- 注册链接 -->
+                    <div class="text-center">
+                        <p class="mb-2">还没有账户？</p>
+                        <a href="{{ url_for('register') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-user-plus me-2"></i>立即注册
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系统信息 -->
+            <div class="text-center mt-4">
+                <p class="text-muted small">
+                    <i class="fas fa-shield-alt me-1"></i>
+                    安全登录 | 数据加密传输
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 忘记密码模态框 -->
+<div class="modal fade" id="forgotPasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-key me-2"></i>找回密码
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 第一步：输入手机号和验证码 -->
+                <div id="step1" style="display: block;">
+                    <p class="text-muted mb-4">请输入您的手机号并获取验证码。</p>
+                    <form id="forgotPasswordForm">
+                        <div class="mb-3">
+                            <label for="forgotPhone" class="form-label">手机号码</label>
+                            <div class="input-group">
+                                <input type="tel" class="form-control form-control-lg" id="forgotPhone" 
+                                       placeholder="请输入注册时使用的手机号" required>
+                                <button class="btn btn-primary" type="button" id="sendCodeBtn" onclick="sendVerificationCode()">
+                                    <i class="fas fa-paper-plane me-2"></i>发送验证码
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="verificationCode" class="form-label">验证码</label>
+                            <div class="verification-code-inputs d-flex justify-content-center gap-2">
+                                <input type="text" class="form-control text-center code-input" maxlength="1" inputmode="numeric" data-index="0">
+                                <input type="text" class="form-control text-center code-input" maxlength="1" inputmode="numeric" data-index="1">
+                                <input type="text" class="form-control text-center code-input" maxlength="1" inputmode="numeric" data-index="2">
+                                <input type="text" class="form-control text-center code-input" maxlength="1" inputmode="numeric" data-index="3">
+                                <input type="text" class="form-control text-center code-input" maxlength="1" inputmode="numeric" data-index="4">
+                                <input type="text" class="form-control text-center code-input" maxlength="1" inputmode="numeric" data-index="5">
+                            </div>
+                            <input type="hidden" id="verificationCode">
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- 第二步：重置账号和密码 -->
+                <div id="step2" style="display: none;">
+                    <p class="text-muted mb-4">请设置新账号和密码。</p>
+                    <form id="passwordForm">
+                        <div class="mb-3">
+                            <label for="newUsername" class="form-label">新账号</label>
+                            <input type="text" class="form-control form-control-lg" id="newUsernameInput" 
+                                   placeholder="请输入新账号" minlength="1" maxlength="12" required>
+                            <div class="form-text">1-12个字符，不能包含汉字，不能与已存在账户重复</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">新密码</label>
+                            <input type="password" class="form-control form-control-lg" id="newPasswordInput" 
+                                   placeholder="请输入新密码" minlength="6" maxlength="20" required>
+                            <div class="form-text">6-20个字符，必须包含数字和小写字母</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">确认密码</label>
+                            <input type="password" class="form-control form-control-lg" id="confirmPasswordInput" 
+                                   placeholder="请再次输入新密码" required>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="nextBtn" onclick="goToStep2()">
+                    <i class="fas fa-check me-2"></i>确认
+                </button>
+                <button type="button" class="btn btn-primary" id="submitBtn" onclick="submitPasswordReset()" style="display: none;">
+                    <i class="fas fa-check me-2"></i>确认修改
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 统一弹窗逻辑已在main.js中实现，无需重复定义
+    
+    
+    // 检查是否已登录
+    checkLoginStatus();
+    
+    // 加载记住的用户名
+    loadRememberedUsername();
+    
+    // 登录表单提交
+    $('#loginForm').on('submit', function(e) {
+        e.preventDefault();
+        submitLogin();
+    });
+    
+    // 密码显示/隐藏切换
+    $('#togglePassword').on('click', function() {
+        const passwordField = $('#password');
+        const icon = $(this).find('i');
+        
+        if (passwordField.attr('type') === 'password') {
+            passwordField.attr('type', 'text');
+            icon.removeClass('fa-eye').addClass('fa-eye-slash');
+        } else {
+            passwordField.attr('type', 'password');
+            icon.removeClass('fa-eye-slash').addClass('fa-eye');
+        }
+    });
+    
+    // 验证码输入框逻辑
+    initVerificationCodeInputs();
+    
+    // 监听忘记密码模态框关闭事件，重置表单
+    $('#forgotPasswordModal').on('hidden.bs.modal', function() {
+        // 清除倒计时
+        if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+        }
+        
+        // 重置所有按钮状态
+        $('#sendCodeBtn').prop('disabled', false).html('<i class="fas fa-paper-plane me-2"></i>发送验证码');
+        $('#nextBtn').prop('disabled', false).html('<i class="fas fa-check me-2"></i>确认');
+        $('#submitBtn').prop('disabled', false).html('<i class="fas fa-check me-2"></i>确认修改');
+        
+        // 返回第一步
+        $('#step2').hide();
+        $('#step1').show();
+        $('#submitBtn').hide();
+        $('#nextBtn').show();
+        
+        // 清空所有输入
+        $('#forgotPhone').val('');
+        $('#verificationCode').val('');
+        $('.code-input').val(''); // 清空验证码方格
+        $('#newUsernameInput').val('');
+        $('#newPasswordInput').val('');
+        $('#confirmPasswordInput').val('');
+    });
+    
+});
+
+function checkLoginStatus() {
+    // 检查服务器端session状态
+    $.ajax({
+        url: '/api/check_login',
+        method: 'GET',
+        success: function(response) {
+            if (response.logged_in) {
+                window.location.href = '/';
+            }
+        },
+        error: function() {
+            // 忽略错误，继续显示登录页面
+        }
+    });
+}
+
+// 加载记住的用户信息
+function loadRememberedUsername() {
+    const rememberedData = localStorage.getItem('rememberedUser');
+    if (rememberedData) {
+        try {
+            const data = JSON.parse(rememberedData);
+            const now = new Date().getTime();
+            
+            // 总是填入用户名
+            $('#username').val(data.username);
+            $('#rememberMe').prop('checked', true);
+            
+            // 检查是否超过两周（14天）
+            if (now - data.timestamp < 14 * 24 * 60 * 60 * 1000) {
+                // 未超过14天，填入密码
+                if (data.password) {
+                    $('#password').val(data.password);
+                }
+            } else {
+                // 超过两周，只保留用户名，清除密码
+                const updatedData = {
+                    username: data.username,
+                    timestamp: data.timestamp
+                    // 不保存password字段
+                };
+                localStorage.setItem('rememberedUser', JSON.stringify(updatedData));
+            }
+        } catch (e) {
+            // 数据格式错误，清除
+            localStorage.removeItem('rememberedUser');
+        }
+    }
+}
+
+// 保存或清除记住的用户信息
+function handleRememberMe(username, password, remember) {
+    if (remember) {
+        const data = {
+            username: username,
+            password: password,  // 保存密码
+            timestamp: new Date().getTime()
+        };
+        localStorage.setItem('rememberedUser', JSON.stringify(data));
+    } else {
+        localStorage.removeItem('rememberedUser');
+    }
+}
+
+function submitLogin() {
+    const username = $('#username').val().trim();
+    const password = $('#password').val();
+    const rememberMe = $('#rememberMe').is(':checked');
+    
+    if (!username || !password) {
+        showMessage('请填写完整的登录信息', 'warning');
+        return;
+    }
+    
+    const loginBtn = $('#loginBtn');
+    const originalText = loginBtn.html();
+    
+    // 显示加载状态
+    loginBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>登录中...');
+    
+    // 发送登录请求到后端API
+    $.ajax({
+        url: '/api/auth/login',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            username: username,
+            password: password,
+            remember_me: rememberMe
+        }),
+        success: function(response) {
+            if (response.success) {
+                // 处理记住我功能
+                handleRememberMe(username, password, rememberMe);
+                
+                showMessage('登录成功！正在跳转...', 'success');
+                setTimeout(function() {
+                    // 获取后端传递的 next_url 参数
+                    const nextUrl = '{{ next_url }}';
+                    // 如果有 next_url 且不为空，则跳转到该页面，否则跳转到首页
+                    if (nextUrl && nextUrl.trim() !== '') {
+                        window.location.href = nextUrl;
+                    } else {
+                        window.location.href = '/';
+                    }
+                }, 1000);
+            } else {
+                showMessage(response.message, 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            // 处理HTTP错误状态码（如403、401等）
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                // 如果后端返回了JSON格式的错误消息，显示具体错误
+                showMessage(xhr.responseJSON.message, 'error');
+            } else if (xhr.status === 403) {
+                // 403状态码通常表示账户状态问题
+                showMessage('账户状态异常，无法登录。请联系管理员。', 'error');
+            } else if (xhr.status === 401) {
+                // 401状态码通常表示认证失败
+                showMessage('账号/手机号或密码错误', 'error');
+            } else {
+                // 其他网络错误
+                showMessage('网络错误，请稍后重试', 'error');
+            }
+        },
+        complete: function() {
+            // 恢复按钮状态
+            loginBtn.prop('disabled', false).html(originalText);
+        }
+    });
+}
+
+function showForgotPassword() {
+    console.log('showForgotPassword函数被调用');
+    
+    // 检查模态框元素是否存在
+    const modalElement = document.getElementById('forgotPasswordModal');
+    console.log('模态框元素:', modalElement);
+    
+    if (!modalElement) {
+        console.error('找不到forgotPasswordModal元素！');
+        alert('模态框元素未找到，请刷新页面重试');
+        return;
+    }
+    
+    // 使用Bootstrap 5的方式显示模态框
+    try {
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: false,  // 不显示背景遮罩
+            keyboard: true    // 允许ESC键关闭
+        });
+        modal.show();
+        console.log('模态框已显示');
+    } catch (error) {
+        console.error('显示模态框时出错:', error);
+        alert('无法显示模态框: ' + error.message);
+    }
+}
+
+// 倒计时定时器
+let countdownTimer = null;
+
+// 发送验证码
+function sendVerificationCode() {
+    const phone = $('#forgotPhone').val().trim();
+    
+    // 简单的手机号格式验证
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phone) {
+        showMessage('请输入手机号码', 'warning');
+        return;
+    }
+    
+    if (!phoneRegex.test(phone)) {
+        showMessage('请输入有效的手机号码', 'warning');
+        return;
+    }
+    
+    // 禁用按钮防止重复点击
+    const sendBtn = $('#sendCodeBtn');
+    sendBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>发送中...');
+    
+    // 调用发送验证码的API
+    $.ajax({
+        url: '/api/auth/send-verification-code',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ phone: phone }),
+        success: function(response) {
+            if (response.success) {
+                // 启动倒计时
+                startCountdown(30);
+                
+                // 显示成功消息
+                showMessage(response.message, 'success');
+                
+                // 演示模式：在控制台显示验证码
+                if (response.code) {
+                    console.log('【演示模式】验证码：' + response.code);
+                }
+            } else {
+                showMessage(response.message, 'error');
+                sendBtn.prop('disabled', false).html('<i class="fas fa-paper-plane me-2"></i>发送验证码');
+            }
+        },
+        error: function(xhr) {
+            const response = xhr.responseJSON;
+            const message = response && response.message ? response.message : '发送失败，请稍后重试';
+            showMessage(message, 'error');
+            sendBtn.prop('disabled', false).html('<i class="fas fa-paper-plane me-2"></i>发送验证码');
+        }
+    });
+}
+
+// 第一步验证验证码，点击下一步进入第二步（设置密码）
+function goToStep2() {
+    const phone = $('#forgotPhone').val().trim();
+    const code = $('#verificationCode').val().trim();
+    
+    // 验证手机号
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phone) {
+        showMessage('请输入手机号码', 'warning');
+        return;
+    }
+    
+    if (!phoneRegex.test(phone)) {
+        showMessage('请输入有效的手机号码', 'warning');
+        return;
+    }
+    
+    // 验证验证码格式
+    if (!code || code.length !== 6) {
+        showMessage('请输入6位验证码', 'warning');
+        return;
+    }
+    
+    if (!/^\d{6}$/.test(code)) {
+        showMessage('验证码必须是6位数字', 'warning');
+        return;
+    }
+    
+    // 禁用下一步按钮，防止重复点击
+    const nextBtn = $('#nextBtn');
+    const originalBtnHtml = nextBtn.html();
+    nextBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>验证中...');
+    
+    // 调用后端API验证验证码
+    $.ajax({
+        url: '/api/auth/verify-code',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ 
+            phone: phone, 
+            code: code 
+        }),
+        success: function(response) {
+            if (response.success) {
+                // 验证成功，隐藏第一步，显示第二步
+                $('#step1').hide();
+                $('#step2').show();
+                
+                // 切换按钮
+                $('#nextBtn').hide();
+                $('#submitBtn').show();
+                
+                // 显示提示消息
+                showMessage('验证码验证成功，请设置新密码', 'success');
+            } else {
+                // 验证失败
+                showMessage(response.message || '验证码验证失败', 'error');
+                nextBtn.prop('disabled', false).html(originalBtnHtml);
+            }
+        },
+        error: function(xhr) {
+            const response = xhr.responseJSON;
+            const message = response && response.message ? response.message : '验证失败，请重试';
+            showMessage(message, 'error');
+            nextBtn.prop('disabled', false).html(originalBtnHtml);
+        }
+    });
+}
+
+// 返回第一步
+function backToStep1() {
+    $('#step2').hide();
+    $('#step1').show();
+    
+    // 切换按钮
+    $('#submitBtn').hide();
+    $('#nextBtn').show();
+    
+    // 清空账号和密码输入
+    $('#newUsernameInput').val('');
+    $('#newPasswordInput').val('');
+    $('#confirmPasswordInput').val('');
+}
+
+// 倒计时功能
+function startCountdown(seconds) {
+    let remaining = seconds;
+    const sendBtn = $('#sendCodeBtn');
+    const originalText = '<i class="fas fa-paper-plane me-2"></i>发送验证码';
+    
+    // 更新按钮显示倒计时
+    sendBtn.html(`${remaining}秒后重新发送`);
+    
+    countdownTimer = setInterval(function() {
+        remaining--;
+        if (remaining > 0) {
+            sendBtn.html(`${remaining}秒后重新发送`);
+        } else {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            sendBtn.prop('disabled', false).html(originalText);
+        }
+    }, 1000);
+}
+
+// 提交密码重置
+function submitPasswordReset() {
+    const phone = $('#forgotPhone').val().trim();
+    const newUsername = $('#newUsernameInput').val().trim();
+    const newPassword = $('#newPasswordInput').val();
+    const confirmPassword = $('#confirmPasswordInput').val();
+    
+    // 注意：验证码已在进入第二步时验证并删除，这里不再验证
+    
+    // 验证新账号
+    if (!newUsername || newUsername.length < 1 || newUsername.length > 12) {
+        showMessage('账号必须为1-12个字符', 'warning');
+        return;
+    }
+    
+    // 验证账号不能包含汉字
+    if (/[\u4e00-\u9fff]/.test(newUsername)) {
+        showMessage('账号不能包含汉字', 'warning');
+        return;
+    }
+    
+    // 验证新密码
+    if (!newPassword || newPassword.length < 6 || newPassword.length > 20) {
+        showMessage('密码长度必须为6-20个字符', 'warning');
+        return;
+    }
+    
+    if (!/\d/.test(newPassword)) {
+        showMessage('密码必须包含数字', 'warning');
+        return;
+    }
+    
+    if (!/[a-z]/.test(newPassword)) {
+        showMessage('密码必须包含小写字母', 'warning');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        showMessage('两次输入的密码不一致', 'warning');
+        return;
+    }
+    
+    // 禁用按钮防止重复提交
+    const submitBtn = $('#submitBtn');
+    const originalText = submitBtn.html();
+    submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>处理中...');
+    
+    // 调用密码重置API（不再发送验证码，因为已在第一步验证）
+    $.ajax({
+        url: '/api/auth/reset-password',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            phone: phone,
+            newUsername: newUsername,
+            newPassword: newPassword
+        }),
+        success: function(response) {
+            if (response.success) {
+                showMessage(response.message, 'success');
+                
+                // 关闭模态框
+                const modalElement = document.getElementById('forgotPasswordModal');
+                if (modalElement) {
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    }
+                }
+                
+                // 重置表单
+                setTimeout(function() {
+                    // 清除倒计时
+                    if (countdownTimer) {
+                        clearInterval(countdownTimer);
+                        countdownTimer = null;
+                    }
+                    
+                    // 重置按钮状态
+                    $('#sendCodeBtn').prop('disabled', false).html('<i class="fas fa-paper-plane me-2"></i>发送验证码');
+                    
+                    // 返回第一步并清空所有输入
+                    backToStep1();
+                    $('#forgotPhone').val('');
+                    $('#verificationCode').val('');
+                    $('#newUsernameInput').val('');
+                }, 1000);
+            } else {
+                showMessage(response.message, 'error');
+            }
+        },
+        error: function(xhr) {
+            const response = xhr.responseJSON;
+            const message = response && response.message ? response.message : '重置失败，请稍后重试';
+            showMessage(message, 'error');
+        },
+        complete: function() {
+            // 恢复按钮状态
+            submitBtn.prop('disabled', false).html(originalText);
+        }
+    });
+}
+
+// 初始化验证码输入框
+function initVerificationCodeInputs() {
+    const inputs = document.querySelectorAll('.code-input');
+    
+    inputs.forEach((input, index) => {
+        // 输入事件
+        input.addEventListener('input', function(e) {
+            // 只允许数字
+            this.value = this.value.replace(/[^0-9]/g, '');
+            
+            // 如果输入了值，自动跳到下一个框
+            if (this.value.length === 1 && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+            
+            // 更新隐藏的验证码字段
+            updateVerificationCode();
+        });
+        
+        // 键盘事件
+        input.addEventListener('keydown', function(e) {
+            // 退格键：如果当前框为空，跳到前一个框
+            if (e.key === 'Backspace' && this.value === '' && index > 0) {
+                inputs[index - 1].focus();
+            }
+            
+            // 左箭头键：跳到前一个框
+            if (e.key === 'ArrowLeft' && index > 0) {
+                inputs[index - 1].focus();
+            }
+            
+            // 右箭头键：跳到下一个框
+            if (e.key === 'ArrowRight' && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+        });
+        
+        // 粘贴事件：自动分配到各个框
+        input.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '');
+            
+            // 分配粘贴的数字到各个框
+            for (let i = 0; i < Math.min(pastedData.length, inputs.length - index); i++) {
+                inputs[index + i].value = pastedData[i];
+            }
+            
+            // 更新隐藏的验证码字段
+            updateVerificationCode();
+            
+            // 聚焦到下一个空框或最后一个框
+            const nextEmptyIndex = Array.from(inputs).findIndex((inp, idx) => idx >= index && inp.value === '');
+            if (nextEmptyIndex !== -1) {
+                inputs[nextEmptyIndex].focus();
+            } else {
+                inputs[inputs.length - 1].focus();
+            }
+        });
+        
+        // 聚焦事件：选中当前内容
+        input.addEventListener('focus', function() {
+            this.select();
+        });
+    });
+}
+
+// 更新隐藏的验证码字段
+function updateVerificationCode() {
+    const inputs = document.querySelectorAll('.code-input');
+    const code = Array.from(inputs).map(input => input.value).join('');
+    document.getElementById('verificationCode').value = code;
+}
+</script>
+{% endblock %}

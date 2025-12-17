@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}武术赛事管理系统{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- 自定义CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+    
+    <!-- 全局弹窗函数 - 必须在所有其他JavaScript之前定义 -->
+    <script>
+    // 强制中央弹窗函数
+    function showCenterMessage(message, type = 'success') {
+        console.log('显示中央弹窗:', message, type);
+        
+        // 移除现有弹窗
+        const existing = document.querySelectorAll('.force-center-alert');
+        existing.forEach(el => el.remove());
+        
+        // 设置颜色和图标
+        let bgColor = 'rgba(40, 167, 69, 0.95)'; // 默认成功绿色
+        let iconClass = 'fas fa-check-circle';
+        let textColor = 'white';
+        let borderColor = 'rgba(32, 134, 55, 0.8)';
+        let animation = '';
+        
+        if (type === 'error') {
+            bgColor = 'rgba(220, 53, 69, 0.95)';
+            iconClass = 'fas fa-exclamation-circle';
+            borderColor = 'rgba(176, 42, 55, 0.8)';
+            animation = 'pulse 0.6s ease-in-out 3';
+        } else if (type === 'warning') {
+            // 增强警告样式 - 更醒目的橙色
+            bgColor = 'rgba(255, 140, 0, 0.95)';
+            iconClass = 'fas fa-exclamation-triangle';
+            textColor = '#fff';
+            borderColor = 'rgba(255, 165, 0, 0.8)';
+            animation = 'bounce 0.8s ease-in-out 2, pulse 1s infinite';
+        } else if (type === 'info') {
+            bgColor = 'rgba(23, 162, 184, 0.95)';
+            iconClass = 'fas fa-info-circle';
+            borderColor = 'rgba(18, 130, 147, 0.8)';
+        }
+        
+        // 创建弹窗
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'force-center-alert';
+        alertDiv.innerHTML = 
+            '<div style="display: flex; align-items: center; justify-content: center;">' +
+            '<i class="' + iconClass + '" style="font-size: 24px; margin-right: 12px;"></i>' +
+            '<span style="font-size: 18px; font-weight: 600;">' + message + '</span>' +
+            '</div>';
+        
+        alertDiv.style.cssText = 
+            'position: fixed !important;' +
+            'top: 50% !important;' +
+            'left: 50% !important;' +
+            'transform: translate(-50%, -50%) !important;' +
+            'background: ' + bgColor + ' !important;' +
+            'color: ' + textColor + ' !important;' +
+            'padding: 20px 35px !important;' +
+            'z-index: 99999 !important;' +
+            'border-radius: 12px !important;' +
+            'border: 2px solid ' + borderColor + ' !important;' +
+            'box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4) !important;' +
+            'font-weight: 600 !important;' +
+            'min-width: 400px !important;' +
+            'max-width: 600px !important;' +
+            'text-align: center !important;' +
+            'font-family: "Microsoft YaHei", "PingFang SC", sans-serif !important;' +
+            'font-size: 18px !important;' +
+            'line-height: 1.4 !important;' +
+            'animation: ' + animation + ' !important;' +
+            'backdrop-filter: blur(10px) !important;' +
+            'transition: all 0.3s ease !important;';
+        
+        // 添加悬停效果
+        alertDiv.addEventListener('mouseenter', function() {
+            this.style.transform = 'translate(-50%, -50%) scale(1.05)';
+            this.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.5)';
+        });
+        
+        alertDiv.addEventListener('mouseleave', function() {
+            this.style.transform = 'translate(-50%, -50%) scale(1)';
+            this.style.boxShadow = '0 8px 30px rgba(0, 0, 0, 0.4)';
+        });
+        
+        document.body.appendChild(alertDiv);
+        console.log('增强版中央弹窗已添加到DOM');
+        
+        // 延长显示时间到5秒
+        setTimeout(function() {
+            if (alertDiv && alertDiv.parentNode) {
+                alertDiv.style.opacity = '0';
+                alertDiv.style.transform = 'translate(-50%, -50%) scale(0.8)';
+                setTimeout(() => {
+                    if (alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+    </script>
+    
+    <style>
+      /* 弹窗动画效果 */
+      @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-10px);
+        }
+        60% {
+          transform: translateY(-5px);
+        }
+      }
+      
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        }
+        50% {
+          transform: scale(1.05);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+        }
+        100% {
+          transform: scale(1);
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        }
+      }
+      
+      /* 高亮当前导航项 - 水墨风格 */
+      .navbar .nav-link.active {
+        color: #2c3e50 !important;
+        font-weight: 700;
+        border: 2px solid #c41e3a;
+        border-radius: 8px;
+        padding: 6px 10px;
+        background: #f5f5dc !important;
+      }
+      .navbar .nav-link.active i { color: #c41e3a !important; }
+      
+      /* 为非超级管理员用户的导航项添加额外间距，避免拥挤 */
+      {% if is_logged_in and user_role != 'super_admin' %}
+      .navbar-nav > li:not(:last-child) {
+        margin-right: 15px;
+      }
+      {% endif %}
+      
+      /* 确保导航栏和下拉菜单可以正常点击 */
+      .navbar {
+        position: relative;
+        z-index: 1030 !important;
+        pointer-events: auto !important;
+      }
+      
+      .navbar .nav-link {
+        cursor: pointer !important;
+        pointer-events: auto !important;
+      }
+      
+      .navbar .dropdown-toggle {
+        cursor: pointer !important;
+        pointer-events: auto !important;
+      }
+      
+      .navbar .dropdown-menu {
+        z-index: 1031 !important;
+        pointer-events: auto !important;
+      }
+      
+      /* 优化页面跳转动画，减少闪烁 - 水墨背景 */
+      body {
+        transition: opacity 0.2s ease-in-out;
+        background: 
+          /* 水墨晕染效果 */
+          radial-gradient(circle at 10% 20%, rgba(196, 30, 58, 0.03) 0%, transparent 50%),
+          radial-gradient(circle at 90% 80%, rgba(85, 107, 47, 0.03) 0%, transparent 50%),
+          radial-gradient(circle at 50% 50%, rgba(44, 62, 80, 0.02) 0%, transparent 70%),
+          /* 主背景渐变 */
+          linear-gradient(135deg, 
+            #e8e4d9 0%,   /* 淡宣纸色 */
+            #f5f1e8 25%,
+            #ebe8e0 50%,
+            #f0ede5 75%,
+            #f5f5dc 100%  /* 宣纸色 */
+          );
+        background-attachment: fixed;
+        min-height: 100vh;
+        position: relative;
+      }
+      
+      /* 全局水墨纹理叠加 */
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: 
+          repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(85, 107, 47, 0.01) 2px,
+            rgba(85, 107, 47, 0.01) 4px
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
+      
+      /* 退出登录时的淡出效果 */
+      .logout-fade {
+        opacity: 0;
+        transition: opacity 0.3s ease-out;
+      }
+      
+      /* 模态框动画优化 */
+      .modal.fade .modal-dialog {
+        transition: transform 0.2s ease-out;
+      }
+      
+      /* 退出登录确认模态框 - 直接在中心显示 */
+      .logout-modal {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 9999 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transition: opacity 0.15s ease-out, visibility 0.15s ease-out !important;
+      }
+      
+      /* 删除确认模态框的z-index更高 */
+      #deleteConfirmModal {
+        z-index: 10000 !important;
+      }
+      
+      .logout-modal.show {
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      
+      .logout-modal-dialog {
+        width: 350px !important;
+        max-width: 90vw !important;
+        margin: 0 !important;
+        transform: scale(0.8) !important;
+        transition: transform 0.15s ease-out !important;
+      }
+      
+      .logout-modal.show .logout-modal-dialog {
+        transform: scale(1) !important;
+      }
+      
+      .logout-modal .modal-content {
+        border-radius: 0.5rem;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        background-color: #ffffff;
+      }
+      
+      /* 退出登录模态框的关闭按钮样式（去掉白框） */
+      .logout-modal .btn-close {
+        background: transparent;
+        border: none;
+        opacity: 1;
+        padding: 0.2rem;
+        width: 20px;
+        height: 20px;
+        filter: brightness(0) invert(1);
+        font-size: 0.8rem;
+      }
+      
+      .logout-modal .btn-close:hover {
+        opacity: 0.8;
+      }
+      
+      /* 减小模态框头部高度 */
+      .logout-modal .modal-header {
+        padding: 0.3rem 0.8rem !important;
+        min-height: 28px !important;
+      }
+      
+      /* 退出登录模态框内容样式 */
+      .logout-modal .modal-body {
+        padding: 1.5rem 1.5rem !important;
+        text-align: left;
+      }
+      
+      .logout-modal .modal-body p {
+        font-size: 1.1rem;
+        margin: 0;
+        color: #333;
+      }
+      
+      .logout-modal .modal-footer {
+        padding: 1rem 1.5rem !important;
+        border-top: 1px solid #e9ecef;
+        justify-content: flex-end;
+        gap: 0.5rem;
+      }
+      
+      .logout-modal .modal-footer .btn {
+        min-width: 80px;
+        padding: 0.5rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 0.375rem;
+      }
+      
+      /* 可拖动模态框样式 */
+      .draggable-modal .modal-header {
+        cursor: move;
+        user-select: none;
+      }
+      
+      .draggable-modal.dragging {
+        transition: none !important;
+      }
+      
+      /* 修复个人设置模态框显示问题 */
+      #profileModal {
+        z-index: 10500 !important;
+      }
+      
+      #profileModal .modal-dialog {
+        z-index: 10501 !important;
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        margin: 0 !important;
+        width: 90% !important;
+        max-width: 900px !important;
+      }
+      
+      #profileModal.show .modal-dialog {
+        transform: translate(-50%, -50%) !important;
+      }
+      
+      /* 个人设置弹窗内容优化 */
+      #profileModal .modal-body {
+        padding: 2rem !important;
+      }
+      
+      #profileModal .form-control {
+        padding: 0.75rem 1rem !important;
+        font-size: 1rem !important;
+      }
+      
+      #profileModal .nav-tabs {
+        border-bottom: 2px solid #dee2e6 !important;
+        margin-bottom: 1.5rem !important;
+      }
+      
+      #profileModal .nav-link {
+        padding: 1rem 1.5rem !important;
+        font-weight: 500 !important;
+      }
+      
+      /* 模态框背景遮罩已禁用 */
+      
+      /* 选项卡样式优化 */
+      .nav-tabs .nav-link.active {
+        color: #0d6efd !important;
+        background-color: #fff;
+        border-color: #dee2e6 #dee2e6 #fff;
+      }
+      
+      .nav-tabs .nav-link {
+        color: #6c757d;
+      }
+      
+      .nav-tabs .nav-link:hover {
+        color: #0d6efd;
+      }
+      
+      /* 页面标题样式 - 白色字体 */
+      .page-title h1.h3 {
+        color: #ffffff !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      
+      .page-title .text-muted {
+        color: #ffffff !important;
+        opacity: 0.9;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      
+      /* 为页面标题区域添加类名支持 */
+      .d-flex.justify-content-between.align-items-center.mb-4 h1.h3 {
+        color: #ffffff !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      
+      .d-flex.justify-content-between.align-items-center.mb-4 .text-muted {
+        color: #ffffff !important;
+        opacity: 0.9;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      
+      /* 用户管理页面标题样式 */
+      .d-flex.justify-content-between.align-items-center.mb-4 h2 {
+        color: #ffffff !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      
+      /* ========== 全局飘落竹叶特效 ========== */
+      .falling-leaves {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+        overflow: visible;
+      }
+      
+      .falling-leaf {
+        position: absolute;
+        width: 30px;
+        height: 6px;
+        background: linear-gradient(90deg,
+          transparent,
+          rgba(85, 107, 47, 0.6),
+          rgba(107, 142, 35, 0.7),
+          rgba(85, 107, 47, 0.5),
+          transparent
+        );
+        border-radius: 50%;
+        opacity: 0;
+        filter: blur(0.3px);
+      }
+      
+      /* 竹叶飘落动画关键帧 */
+      @keyframes fallLeaf1 {
+        0% {
+          top: -50px;
+          opacity: 0;
+          transform: rotate(0deg) translateX(0);
+        }
+        10% {
+          opacity: 0.7;
+        }
+        50% {
+          transform: rotate(180deg) translateX(30px);
+        }
+        90% {
+          opacity: 0.5;
+        }
+        100% {
+          top: 100%;
+          opacity: 0;
+          transform: rotate(360deg) translateX(-20px);
+        }
+      }
+      
+      @keyframes fallLeaf2 {
+        0% {
+          top: -50px;
+          opacity: 0;
+          transform: rotate(0deg) translateX(0);
+        }
+        10% {
+          opacity: 0.6;
+        }
+        50% {
+          transform: rotate(-200deg) translateX(-40px);
+        }
+        90% {
+          opacity: 0.4;
+        }
+        100% {
+          top: 100%;
+          opacity: 0;
+          transform: rotate(-360deg) translateX(30px);
+        }
+      }
+      
+      @keyframes fallLeaf3 {
+        0% {
+          top: -50px;
+          opacity: 0;
+          transform: rotate(0deg) translateX(0);
+        }
+        10% {
+          opacity: 0.8;
+        }
+        50% {
+          transform: rotate(220deg) translateX(-25px);
+        }
+        90% {
+          opacity: 0.6;
+        }
+        100% {
+          top: 100%;
+          opacity: 0;
+          transform: rotate(400deg) translateX(35px);
+        }
+      }
+      
+      @keyframes fallLeaf4 {
+        0% {
+          top: -50px;
+          opacity: 0;
+          transform: rotate(0deg) translateX(0);
+        }
+        10% {
+          opacity: 0.7;
+        }
+        50% {
+          transform: rotate(-180deg) translateX(45px);
+        }
+        90% {
+          opacity: 0.5;
+        }
+        100% {
+          top: 100%;
+          opacity: 0;
+          transform: rotate(-380deg) translateX(-30px);
+        }
+      }
+      
+      @keyframes fallLeaf5 {
+        0% {
+          top: -50px;
+          opacity: 0;
+          transform: rotate(0deg) translateX(0);
+        }
+        10% {
+          opacity: 0.6;
+        }
+        50% {
+          transform: rotate(190deg) translateX(-35px);
+        }
+        90% {
+          opacity: 0.4;
+        }
+        100% {
+          top: 100%;
+          opacity: 0;
+          transform: rotate(370deg) translateX(40px);
+        }
+      }
+      
+      /* 每片竹叶的位置和动画 - 使用JavaScript动态设置延迟 */
+      .leaf-1 { left: 8%; animation: fallLeaf1 12s ease-in-out infinite; }
+      .leaf-2 { left: 22%; animation: fallLeaf2 15s ease-in-out infinite; }
+      .leaf-3 { left: 35%; animation: fallLeaf3 14s ease-in-out infinite; }
+      .leaf-4 { left: 48%; animation: fallLeaf4 13s ease-in-out infinite; }
+      .leaf-5 { left: 62%; animation: fallLeaf5 16s ease-in-out infinite; }
+      .leaf-6 { left: 75%; animation: fallLeaf1 13s ease-in-out infinite; }
+      .leaf-7 { left: 88%; animation: fallLeaf2 11s ease-in-out infinite; }
+      .leaf-8 { left: 18%; animation: fallLeaf3 14s ease-in-out infinite; }
+      .leaf-9 { left: 55%; animation: fallLeaf4 12s ease-in-out infinite; }
+      .leaf-10 { left: 92%; animation: fallLeaf5 15s ease-in-out infinite; }
+      
+      /* 移动端隐藏飘落特效 */
+      @media (max-width: 768px) {
+        .falling-leaves {
+          display: none;
+        }
+      }
+      
+      /* 确保导航栏和主要内容在竹叶特效之上 */
+      .navbar {
+        position: relative;
+        z-index: 10;
+      }
+      
+      main, .container, .card {
+        position: relative;
+        z-index: 1;
+      }
+      
+      /* 确保模态框正确显示 */
+      .modal {
+        z-index: 1055;
+      }
+    </style>
+</head>
+<body>
+    <!-- 全局飘落的竹叶特效 -->
+    <div class="falling-leaves">
+        <div class="falling-leaf leaf-1"></div>
+        <div class="falling-leaf leaf-2"></div>
+        <div class="falling-leaf leaf-3"></div>
+        <div class="falling-leaf leaf-4"></div>
+        <div class="falling-leaf leaf-5"></div>
+        <div class="falling-leaf leaf-6"></div>
+        <div class="falling-leaf leaf-7"></div>
+        <div class="falling-leaf leaf-8"></div>
+        <div class="falling-leaf leaf-9"></div>
+        <div class="falling-leaf leaf-10"></div>
+    </div>
+    
+    <!-- 导航栏 - 水墨风格 -->
+    <nav class="navbar navbar-expand-lg navbar-dark py-3" style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%); box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-fist-raised me-2"></i>
+                武术赛事管理系统
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
+                            <i class="fas fa-home me-1"></i>首页
+                        </a>
+                    </li>
+                    
+                    {% if is_logged_in %}
+                        
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'events' %}active{% endif %}" href="{{ url_for('events') }}">
+                                <i class="fas fa-calendar-alt me-1"></i>赛事大全
+                            </a>
+                        </li>
+                        
+                        {% if user_role in ['admin', 'super_admin'] %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'participants' %}active{% endif %}" href="{{ url_for('participants') }}">
+                                    <i class="fas fa-users me-1"></i>参赛者管理
+                                </a>
+                            </li>
+                            
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.endpoint == 'user_management' %}active{% endif %}" href="{{ url_for('user_management') }}">
+                                    <i class="fas fa-user-cog me-1"></i>用户管理
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {# 评分系统已移除 #}
+                    {% endif %}
+                    
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'results' %}active{% endif %}" href="{{ url_for('results') }}">
+                            <i class="fas fa-bullhorn me-1"></i>通知公告
+                        </a>
+                    </li>
+                    {% if is_logged_in %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                            <i class="fas fa-user-circle me-1"></i>个人资料
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <ul class="navbar-nav">
+                    {% if is_logged_in %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle text-white" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user me-1"></i><span id="currentUserDisplay">{{ current_user }}</span>
+                                <span class="role-badge ms-1 {% if user_role == 'super_admin' %}super-admin{% elif user_role == 'admin' %}admin{% elif user_role == 'judge' %}judge{% else %}user{% endif %}">
+                                    {{ user_role_display or user_role }}
+                                </span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="changePassword()">
+                                    <i class="fas fa-user-edit me-2"></i>个人设置
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" onclick="logout()">
+                                    <i class="fas fa-sign-out-alt me-2"></i>退出登录
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="btn btn-outline-light btn-lg ms-2" href="{{ url_for('login') }}">
+                                <i class="fas fa-sign-in-alt me-1"></i>登录
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 消息提示 -->
+    <div class="container mt-3">
+        <!-- Flask flash消息已临时禁用，使用统一的JavaScript弹窗 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <!-- 将flash消息转换为JavaScript弹窗 -->
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    {% for category, message in messages %}
+                        setTimeout(function() {
+                            if (typeof showCenterMessage === 'function') {
+                                showCenterMessage('{{ message|safe }}', '{{ "error" if category == "error" else category }}');
+                            }
+                        }, 100);
+                    {% endfor %}
+                });
+                </script>
+            {% endif %}
+        {% endwith %}
+        
+        <!-- 动态消息容器 -->
+        <div id="message-container"></div>
+    </div>
+
+    <!-- 主要内容 -->
+    <main class="container mt-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 个人资料模态框 -->
+    <div class="modal fade" id="profileModal" tabindex="-1" style="z-index: 10500 !important;">
+        <div class="modal-dialog modal-xl modal-dialog-centered draggable-modal" style="z-index: 10501 !important; max-width: 900px !important;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-user-edit me-2"></i>个人设置
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 选项卡导航 -->
+                    <ul class="nav nav-tabs" id="profileTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="info-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#info-tab-pane" type="button" role="tab">基本信息</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="password-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#password-tab-pane" type="button" role="tab">修改密码</button>
+                        </li>
+                    </ul>
+                    
+                    <!-- 选项卡内容 -->
+                    <div class="tab-content mt-4" id="profileTabsContent">
+                        <!-- 基本信息选项卡 -->
+                        <div class="tab-pane fade show active" id="info-tab-pane" role="tabpanel">
+                            <form id="profileForm">
+                                <div class="mb-3">
+                                    <label for="fullName" class="form-label">姓名</label>
+                                    <input type="text" class="form-control" id="fullName" required 
+                                           placeholder="请填写您的真实姓名">
+                                    <div class="form-text">请填写您的真实姓名</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="nickname" class="form-label">用户昵称</label>
+                                    <input type="text" class="form-control" id="nickname" required 
+                                           placeholder="初始昵称为8位随机码">
+                                    <div class="form-text">昵称与账号无关，可以随意修改</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="phone" class="form-label">手机号</label>
+                                    <input type="tel" class="form-control" id="phone" required>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- 修改密码选项卡 -->
+                        <div class="tab-pane fade" id="password-tab-pane" role="tabpanel">
+                            <form id="passwordForm">
+                                <div class="mb-3">
+                                    <label for="currentPassword" class="form-label">原密码</label>
+                                    <input type="password" class="form-control" id="currentPassword" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label">新密码</label>
+                                    <input type="password" class="form-control" id="newPassword" required minlength="6" maxlength="20">
+                                    <div class="form-text">6-20个字符，必须包含数字和小写字母</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="confirmNewPassword" class="form-label">确认新密码</label>
+                                    <input type="password" class="form-control" id="confirmNewPassword" required>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveProfileBtn">保存修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- 退出登录确认模态框 -->
+    <div id="logoutConfirmModal" class="logout-modal">
+        <div class="logout-modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="padding: 0.25rem 1rem; min-height: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-bottom: none;">
+                    <button type="button" class="btn-close" id="closeLogoutModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>确定要退出登录吗？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelLogoutBtn">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmLogoutBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 删除确认模态框 -->
+    <div id="deleteConfirmModal" class="logout-modal">
+        <div class="logout-modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="padding: 0.25rem 1rem; min-height: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-bottom: none;">
+                    <button type="button" class="btn-close" id="closeDeleteModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="deleteConfirmMessage">确定要删除吗？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- jQuery -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <!-- 自定义JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+    // 全局函数
+    function logout() {
+        console.log('退出登录函数被调用');
+        // 显示模态框在中心位置，带平滑动画
+        const modal = $('#logoutConfirmModal');
+        if (modal.length === 0) {
+            console.error('找不到退出登录模态框');
+            // 直接退出
+            if (confirm('确定要退出登录吗？')) {
+                performLogout();
+            }
+            return;
+        }
+        console.log('显示退出登录模态框');
+        modal.addClass('show');
+        $('body').addClass('modal-open').css('overflow', 'hidden');
+    }
+    
+    // 执行退出登录
+    function performLogout() {
+        console.log('执行退出登录操作');
+        // 添加淡出效果
+        $('body').addClass('logout-fade');
+        
+        // 发送退出登录请求
+        $.ajax({
+            url: '/api/logout',
+            method: 'POST',
+            timeout: 5000,
+            success: function(response) {
+                console.log('退出登录API响应:', response);
+                if (response.success) {
+                    // 清除本地存储的用户信息，但保留"记住我"的信息
+                    // localStorage.removeItem('rememberedUser'); // 保留记住的用户名和密码
+                    localStorage.removeItem('currentUser');
+                    sessionStorage.clear();
+                    
+                    console.log('退出登录成功，准备跳转到登录页');
+                    // 延迟跳转，让淡出效果完成
+                    setTimeout(function() {
+                        window.location.href = '/login';
+                    }, 300);
+                } else {
+                    $('body').removeClass('logout-fade');
+                    console.error('退出登录失败:', response.message);
+                    showCenterMessage('退出登录失败', 'error');
+                }
+            },
+            error: function(xhr, status, error) {
+                $('body').removeClass('logout-fade');
+                console.error('退出登录请求失败:', status, error);
+                // 即使API失败，也尝试清除本地数据并跳转，但保留"记住我"的信息
+                // localStorage.removeItem('rememberedUser'); // 保留记住的用户名和密码
+                localStorage.removeItem('currentUser');
+                sessionStorage.clear();
+                setTimeout(function() {
+                    window.location.href = '/login';
+                }, 300);
+            }
+        });
+    }
+    
+    // 确认退出登录
+    $(document).ready(function() {
+        console.log('页面加载完成，初始化导航栏功能');
+        
+        // 手动初始化 Bootstrap 下拉菜单
+        const dropdownElementList = document.querySelectorAll('.dropdown-toggle');
+        const dropdownList = [...dropdownElementList].map(dropdownToggleEl => {
+            console.log('初始化下拉菜单:', dropdownToggleEl);
+            return new bootstrap.Dropdown(dropdownToggleEl, {
+                boundary: 'viewport',
+                popperConfig: null
+            });
+        });
+        
+        // 添加点击事件监听器，确保下拉菜单可以切换
+        $('.dropdown-toggle').off('click').on('click', function(e) {
+            console.log('下拉菜单被点击');
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const $this = $(this);
+            const $menu = $this.next('.dropdown-menu');
+            
+            // 切换显示/隐藏
+            if ($menu.hasClass('show')) {
+                console.log('隐藏下拉菜单');
+                $menu.removeClass('show');
+                $this.attr('aria-expanded', 'false');
+            } else {
+                console.log('显示下拉菜单');
+                // 先隐藏所有其他下拉菜单
+                $('.dropdown-menu.show').removeClass('show');
+                $('.dropdown-toggle[aria-expanded="true"]').attr('aria-expanded', 'false');
+                
+                // 显示当前下拉菜单
+                $menu.addClass('show');
+                $this.attr('aria-expanded', 'true');
+            }
+        });
+        
+        // 点击页面其他地方时关闭下拉菜单
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('.dropdown').length) {
+                $('.dropdown-menu.show').removeClass('show');
+                $('.dropdown-toggle[aria-expanded="true"]').attr('aria-expanded', 'false');
+            }
+        });
+        
+        // 关闭模态框的函数
+        function closeLogoutModal() {
+            const modal = $('#logoutConfirmModal');
+            modal.removeClass('show');
+            $('body').removeClass('modal-open').css('overflow', '');
+        }
+        
+        // 确认退出登录
+        $('#confirmLogoutBtn').off('click').on('click', function() {
+            console.log('确认退出登录按钮被点击');
+            // 隐藏模态框
+            closeLogoutModal();
+            performLogout();
+        });
+        
+        // 取消退出登录
+        $('#closeLogoutModal, #cancelLogoutBtn').on('click', function() {
+            closeLogoutModal();
+        });
+        
+        // 点击背景关闭模态框
+        $('#logoutConfirmModal').on('click', function(e) {
+            if (e.target === this) {
+                closeLogoutModal();
+            }
+        });
+        
+        // 删除确认模态框相关事件
+        // 关闭删除确认模态框的函数
+        window.closeDeleteModal = function() {
+            const modal = $('#deleteConfirmModal');
+            modal.removeClass('show');
+            $('body').removeClass('modal-open').css('overflow', '');
+        }
+        
+        // 取消删除
+        $('#closeDeleteModal, #cancelDeleteBtn').on('click', function() {
+            window.closeDeleteModal();
+        });
+        
+        // 点击背景关闭模态框
+        $('#deleteConfirmModal').on('click', function(e) {
+            if (e.target === this) {
+                window.closeDeleteModal();
+            }
+        });
+    })
+    
+    // 全局删除确认函数
+    var deleteConfirmCallback = null;
+    
+    function showDeleteConfirm(message, callback) {
+        deleteConfirmCallback = callback;
+        
+        // 设置提示消息
+        $('#deleteConfirmMessage').text(message || '确定要删除吗？');
+        
+        // 显示模态框
+        const modal = $('#deleteConfirmModal');
+        modal.addClass('show');
+        $('body').addClass('modal-open').css('overflow', 'hidden');
+        
+        // 绑定确认按钮事件（先解绑旧事件）
+        $('#confirmDeleteBtn').off('click').on('click', function() {
+            window.closeDeleteModal();
+            if (deleteConfirmCallback && typeof deleteConfirmCallback === 'function') {
+                deleteConfirmCallback();
+            }
+        });
+    }
+    
+    // 显示个人资料模态框
+    function showProfile() {
+        // 重置到基本信息选项卡
+        $('#profileTabs button#info-tab').tab('show');
+        
+        // 加载用户信息
+        $.ajax({
+            url: '/api/profile',
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    const user = response.user;
+                    // 设置表单值
+                    $('#fullName').val(user.full_name || '');
+                    $('#nickname').val(user.nickname || '');
+                    $('#phone').val(user.phone || '');
+                } else {
+                    showCenterMessage('加载用户信息失败: ' + response.message, 'error');
+                }
+            },
+            error: function(xhr, status, error) {
+                showCenterMessage('网络错误，无法加载用户信息', 'error');
+            }
+        });
+        
+        $('#profileModal').modal('show');
+    }
+    
+    // 生成8位中英文乱码昵称
+    function generateRandomNickname() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789一二三四五六七八九十';
+        let result = '';
+        for (let i = 0; i < 8; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
+    
+    // 打开个人设置页面
+    function changePassword() {
+        // 打开个人资料模态框，默认显示基本信息选项卡
+        showProfile();
+    }
+    
+    // 更新个人资料函数
+    function updateProfile() {
+        const fullName = $('#fullName').val().trim();
+        const nickname = $('#nickname').val().trim();
+        const phone = $('#phone').val().trim();
+        
+        // 基本验证
+        if (!fullName || !nickname || !phone) {
+            showCenterMessage('请填写所有必填字段', 'warning');
+            return;
+        }
+        
+        // 手机号验证
+        const phoneRegex = /^[0-9]{11}$/;
+        if (!phoneRegex.test(phone)) {
+            showCenterMessage('手机号必须为11位数字', 'warning');
+            return;
+        }
+        // 发送更新请求
+        $.ajax({
+            url: '/api/profile',
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                full_name: fullName,
+                nickname: nickname,
+                phone: phone
+            }),
+            success: function(response) {
+                if (response.success) {
+                    // 使用强制中央弹窗函数
+                    showCenterMessage('个人信息修改成功', 'success');
+                    $('#profileModal').modal('hide');
+                    
+                    // 立即更新右上角显示的用户昵称
+                    const newNickname = $('#nickname').val().trim();
+                    if (newNickname) {
+                        $('#currentUserDisplay').text(newNickname);
+                    }
+                    
+                    // 如果在用户管理页面，刷新用户列表
+                    if (typeof loadUserList === 'function') {
+                        loadUserList();
+                    }
+                    
+                    // 如果在dashboard页面，立即更新欢迎信息
+                    if (window.location.pathname === '/dashboard') {
+                        const welcomeElement = $('h1:contains("欢迎回来")');
+                        if (welcomeElement.length > 0 && newNickname) {
+                            welcomeElement.html('<i class="fas fa-tachometer-alt me-2"></i>欢迎回来，' + newNickname + '！');
+                        }
+                    }
+                } else {
+                    showCenterMessage('修改失败: ' + response.message, 'error');
+                }
+            },
+            error: function(xhr, status, error) {
+                showCenterMessage('网络错误，修改失败', 'error');
+            }
+        });
+    }
+    
+    // 更新密码函数
+    function updatePassword() {
+        const currentPassword = $('#currentPassword').val();
+        const newPassword = $('#newPassword').val();
+        const confirmNewPassword = $('#confirmNewPassword').val();
+        
+        // 基本验证
+        if (!currentPassword || !newPassword || !confirmNewPassword) {
+            showCenterMessage('请填写所有密码字段', 'warning');
+            return;
+        }
+        
+        // 密码长度验证
+        if (newPassword.length < 6 || newPassword.length > 20) {
+            showCenterMessage('新密码必须为6-20个字符', 'warning');
+            return;
+        }
+        
+        // 密码复杂度验证
+        if (!/\d/.test(newPassword)) {
+            showCenterMessage('新密码必须包含数字', 'warning');
+            return;
+        }
+        
+        if (!/[a-z]/.test(newPassword)) {
+            showCenterMessage('新密码必须包含小写字母', 'warning');
+            return;
+        }
+        
+        if (/[\u4e00-\u9fa5]/.test(newPassword)) {
+            showCenterMessage('密码不能包含汉字', 'warning');
+            return;
+        }
+        
+        // 确认密码验证
+        if (newPassword !== confirmNewPassword) {
+            showCenterMessage('两次输入的新密码不一致', 'warning');
+            return;
+        }
+        
+        // 检查新密码是否与原密码相同
+        if (currentPassword === newPassword) {
+            showCenterMessage('新密码不能与原密码相同', 'warning');
+            return;
+        }
+        
+        // 发送密码修改请求
+        $.ajax({
+            url: '/api/change_password',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                currentPassword: currentPassword,
+                newPassword: newPassword,
+                confirmNewPassword: confirmNewPassword
+            }),
+            success: function(response) {
+                if (response.success) {
+                    // 使用强制中央弹窗函数
+                    showCenterMessage('密码修改成功', 'success');
+                    $('#profileModal').modal('hide');
+                    // 清空密码字段
+                    $('#currentPassword, #newPassword, #confirmNewPassword').val('');
+                    // 如果在用户管理页面，刷新用户列表
+                    if (typeof loadUserList === 'function') {
+                        loadUserList();
+                    }
+                } else {
+                    showCenterMessage('密码修改失败: ' + response.message, 'error');
+                }
+            },
+            error: function() {
+                showCenterMessage('网络错误，密码修改失败', 'error');
+            }
+        });
+    }
+    
+    // 为保存按钮添加事件监听器
+    $(document).ready(function() {
+        // 模态框拖动功能
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+        
+        $('.draggable-modal .modal-header').on('mousedown', function(e) {
+            if (e.target.classList.contains('btn-close')) return;
+            
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+            
+            if (e.target === this || e.target.parentNode === this) {
+                isDragging = true;
+                $(this).closest('.modal-dialog').addClass('dragging');
+            }
+        });
+        
+        $(document).on('mousemove', function(e) {
+            if (isDragging) {
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+                
+                xOffset = currentX;
+                yOffset = currentY;
+                
+                $('.draggable-modal.dragging').css('transform', `translate(${currentX}px, ${currentY}px)`);
+            }
+        });
+        
+        $(document).on('mouseup', function() {
+            isDragging = false;
+            $('.draggable-modal').removeClass('dragging');
+        });
+        
+        // 为个人资料模态框的保存按钮添加点击事件
+        $(document).on('click', '#saveProfileBtn', function() {
+            // 检查当前哪个选项卡是激活的
+            if ($('#info-tab-pane').hasClass('active')) {
+                // 如果是基本信息选项卡，调用更新个人资料函数
+                updateProfile();
+            } else if ($('#password-tab-pane').hasClass('active')) {
+                // 如果是修改密码选项卡，调用更新密码函数
+                updatePassword();
+            }
+        });
+        
+        // 选项卡切换事件
+        $('#profileTabs button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+            // 移除所有选项卡的蓝色样式
+            $('#profileTabs button').removeClass('text-primary');
+            // 为当前激活的选项卡添加蓝色样式
+            $(e.target).addClass('text-primary');
+        });
+        
+        // 页面加载时刷新用户session数据，确保显示最新的昵称
+        if ($('#currentUserDisplay').length > 0) {
+            refreshUserSession();
+        }
+        
+        // 全局AJAX成功处理 - 检查强制登出
+        $(document).ajaxSuccess(function(event, xhr, settings) {
+            if (xhr.responseJSON && xhr.responseJSON.force_logout) {
+                showCenterMessage(xhr.responseJSON.message, 'error');
+                setTimeout(function() {
+                    window.location.href = '/login';
+                }, 2000);
+            }
+        });
+    });
+    
+    // 刷新用户session数据
+    function refreshUserSession() {
+        $.ajax({
+            url: '/api/refresh_session',
+            method: 'POST',
+            success: function(response) {
+                if (response.success && response.display_name) {
+                    $('#currentUserDisplay').text(response.display_name);
+                }
+            },
+            error: function() {
+                // 如果刷新失败，保持原有显示
+            }
+        });
+    }
+    </script>
+    
+    <!-- 竹叶特效连续动画脚本 -->
+    <script>
+    // 基于全局时间戳实现真正的连续飘落效果
+    document.addEventListener('DOMContentLoaded', function() {
+        // 获取或创建全局起始时间（毫秒）
+        let globalStartTime = sessionStorage.getItem('leavesStartTime');
+        if (!globalStartTime) {
+            globalStartTime = Date.now();
+            sessionStorage.setItem('leavesStartTime', globalStartTime);
+        } else {
+            globalStartTime = parseInt(globalStartTime);
+        }
+        
+        // 计算从起始时间到现在经过的秒数
+        const elapsedSeconds = (Date.now() - globalStartTime) / 1000;
+        
+        const leaves = document.querySelectorAll('.falling-leaf');
+        leaves.forEach(function(leaf, index) {
+            // 获取该竹叶的动画时长
+            const computedStyle = window.getComputedStyle(leaf);
+            const animationDuration = parseFloat(computedStyle.animationDuration);
+            
+            // 计算当前应该在动画的哪个位置
+            // 每片竹叶有固定的初始延迟
+            const initialDelays = [0, 3, 6, 9, 4, 7, 2, 5, 8, 1]; // 对应 leaf-1 到 leaf-10
+            const initialDelay = initialDelays[index] || 0;
+            
+            // 计算从全局开始到现在，这片竹叶应该在哪个位置
+            const totalElapsed = elapsedSeconds + initialDelay;
+            const currentCycle = totalElapsed % animationDuration;
+            
+            // 设置负延迟，让动画从当前位置开始
+            const animationDelay = -(currentCycle);
+            leaf.style.animationDelay = animationDelay + 's';
+        });
+    });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

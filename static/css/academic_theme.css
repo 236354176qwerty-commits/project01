@@ -1,0 +1,529 @@
+/* 武术赛事管理系统 - 学术深蓝主题样式 */
+
+/* ==================== 全局变量 ==================== */
+:root {
+    /* 深蓝色学术配色 */
+    --primary-dark-blue: #1a237e;
+    --secondary-dark-blue: #283593;
+    --accent-blue: #3f51b5;
+    --light-blue: #64b5f6;
+    --sky-blue: #87ceeb;
+    --text-white: #ffffff;
+    --text-light-blue: #e3f2fd;
+    --card-bg: rgba(26, 35, 126, 0.8);
+    --card-border: rgba(100, 181, 246, 0.6);
+    --notification-bg: rgba(0, 0, 0, 0.8);
+    --notification-border: #64b5f6;
+    
+    /* 渐变背景 */
+    --bg-gradient: linear-gradient(135deg, #1a237e 0%, #283593 50%, #3f51b5 100%);
+    --card-gradient: linear-gradient(145deg, rgba(26, 35, 126, 0.9) 0%, rgba(40, 53, 147, 0.8) 100%);
+    
+    /* 阴影效果 */
+    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    --glow-effect: 0 0 20px rgba(100, 181, 246, 0.3);
+}
+
+/* ==================== 全局重置 ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', Arial, sans-serif;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-white);
+    line-height: 1.6;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* 背景装饰效果 */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 20% 20%, rgba(100, 181, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(63, 81, 181, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 60%, rgba(40, 53, 147, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* ==================== 导航栏样式 ==================== */
+.navbar {
+    background: rgba(26, 35, 126, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid var(--light-blue);
+    box-shadow: var(--card-shadow);
+}
+
+.navbar-brand {
+    color: var(--text-white) !important;
+    font-weight: 700;
+    font-size: 1.5rem;
+    text-shadow: var(--text-shadow);
+}
+
+.navbar-nav .nav-link {
+    color: var(--text-light-blue) !important;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.navbar-nav .nav-link:hover {
+    color: var(--light-blue) !important;
+    text-shadow: var(--glow-effect);
+}
+
+.navbar-nav .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--light-blue);
+    transition: width 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover::after {
+    width: 100%;
+}
+
+/* ==================== 卡片样式 ==================== */
+.card {
+    background: var(--card-gradient) !important;
+    border: 2px solid var(--card-border) !important;
+    border-radius: 15px !important;
+    box-shadow: var(--card-shadow) !important;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    border-color: var(--light-blue);
+}
+
+.card-header {
+    background: rgba(100, 181, 246, 0.2) !important;
+    border-bottom: 1px solid var(--card-border) !important;
+    color: var(--text-white) !important;
+    font-weight: 600;
+    text-shadow: var(--text-shadow);
+}
+
+.card-body {
+    color: var(--text-white) !important;
+}
+
+.card-title {
+    color: var(--light-blue) !important;
+    text-shadow: var(--text-shadow);
+}
+
+/* ==================== 通知公告框样式 ==================== */
+.notification-box {
+    background: var(--notification-bg);
+    border: 2px solid var(--notification-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: var(--card-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.notification-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--light-blue), var(--sky-blue));
+}
+
+.notification-title {
+    color: var(--light-blue);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    text-shadow: var(--text-shadow);
+}
+
+.notification-content {
+    color: var(--text-white);
+    line-height: 1.8;
+}
+
+/* ==================== 按钮样式 ==================== */
+.btn-primary {
+    background: linear-gradient(135deg, var(--accent-blue), var(--secondary-dark-blue)) !important;
+    border: 2px solid var(--light-blue) !important;
+    color: var(--text-white) !important;
+    font-weight: 600;
+    text-shadow: var(--text-shadow);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--light-blue), var(--accent-blue)) !important;
+    border-color: var(--sky-blue) !important;
+    transform: translateY(-2px);
+    box-shadow: var(--glow-effect);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #2e7d32, #388e3c) !important;
+    border: 2px solid #4caf50 !important;
+    color: var(--text-white) !important;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f57c00, #ff9800) !important;
+    border: 2px solid #ffc107 !important;
+    color: var(--text-white) !important;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #c62828, #d32f2f) !important;
+    border: 2px solid #f44336 !important;
+    color: var(--text-white) !important;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #0277bd, #0288d1) !important;
+    border: 2px solid #03a9f4 !important;
+    color: var(--text-white) !important;
+}
+
+/* ==================== 表单样式 ==================== */
+.form-control {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 2px solid var(--card-border) !important;
+    border-radius: 8px !important;
+    color: var(--text-white) !important;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: var(--light-blue) !important;
+    box-shadow: var(--glow-effect) !important;
+    color: var(--text-white) !important;
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.form-label {
+    color: var(--light-blue) !important;
+    font-weight: 600;
+    text-shadow: var(--text-shadow);
+}
+
+.form-select {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 2px solid var(--card-border) !important;
+    color: var(--text-white) !important;
+}
+
+/* ==================== 表格样式 ==================== */
+.table {
+    background: var(--card-gradient) !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+}
+
+.table thead th {
+    background: rgba(100, 181, 246, 0.3) !important;
+    border-bottom: 2px solid var(--light-blue) !important;
+    color: var(--text-white) !important;
+    font-weight: 600;
+    text-shadow: var(--text-shadow);
+}
+
+.table tbody tr {
+    background: rgba(26, 35, 126, 0.6) !important;
+    border-bottom: 1px solid var(--card-border) !important;
+    transition: all 0.3s ease;
+}
+
+.table tbody tr:hover {
+    background: rgba(100, 181, 246, 0.2) !important;
+    transform: scale(1.02);
+}
+
+.table tbody td {
+    color: var(--text-white) !important;
+    border-color: var(--card-border) !important;
+}
+
+/* ==================== 徽章样式 ==================== */
+.badge {
+    text-shadow: var(--text-shadow);
+    font-weight: 600;
+}
+
+.badge.bg-primary {
+    background: var(--accent-blue) !important;
+}
+
+.badge.bg-success {
+    background: #2e7d32 !important;
+}
+
+.badge.bg-warning {
+    background: #f57c00 !important;
+}
+
+.badge.bg-danger {
+    background: #c62828 !important;
+}
+
+.badge.bg-info {
+    background: #0277bd !important;
+}
+
+/* ==================== 模态框样式 ==================== */
+.modal-content {
+    background: var(--card-gradient) !important;
+    border: 2px solid var(--card-border) !important;
+    border-radius: 15px !important;
+    box-shadow: var(--card-shadow) !important;
+    backdrop-filter: blur(15px);
+}
+
+.modal-header {
+    background: rgba(100, 181, 246, 0.2) !important;
+    border-bottom: 1px solid var(--card-border) !important;
+    color: var(--text-white) !important;
+}
+
+.modal-body {
+    color: var(--text-white) !important;
+}
+
+.modal-footer {
+    background: rgba(100, 181, 246, 0.1) !important;
+    border-top: 1px solid var(--card-border) !important;
+}
+
+/* ==================== 警告框样式 ==================== */
+.alert {
+    border-radius: 10px !important;
+    border-width: 2px !important;
+    backdrop-filter: blur(10px);
+    text-shadow: var(--text-shadow);
+}
+
+.alert-success {
+    background: rgba(46, 125, 50, 0.8) !important;
+    border-color: #4caf50 !important;
+    color: var(--text-white) !important;
+}
+
+.alert-danger {
+    background: rgba(198, 40, 40, 0.8) !important;
+    border-color: #f44336 !important;
+    color: var(--text-white) !important;
+}
+
+.alert-warning {
+    background: rgba(245, 124, 0, 0.8) !important;
+    border-color: #ffc107 !important;
+    color: var(--text-white) !important;
+}
+
+.alert-info {
+    background: rgba(2, 119, 189, 0.8) !important;
+    border-color: #03a9f4 !important;
+    color: var(--text-white) !important;
+}
+
+/* ==================== 统计卡片样式 ==================== */
+.stat-card {
+    background: var(--card-gradient);
+    border: 2px solid var(--card-border);
+    border-radius: 15px;
+    padding: 25px;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--light-blue), var(--sky-blue));
+}
+
+.stat-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--glow-effect);
+    border-color: var(--light-blue);
+}
+
+.stat-card .stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--light-blue);
+    text-shadow: var(--text-shadow);
+}
+
+.stat-card .stat-label {
+    color: var(--text-white);
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-top: 10px;
+}
+
+/* ==================== 进度条样式 ==================== */
+.progress {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border-radius: 10px !important;
+    height: 12px !important;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, var(--light-blue), var(--sky-blue)) !important;
+    border-radius: 10px !important;
+}
+
+/* ==================== 分页样式 ==================== */
+.pagination .page-link {
+    background: #0d6efd !important;
+    border: 1px solid #0d6efd !important;
+    color: #fff !important;
+    margin: 0 2px;
+    border-radius: 8px !important;
+}
+
+.pagination .page-link:hover {
+    background: #0b5ed7 !important;
+    border-color: #0b5ed7 !important;
+    color: #fff !important;
+}
+
+.pagination .page-item.active .page-link {
+    background: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: #fff !important;
+}
+
+/* ==================== 登录页面特殊样式 ==================== */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+}
+
+.login-card {
+    background: var(--card-gradient);
+    border: 2px solid var(--card-border);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(15px);
+    padding: 40px;
+    max-width: 450px;
+    width: 100%;
+}
+
+.login-logo {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, var(--light-blue), var(--accent-blue));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 30px;
+    font-size: 2rem;
+    color: var(--text-white);
+    box-shadow: var(--glow-effect);
+}
+
+/* ==================== 响应式设计 ==================== */
+@media (max-width: 768px) {
+    .stat-card {
+        margin-bottom: 20px;
+    }
+    
+    .notification-box {
+        margin: 10px 0;
+        padding: 15px;
+    }
+    
+    .card {
+        margin-bottom: 15px;
+    }
+}
+
+/* ==================== 动画效果 ==================== */
+@keyframes glow {
+    0% { box-shadow: 0 0 5px var(--light-blue); }
+    50% { box-shadow: 0 0 20px var(--light-blue), 0 0 30px var(--light-blue); }
+    100% { box-shadow: 0 0 5px var(--light-blue); }
+}
+
+.glow-animation {
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes slideInFromTop {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-in {
+    animation: slideInFromTop 0.6s ease-out;
+}
+
+/* ==================== 自定义滚动条 ==================== */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(26, 35, 126, 0.3);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--light-blue);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--sky-blue);
+}

@@ -1,0 +1,1161 @@
+{% extends "base.html" %}
+
+{% block title %}参赛人员列表 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0 participant-page">
+    <div class="row g-0 justify-content-center">
+        <div class="col-12 participant-shell">
+            <div class="card shadow-sm border-0 mb-4 participant-hero">
+                <div class="card-body">
+                    <!-- 第一行：只显示标题，左对齐 -->
+                    <div class="d-flex justify-content-start mb-3">
+                        <h2 class="mb-0 text-dark">
+                            <i class="fas fa-users me-2 text-success"></i>报名名单确认
+                        </h2>
+                    </div>
+                    <div class="mb-3 text-muted">
+                        核实所有队员都已加入后点击项目报名按钮进行报名
+                    </div>
+
+                    <!-- 第二行：左侧上一步 + 当前赛事块，右侧操作按钮（项目报名 / 下一步） -->
+                    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+                        <div class="hero-actions-left d-flex align-items-center gap-3">
+                            <button class="btn btn-primary" onclick="goBackToPlayerRegistrationList()">
+                                <i class="fas fa-arrow-left me-1"></i>上一步
+                            </button>
+                            <div class="current-event-box" id="currentEventBox">
+                                <i class="fas fa-trophy me-2"></i>
+                                <strong>当前赛事：</strong><span id="currentEventName">-</span>
+                            </div>
+                        </div>
+
+                        <div class="hero-actions d-flex align-items-center gap-3 mt-2 mt-lg-0 flex-wrap justify-content-lg-end">
+                            <span class="project-hint">点击“项目报名”按钮报名参赛项目<i class="fas fa-arrow-right ms-2"></i></span>
+                            <button class="btn btn-primary" id="projectRegistrationBtn">
+                                <i class="fas fa-clipboard-check me-2"></i>项目报名
+                            </button>
+                            <button class="btn btn-primary" onclick="goToDataSummary()">
+                                下一步<i class="fas fa-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="eventMissingNotice" class="alert alert-info text-center" style="display:none;">
+                <div class="mb-2"><i class="fas fa-info-circle me-2"></i>请先选择要查看的赛事</div>
+                <button class="btn btn-primary" onclick="redirectToEventSelection()">
+                    <i class="fas fa-location-arrow me-2"></i>前往选择赛事
+                </button>
+            </div>
+
+            <div class="card shadow-sm border-0 participant-card" id="participantTableWrapper" style="display:none;">
+                <div class="card-header bg-white border-0">
+                    <input type="text" class="form-control" id="searchInput" placeholder="搜索人员（姓名/队伍/电话等）" onkeyup="filterParticipants()">
+                </div>
+                <div class="card-body pt-0">
+                    <div class="table-responsive participant-table-scroll">
+                        <table class="table table-hover align-middle" id="participantTable">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th>姓名</th>
+                                    <th>性别</th>
+                                    <th>年龄</th>
+                                    <th>所属队伍</th>
+                                    <th>年龄组</th>
+                                    <th>参赛项目</th>
+                                    <th class="text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="participantTableBody">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">数据加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="modal fade" id="deleteParticipantModal" tabindex="-1" aria-labelledby="deleteParticipantModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteParticipantModalLabel"><i class="fas fa-exclamation-circle text-danger me-2"></i>删除人员</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                确定要删除 <strong id="deleteParticipantName">该人员</strong> 的报名记录吗？此操作不可撤销。
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteParticipantBtn">
+                    <i class="fas fa-trash-alt me-1"></i>确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 项目报名选择弹窗 -->
+<div class="modal fade" id="projectSelectionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered project-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-trophy me-2"></i>选择报名类型</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body project-modal-body">
+                <div class="project-option-group">
+                    <div class="project-option" onclick="handleProjectSelection('single')">
+                        <div class="option-icon single">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="option-content">
+                            <div class="option-title">单人赛报名</div>
+                            <div class="option-desc">个人项目报名入口</div>
+                        </div>
+                    </div>
+                    <div class="project-option" onclick="handleProjectSelection('pair')">
+                        <div class="option-icon pair">
+                            <i class="fas fa-people-arrows"></i>
+                        </div>
+                        <div class="option-content">
+                            <div class="option-title">对练赛报名</div>
+                            <div class="option-desc">对练/对抗类项目报名</div>
+                        </div>
+                    </div>
+                    <div class="project-option" onclick="handleProjectSelection('team')">
+                        <div class="option-icon team">
+                            <i class="fas fa-people-group"></i>
+                        </div>
+                        <div class="option-content">
+                            <div class="option-title">团体赛报名</div>
+                            <div class="option-desc">团队/集体项目报名</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.participant-page {
+    background: transparent;
+    min-height: 100vh;
+    padding: 1.5rem 0 2rem;
+}
+.participant-hero h2 {
+    font-weight: 700;
+}
+.current-event-box {
+    display: inline-flex;
+    align-items: center;
+    background-color: #cff4fc;
+    border: 1px solid #9eeaf9;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    color: #055160;
+}
+.hero-event-name {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1d3b6d;
+}
+.hero-event {
+    font-size: 1.05rem;
+}
+.participant-hero .btn {
+    padding: 0.85rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 0.75rem;
+}
+.participant-hero .btn i {
+    font-size: 1.05rem;
+}
+.project-hint {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #c41e3a;
+}
+.project-hint i {
+    color: #c41e3a;
+}
+.participant-card .table thead th,
+.participant-card .table tbody td {
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.participant-table-scroll {
+    overflow-x: auto;
+}
+.participant-table-scroll table {
+    min-width: 1100px;
+}
+.age-group-badge {
+    border-radius: 999px;
+    padding: 0.15rem 0.65rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+}
+.event-chip-list {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, auto);
+    grid-auto-columns: max-content;
+    gap: 0.25rem 0.35rem;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.2rem;
+}
+.event-chip {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3b4781;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+.project-option-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    justify-content: center;
+}
+.project-modal-body {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    max-height: calc(85vh - 120px);
+    overflow-y: auto;
+}
+.project-modal-dialog {
+    max-width: 900px;
+    width: 90%;
+    max-height: 85vh;
+    margin: 2.5vh auto;
+}
+.project-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    border: 1px solid #e3e6ef;
+    border-radius: 12px;
+    padding: 1.5rem 1.2rem;
+    min-height: 180px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    justify-content: center;
+}
+.project-option:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 4px 16px rgba(13, 110, 253, 0.15);
+    transform: translateY(-1px);
+}
+.option-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.8rem;
+    margin-bottom: 0.8rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.option-icon.single { background: linear-gradient(135deg, #42a5f5, #1e88e5); }
+.option-icon.pair { background: linear-gradient(135deg, #66bb6a, #43a047); }
+.option-icon.team { background: linear-gradient(135deg, #ff7043, #ff5722); }
+.option-title {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.1rem;
+}
+.option-desc {
+    font-size: 0.9rem;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.option-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.3rem;
+    color: #2c3e50;
+}
+
+/* 响应式设计 */
+@media (max-width: 992px) {
+    .project-modal-dialog {
+        width: 95%;
+        max-width: 95%;
+        margin: 1vh auto;
+    }
+    
+    .project-option-group {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+    }
+    
+    .project-option {
+        min-height: 160px;
+        padding: 1.2rem 1rem;
+    }
+    
+    .option-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .project-modal-dialog {
+        width: 98%;
+        max-width: 98%;
+        margin: 0.5vh auto;
+    }
+    
+    .project-modal-body {
+        padding-top: 1.5rem;
+        padding-bottom: 1.5rem;
+        max-height: calc(90vh - 100px);
+    }
+    
+    .project-option {
+        min-height: 140px;
+        padding: 1rem 0.8rem;
+    }
+    
+    .option-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.3rem;
+    }
+    
+    .option-title {
+        font-size: 1rem;
+    }
+    
+    .option-desc {
+        font-size: 0.85rem;
+    }
+}
+
+/* 确保模态框在移动设备上正确显示 */
+.modal {
+    -webkit-overflow-scrolling: touch;
+}
+
+.modal-content {
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    border-bottom: 1px solid #e9ecef;
+    padding: 1.2rem 1.5rem;
+}
+
+.modal-footer {
+    border-top: 1px solid #e9ecef;
+    padding: 1rem 1.5rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/participant_dataset.js') }}"></script>
+<script>
+let participants = [];
+let deleteModalInstance = null;
+let pendingDelete = null;
+let currentEventId = null;
+let currentEventName = '';
+let currentEventTeam = null; // 当前赛事下的队伍（仅用于确定 team_id）
+
+const POSITION_LABELS = {
+    player: '参赛人员',
+    coach: '教练',
+    medical: '医务人员',
+    staff: '随行人员'
+};
+
+const ROLE_PRIORITY = {
+    '参赛人员': 0,
+    '教练': 1,
+    '医务人员': 2,
+    '随行人员': 3
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modalElement = document.getElementById('deleteParticipantModal');
+    if (modalElement && window.bootstrap) {
+        deleteModalInstance = new bootstrap.Modal(modalElement, { backdrop: false });
+        document.getElementById('confirmDeleteParticipantBtn')?.addEventListener('click', handleDeleteConfirm);
+    }
+    document.getElementById('projectRegistrationBtn')?.addEventListener('click', showProjectModal);
+    initializeParticipantPage();
+
+    // 记录当前流程步骤为第三步，并标记第三步已完成
+    try {
+        sessionStorage.setItem('registrationCurrentStep', '3');
+        sessionStorage.setItem('registrationStep3Completed', 'true');
+    } catch (e) {
+        console.warn('记录报名流程步骤状态失败:', e);
+    }
+});
+
+function initializeParticipantPage() {
+    const urlParams = new URLSearchParams(window.location.search);
+    currentEventId = urlParams.get('event_id') || sessionStorage.getItem('selectedEventId');
+    currentEventName = urlParams.get('event_name') || sessionStorage.getItem('selectedEventName');
+
+    if (!currentEventId || !currentEventName) {
+        document.getElementById('eventMissingNotice').style.display = 'block';
+        document.getElementById('participantTableWrapper').style.display = 'none';
+        updateProjectButton(null, null);
+        return;
+    }
+
+    currentEventName = decodeURIComponent(currentEventName);
+    sessionStorage.setItem('selectedEventId', currentEventId);
+    sessionStorage.setItem('selectedEventName', currentEventName);
+
+    document.getElementById('eventMissingNotice').style.display = 'none';
+    document.getElementById('participantTableWrapper').style.display = 'block';
+    document.getElementById('currentEventName').textContent = currentEventName;
+
+    loadParticipants(currentEventId);
+    updateProjectButton(currentEventId, currentEventName);
+}
+
+// 收集本地缓存中的队伍信息（仅用于推导当前队伍ID）
+function collectAllTeams() {
+    const result = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('createdTeams_')) {
+            try {
+                const teams = JSON.parse(localStorage.getItem(key) || '[]');
+                teams.filter(team => team && team.id).forEach(team => result.push(team));
+            } catch (err) {
+                console.warn('解析队伍数据失败:', key, err);
+            }
+        }
+    }
+    return result;
+}
+
+// 基于本地缓存和当前登录用户，推导当前赛事下的队伍
+function determineCurrentTeamForOverview(eventId) {
+    const currentUser = sessionStorage.getItem('user_name') || sessionStorage.getItem('username') || '';
+    const allTeams = collectAllTeams();
+
+    // 优先使用当前用户在本赛事创建的队伍
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    const userTeams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    const leaderTeam = userTeams.find(team => String(team.eventId) === String(eventId) && team.isCreated === true);
+    if (leaderTeam) {
+        return leaderTeam;
+    }
+
+    // 回退：从所有 createdTeams_* 中找当前赛事的队伍
+    const anyTeam = allTeams.find(team => String(team.eventId) === String(eventId));
+    if (anyTeam) {
+        return anyTeam;
+    }
+
+    return null;
+}
+
+async function loadParticipants(eventId) {
+    try {
+        if (!currentEventTeam) {
+            currentEventTeam = determineCurrentTeamForOverview(eventId);
+        }
+
+        const teamId = currentEventTeam && currentEventTeam.id;
+        if (!teamId) {
+            console.warn('未能确定当前队伍ID，报名名单确认页面将无法加载队员列表');
+            renderEmptyTable();
+            return;
+        }
+
+        const resp = await fetch(`/api/team/${teamId}/players`);
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || data.success === false || !Array.isArray(data.players)) {
+            console.warn('从云端获取参赛人员失败：', data && data.message, 'HTTP 状态：', resp.status);
+            showMessage(data && data.message ? data.message : '加载数据失败，请稍后重试', 'error');
+            renderEmptyTable();
+            return;
+        }
+
+        participants = data.players
+            .map(player => normalizeFromBackendPlayer(player, currentEventTeam))
+            .sort(compareParticipants);
+
+        renderParticipantTable();
+    } catch (error) {
+        console.error('加载参赛人员失败:', error);
+        showMessage('加载数据失败，请刷新页面重试', 'error');
+        renderEmptyTable();
+    }
+}
+
+// 将后端 team_players 记录标准化为页面使用的参与者对象
+function normalizeFromBackendPlayer(player, teamInfo) {
+    const idCard = player.id_card || player.registration_number || '-';
+    return {
+        id: player.player_id,
+        name: player.name || '-',
+        gender: normalizeGender(player.gender),
+        age: player.age || calculateAgeFromIdCard(idCard) || '-',
+        position: '参赛人员',
+        teamName: (teamInfo && (teamInfo.teamName || teamInfo.name)) || '-',
+        idCard,
+        phone: player.phone || '-',
+        submittedAt: player.updated_at || player.created_at || '',
+        eventId: player.event_id,
+        teamId: player.team_id,
+        competition_event: player.competition_event || '',
+        selectedEvents: Array.isArray(player.selected_events) ? player.selected_events : [],
+        pairRegistered: !!player.pair_registered,
+        pairPartner: player.pair_partner_name || '',
+        teamRegistered: !!player.team_registered
+    };
+}
+
+function normalizeGender(value) {
+    if (!value) return '-';
+    if (['男', 'male', 'm'].includes(String(value).toLowerCase())) return '男';
+    if (['女', 'female', 'f'].includes(String(value).toLowerCase())) return '女';
+    return value;
+}
+
+function normalizePosition(position) {
+    if (!position) {
+        return '参赛人员';
+    }
+    const key = String(position).toLowerCase();
+    return POSITION_LABELS[key] || position;
+}
+
+function compareParticipants(a, b) {
+    const priority = value => {
+        const label = normalizePosition(value);
+        return ROLE_PRIORITY.hasOwnProperty(label) ? ROLE_PRIORITY[label] : 99;
+    };
+    const diff = priority(a.position) - priority(b.position);
+    if (diff !== 0) return diff;
+    return (a.submittedAt || '').localeCompare(b.submittedAt || '');
+}
+
+function isPlayerEntry(entry) {
+    return normalizePosition(entry.position) === '参赛人员';
+}
+
+function renderParticipantTable() {
+    const tbody = document.getElementById('participantTableBody');
+    tbody.innerHTML = '';
+
+    if (!participants.length) {
+        renderEmptyTable();
+        return;
+    }
+
+    participants.forEach((player, index) => {
+        const row = document.createElement('tr');
+        const ageGroupInfo = buildAgeGroupDisplay(player.age_group || deriveAgeGroup(player.age));
+        const projectHtml = buildCompetitionEventDisplay(player);
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${player.name}</td>
+            <td>${player.gender || '-'}</td>
+            <td>${player.age || '-'}</td>
+            <td>${player.teamName || '-'}</td>
+            <td>${ageGroupInfo}</td>
+            <td>${projectHtml}</td>
+            <td>
+                <button class="btn btn-sm btn-danger" onclick="confirmDelete(${player.id}, ${player.teamId}, '${player.name}')" style="padding: 0.4rem 0.8rem;">
+                    <i class="fas fa-trash" style="color: white; font-size: 1.1em;"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function renderEmptyTable() {
+    const tbody = document.getElementById('participantTableBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">暂无参赛人员数据</td></tr>';
+}
+
+function confirmDelete(playerId, teamId, name) {
+    pendingDelete = { playerId, teamId, name };
+    const label = document.getElementById('deleteParticipantName');
+    if (label) {
+        label.textContent = name || '该人员';
+    }
+    if (deleteModalInstance) {
+        deleteModalInstance.show();
+    } else if (confirm(`确定要删除【${name}】的报名记录吗？`)) {
+        performDelete();
+    }
+}
+
+function handleDeleteConfirm() {
+    performDelete();
+    if (deleteModalInstance) {
+        deleteModalInstance.hide();
+    }
+}
+
+function performDelete() {
+    if (!pendingDelete) {
+        return;
+    }
+
+    const teamId = pendingDelete.teamId || (currentEventTeam && currentEventTeam.id);
+    const playerId = pendingDelete.playerId;
+    if (!teamId || !playerId) {
+        showMessage('未找到队伍或选手信息，无法删除人员', 'error');
+        return;
+    }
+
+    fetch(`/api/team/${teamId}/players/${playerId}`, { method: 'DELETE' })
+        .then(res => res.json().catch(() => null).then(data => ({ res, data })))
+        .then(({ res, data }) => {
+            if (!res.ok || !data || data.success === false) {
+                console.error('删除参赛人员失败:', data && data.message, 'HTTP 状态：', res.status);
+                showMessage(data && data.message ? data.message : '删除人员失败，请稍后重试', 'error');
+                return;
+            }
+
+            participants = participants.filter(player => player.id !== playerId);
+            renderParticipantTable();
+            showMessage('人员已删除', 'success');
+            pendingDelete = null;
+        })
+        .catch(err => {
+            console.error('调用删除参赛人员接口异常:', err);
+            showMessage('删除人员时发生异常，请稍后重试', 'error');
+        });
+}
+
+function filterParticipants() {
+    const keyword = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#participantTableBody tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(keyword) ? '' : 'none';
+    });
+}
+
+function maskIdCard(idCard) {
+    if (!idCard || idCard.length < 8) return idCard || '-';
+    return `${idCard.substring(0, 6)}****${idCard.substring(idCard.length - 4)}`;
+}
+
+function calculateAgeFromIdCard(idCard) {
+    if (!idCard || idCard.length < 14) return '';
+    const year = parseInt(idCard.substring(6, 10), 10);
+    const month = parseInt(idCard.substring(10, 12), 10) - 1;
+    const day = parseInt(idCard.substring(12, 14), 10);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        return '';
+    }
+    const birth = new Date(year, month, day);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age >= 0 && age <= 120 ? age : '';
+}
+
+function buildPlayerKey(name, idCard) {
+    const safeName = (name || '').trim();
+    const safeId = (idCard || '').trim();
+    return safeId && safeName ? `${safeId}_${safeName}` : `${safeName}_${safeId}`;
+}
+
+function buildLocalPlayerKey(name, idCard) {
+    const safeName = (name || '').trim();
+    const safeId = (idCard || '').trim().toUpperCase();
+    if (safeId && safeName) return `${safeId}_${safeName}`;
+    if (safeId) return safeId;
+    if (safeName) return safeName;
+    return '';
+}
+
+function deriveAgeGroup(ageValue) {
+    const age = parseInt(ageValue, 10);
+    if (isNaN(age)) return '-';
+    if (age < 12) return '儿童组(A组)';
+    if (age >= 12 && age <= 17) return '少年组(B组)';
+    if (age >= 18 && age <= 39) return '青年组(C组)';
+    if (age >= 40 && age <= 59) return '中年组(D组)';
+    return '老年组(E组)';
+}
+
+function buildAgeGroupDisplay(ageGroup) {
+    if (!ageGroup || ageGroup === '-') return '-';
+    const colorClass = getAgeGroupColor(ageGroup);
+    return `<span class="age-group-badge ${colorClass}">${ageGroup}</span>`;
+}
+
+function getAgeGroupColor(ageGroup) {
+    if (ageGroup.includes('A组')) return 'bg-warning text-dark';
+    if (ageGroup.includes('B组')) return 'bg-success';
+    if (ageGroup.includes('C组')) return 'bg-primary';
+    if (ageGroup.includes('D组')) return 'bg-info text-dark';
+    if (ageGroup.includes('E组')) return 'bg-danger';
+    return 'bg-secondary';
+}
+
+function buildCompetitionEventDisplay(player) {
+    const events = [];
+    const pairTokenRegex = /^(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)$/;
+    const pairRemovalRegex = /、?(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)/g;
+    const selected = Array.isArray(player.selectedEvents)
+        ? player.selectedEvents.filter(item => item && !pairTokenRegex.test(item))
+        : [];
+    if (selected.length) {
+        events.push(...selected);
+    }
+
+    const raw = (player.competition_event || player.competitionEvent || '').trim();
+    if (!selected.length && raw) {
+        const base = smartSplitEvents(raw);
+        const individual = raw
+            .replace(/、?团体赛-[^、]+/g, '')
+            .replace(/、?团体赛/g, '')
+            .replace(pairRemovalRegex, '')
+            .trim();
+        if (individual) {
+            events.push(individual);
+        } else if (base.length) {
+            events.push(...base.filter(item => !pairTokenRegex.test(item)));
+        }
+    }
+
+    const appendTeamAndPair = () => {
+        if (!raw) {
+            if (player.teamRegistered) {
+                events.push('团体赛');
+            }
+            if ((player.pairPartner || player.pair_partner_name) && player.pairRegistered) {
+                events.push(normalizePairDisplay(`对练（${player.pairPartner || player.pair_partner_name}）`));
+            }
+            return;
+        }
+
+        const teamMatches = raw.match(/团体赛-[^、]+/g);
+        if (teamMatches && teamMatches.length) {
+            events.push(...teamMatches);
+        } else if (raw.includes('团体赛') || player.teamRegistered) {
+            events.push('团体赛');
+        }
+
+        const pairEntries = [];
+        const explicitPairs = raw.match(/[^、]*对练（[^）]+）/g);
+        if (explicitPairs && explicitPairs.length) {
+            pairEntries.push(...explicitPairs);
+        }
+        const altPairMatches = raw.match(/(?:徒手|器械)[^、]*（[^）]+）/g);
+        if (altPairMatches && altPairMatches.length) {
+            pairEntries.push(...altPairMatches);
+        }
+
+        const formattedPairs = pairEntries
+            .map(entry => normalizePairDisplay(entry))
+            .filter(Boolean);
+
+        if (formattedPairs.length) {
+            events.push(...formattedPairs);
+        } else if ((player.pairPartner || player.pair_partner_name) && player.pairRegistered) {
+            events.push(normalizePairDisplay(`对练（${player.pairPartner || player.pair_partner_name}）`));
+        }
+    };
+
+    appendTeamAndPair();
+
+    const uniqueEvents = Array.from(new Set(events.filter(Boolean)));
+    if (!uniqueEvents.length) {
+        return '<span class="text-muted">未填写</span>';
+    }
+    return uniqueEvents.join('、');
+}
+
+function smartSplitEvents(eventText) {
+    if (!eventText) return [];
+    return eventText.split('、')
+        .map(item => item.trim())
+        .filter(Boolean);
+}
+
+function stripPairEntriesByPartner(eventText, partnerName) {
+    if (!eventText) {
+        return { text: '', changed: false };
+    }
+    const trimmedPartner = (partnerName || '').trim();
+    if (!trimmedPartner) {
+        return { text: eventText, changed: false };
+    }
+    const tokens = smartSplitEvents(eventText);
+    if (!tokens.length) {
+        return { text: '', changed: eventText.length > 0 };
+    }
+    let changed = false;
+    const filtered = tokens.filter(token => {
+        if (!token) return false;
+        const isPairToken = /对练|徒手|器械/.test(token);
+        if (isPairToken && token.includes(`（${trimmedPartner}）`)) {
+            changed = true;
+            return false;
+        }
+        return true;
+    });
+    const result = filtered.join('、');
+    if (!changed && result !== eventText) {
+        changed = true;
+    }
+    return { text: result, changed };
+}
+
+function hasPairEntries(eventText) {
+    if (!eventText) return false;
+    return /对练（[^）]+）/.test(eventText) || /(?:徒手|器械)[^、]*（[^）]+）/.test(eventText);
+}
+
+function clearPairInfoFromRecord(record, partnerName) {
+    if (!record || !partnerName) return false;
+    const baseEvent = record.competition_event || record.competitionEvent || '';
+    const { text: updatedEvent, changed: eventChanged } = stripPairEntriesByPartner(baseEvent, partnerName);
+    let mutated = false;
+    if (eventChanged) {
+        record.competition_event = updatedEvent;
+        if (Object.prototype.hasOwnProperty.call(record, 'competitionEvent')) {
+            record.competitionEvent = updatedEvent;
+        }
+        mutated = true;
+    }
+    const normalizedPartner = (record.pairPartner || record.pair_partner_name || record.pairPartnerName || '').trim();
+    if (normalizedPartner === partnerName) {
+        record.pairPartner = '';
+        record.pair_partner_name = '';
+        record.pairPartnerName = '';
+        mutated = true;
+    }
+    if (!hasPairEntries(record.competition_event || record.competitionEvent || '')) {
+        if (record.pairRegistered) {
+            record.pairRegistered = false;
+            mutated = true;
+        }
+        if (record.pair_registered) {
+            record.pair_registered = false;
+            mutated = true;
+        }
+    }
+    return mutated;
+}
+
+function normalizePairDisplay(entry) {
+    if (!entry) return null;
+    const text = entry.trim();
+    if (!text) return null;
+    const partnerMatch = text.match(/（([^）]+)）/);
+    const partner = partnerMatch && partnerMatch[1] ? partnerMatch[1].trim() : '';
+    const descriptor = text.replace(/（[^）]+）/, '').trim();
+    let label = descriptor;
+    if (!label) {
+        label = '对练';
+    } else if (!label.includes('对练')) {
+        label = `对练-${label}`;
+    }
+    if (partner) {
+        return `${label}（${partner}）`;
+    }
+    return label;
+}
+
+function extractPairEvents(eventText) {
+    if (!eventText) return [];
+    const matches = eventText.match(/[^、]*对练（[^）]+）/g);
+    return matches ? matches.map(item => item.trim()).filter(Boolean) : [];
+}
+
+function extractTeamEvents(eventText) {
+    if (!eventText) return [];
+    const matches = eventText.match(/团体赛-[^、]+/g);
+    if (matches && matches.length) {
+        return matches.map(item => item.trim());
+    }
+    if (eventText.includes('团体赛')) {
+        return ['团体赛'];
+    }
+    return [];
+}
+
+function removeFromParticipantCaches(eventId, cacheKeyValue) {
+    if (!eventId) return;
+    const cacheKey = `participantList_${eventId}`;
+    const keyValue = cacheKeyValue || '';
+    try {
+        const removeFromList = (list) => {
+            if (!Array.isArray(list) || !list.length) return list;
+            return list.filter(item => {
+                const key = buildLocalPlayerKey(
+                    item.name || item.real_name,
+                    item.idCard || item.id_card || item.registration_number
+                );
+                return key !== keyValue;
+            });
+        };
+
+        const cacheRaw = localStorage.getItem(cacheKey);
+        if (cacheRaw) {
+            const cacheList = removeFromList(JSON.parse(cacheRaw || '[]'));
+            localStorage.setItem(cacheKey, JSON.stringify(cacheList));
+        }
+
+        const latestRaw = localStorage.getItem('participantList_latest');
+        if (latestRaw) {
+            const latest = JSON.parse(latestRaw);
+            if (latest && String(latest.eventId) === String(eventId) && Array.isArray(latest.data)) {
+                latest.data = removeFromList(latest.data);
+                localStorage.setItem('participantList_latest', JSON.stringify(latest));
+            }
+        }
+    } catch (error) {
+        console.warn('清理 participantList 缓存失败:', error);
+    }
+}
+
+function cleanPairReferencesAcrossData(partnerName, eventId) {
+    if (!partnerName) return;
+    const normalizedEventId = eventId ? String(eventId) : null;
+    const shouldHandleEvent = record => {
+        if (!normalizedEventId) return true;
+        const recordEvent = record.eventId || record.event_id;
+        return !recordEvent || String(recordEvent) === normalizedEventId;
+    };
+
+    const scrubRecordList = (list) => {
+        let changed = false;
+        list.forEach(record => {
+            if (!shouldHandleEvent(record)) return;
+            if (clearPairInfoFromRecord(record, partnerName)) {
+                changed = true;
+            }
+        });
+        return changed;
+    };
+
+    const playerList = JSON.parse(localStorage.getItem('playerList') || '[]');
+    const playerChanged = scrubRecordList(playerList);
+    if (playerChanged) {
+        localStorage.setItem('playerList', JSON.stringify(playerList));
+    }
+
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const appChanged = scrubRecordList(applications);
+    if (appChanged) {
+        localStorage.setItem('teamApplications', JSON.stringify(applications));
+    }
+
+    const cacheKey = eventId ? `participantList_${eventId}` : null;
+    if (cacheKey) {
+        const cacheRaw = localStorage.getItem(cacheKey);
+        if (cacheRaw) {
+            const cacheList = JSON.parse(cacheRaw || '[]');
+            if (scrubRecordList(cacheList)) {
+                localStorage.setItem(cacheKey, JSON.stringify(cacheList));
+            }
+        }
+        const latestRaw = localStorage.getItem('participantList_latest');
+        if (latestRaw) {
+            const latest = JSON.parse(latestRaw);
+            if (latest && String(latest.eventId) === String(eventId) && Array.isArray(latest.data)) {
+                if (scrubRecordList(latest.data)) {
+                    localStorage.setItem('participantList_latest', JSON.stringify(latest));
+                }
+            }
+        }
+    }
+}
+
+function cacheParticipantsForEvent(eventId, list) {
+    if (!eventId) return;
+    const normalized = list.map(player => ({
+        player_id: player.uniqueKey || player.id || buildPlayerKey(player.name, player.idCard),
+        name: player.name,
+        real_name: player.name,
+        gender: player.gender,
+        age: player.age,
+        id_card: player.idCard,
+        registration_number: player.idCard,
+        phone: player.phone,
+        team_name: player.teamName,
+        teamId: player.teamId,
+        eventId: player.eventId,
+        pair_registered: player.pairRegistered || player.pair_registered || false,
+        team_registered: player.teamRegistered || false,
+        pair_partner_name: player.pairPartner || player.pair_partner_name || player.pairPartnerName || '',
+        pairPartner: player.pairPartner || player.pair_partner_name || player.pairPartnerName || '',
+        competition_event: player.competition_event || '',
+        selectedEvents: player.selectedEvents || []
+    }));
+    try {
+        localStorage.setItem(`participantList_${eventId}`, JSON.stringify(normalized));
+        localStorage.setItem('participantList_latest', JSON.stringify({ eventId, data: normalized }));
+    } catch (error) {
+        console.warn('缓存参赛人员列表失败:', error);
+    }
+}
+
+function getCachedParticipants(eventId) {
+    const cacheKey = `participantList_${eventId}`;
+    let cached = [];
+    try {
+        cached = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+    } catch (err) {
+        cached = [];
+    }
+    if ((!cached || !cached.length) && localStorage.getItem('participantList_latest')) {
+        try {
+            const latest = JSON.parse(localStorage.getItem('participantList_latest'));
+            if (latest && latest.eventId && String(latest.eventId) === String(eventId)) {
+                cached = latest.data || [];
+            }
+        } catch (err) {
+            cached = [];
+        }
+    }
+    return cached || [];
+}
+
+function redirectToEventSelection() {
+    window.location.href = '/event_selection?source=participant_overview';
+}
+
+// 从参赛人员列表返回“队员报名人员列表”
+function goBackToPlayerRegistrationList() {
+    if (!currentEventId) {
+        showMessage('请先选择赛事', 'warning');
+        setTimeout(() => {
+            redirectToEventSelection();
+        }, 800);
+        return;
+    }
+
+    const params = new URLSearchParams();
+    params.set('event_id', currentEventId);
+    if (currentEventName) {
+        params.set('event_name', currentEventName);
+    }
+
+    window.location.href = `/player_registration_list?${params.toString()}`;
+}
+
+// 从参赛人员列表进入“报名比赛管理”
+function goToDataSummary() {
+    if (!currentEventId) {
+        showMessage('请先选择赛事', 'warning');
+        setTimeout(() => {
+            redirectToEventSelection();
+        }, 800);
+        return;
+    }
+
+    const params = new URLSearchParams();
+    params.set('event_id', currentEventId);
+    if (currentEventName) {
+        params.set('event_name', currentEventName);
+    }
+
+    if (currentEventTeam && currentEventTeam.id) {
+        params.set('team_id', currentEventTeam.id);
+    }
+
+    window.location.href = `/data_summary?${params.toString()}`;
+}
+
+function updateProjectButton(eventId, eventName) {
+    const btn = document.getElementById('projectRegistrationBtn');
+    if (!btn) return;
+    if (!eventId || !eventName) {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+        return;
+    }
+    btn.disabled = false;
+    btn.classList.remove('disabled');
+}
+
+function showProjectModal() {
+    if (!currentEventId) {
+        showMessage('请先选择赛事', 'warning');
+        return;
+    }
+    const modalEl = document.getElementById('projectSelectionModal');
+    if (modalEl && window.bootstrap) {
+        const instance = new bootstrap.Modal(modalEl, { backdrop: false });
+        instance.show();
+    }
+}
+
+function handleProjectSelection(type) {
+    const modalEl = document.getElementById('projectSelectionModal');
+    if (modalEl && window.bootstrap) {
+        bootstrap.Modal.getInstance(modalEl)?.hide();
+    }
+    if (!currentEventId || !currentEventName) {
+        showMessage('请先选择赛事', 'warning');
+        return;
+    }
+    let eventType = '';
+    if (type === 'single') {
+        eventType = 'single_competition';
+    } else if (type === 'pair') {
+        eventType = 'pair_practice';
+    } else if (type === 'team') {
+        eventType = 'team_competition';
+    }
+
+    const params = new URLSearchParams();
+    params.set('event_id', currentEventId);
+    params.set('event_name', currentEventName);
+    if (eventType) {
+        params.set('event_type', eventType);
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const fallbackTeamId = urlParams.get('team_id');
+    const teamId = (currentEventTeam && currentEventTeam.id) ? currentEventTeam.id : fallbackTeamId;
+    if (teamId) {
+        params.set('team_id', teamId);
+    }
+
+    window.location.href = `/event_registration?${params.toString()}`;
+}
+</script>
+{% endblock %}

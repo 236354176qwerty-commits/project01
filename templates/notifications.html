@@ -1,0 +1,661 @@
+{% extends "base.html" %}
+
+{% block title %}我的通知 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="notifications-page">
+    <div class="notifications-container">
+        <div class="card border-0 shadow-sm">
+            <!-- 标题栏 -->
+            <div class="card-header">
+                <button class="back-btn" onclick="window.history.back()">
+                    <i class="fas fa-arrow-left me-1"></i>返回
+                </button>
+                <h4><i class="fas fa-bell me-2"></i>我的通知</h4>
+                <div class="header-actions">
+                    <button class="action-btn" onclick="loadNotifications()" title="刷新">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="action-btn ms-2" onclick="markAllAsRead()" title="全部标记为已读">
+                        <i class="fas fa-check-double"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 通知列表 -->
+            <div class="card-body notifications-list p-0">
+                <div id="notificationsList">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-2 text-muted">正在加载通知...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 分页控件 -->
+            <div class="card-footer bg-white border-top" id="paginationContainer" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div id="paginationInfo" class="text-muted">
+                        <!-- 分页信息将动态生成 -->
+                    </div>
+                    <nav aria-label="通知分页">
+                        <ul class="pagination mb-0" id="paginationControls">
+                            <!-- 分页按钮将动态生成 -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 通知详情模态框 -->
+<div class="modal fade" id="notificationDetailModal" tabindex="-1" aria-labelledby="notificationDetailTitle" aria-hidden="true" onclick="closeModalOnOutsideClick(event)">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="d-flex align-items-center w-100">
+                    <h5 class="modal-title me-2" id="notificationDetailTitle">通知详情</h5>
+                    <span id="notificationPriorityBadge"></span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="content-label mb-2">
+                    <strong>内容：</strong>
+                </div>
+                <div id="notificationDetailContent" class="py-3">
+                    <!-- 通知内容将动态填充 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 页面容器 */
+.notifications-page {
+    min-height: 100vh;
+    background: transparent;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 3rem 1rem 1rem 1rem;
+}
+
+.notifications-container {
+    background: transparent;
+    border: none;
+    padding: 0;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* 标题栏样式 - 与赛事选择页面一致 */
+.notifications-container .card-header {
+    background: #0b5ed7 !important;
+    color: white;
+    border: none;
+    border-radius: 0;
+    padding: 1.5rem 2rem;
+    position: relative;
+    box-shadow: none;
+    margin-bottom: 0;
+}
+
+.notifications-container .card-header h4 {
+    margin: 0;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+/* 返回按钮 */
+.back-btn {
+    position: absolute;
+    left: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.9);
+    border: 2px solid rgba(255,255,255,1);
+    color: #0b5ed7;
+    border-radius: 25px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.back-btn:hover {
+    background: white;
+    color: #0b5ed7;
+    transform: translateY(-50%) translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: white;
+}
+
+/* 右侧操作按钮 */
+.header-actions {
+    position: absolute;
+    right: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 0.5rem;
+}
+
+.action-btn {
+    background: rgba(255,255,255,0.9);
+    border: 2px solid rgba(255,255,255,1);
+    color: #0b5ed7;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+}
+
+.action-btn:hover {
+    background: white;
+    color: #0b5ed7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 内容列表区域 */
+.notifications-list {
+    background: white;
+    border-radius: 0;
+    min-height: 60vh;
+}
+
+/* 通知卡片 */
+.notification-card {
+    border-left: 4px solid #0d6efd;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.notification-card:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+.notification-card.unread {
+    background-color: #e7f3ff;
+    border-left-color: #0b5ed7;
+    font-weight: 500;
+}
+
+.notification-card.read {
+    background-color: #ffffff;
+    border-left-color: #dee2e6;
+}
+
+.notification-card.priority-important {
+    border-left-color: #ffc107;
+}
+
+.notification-card.priority-urgent {
+    border-left-color: #dc3545;
+}
+
+.priority-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.notification-icon {
+    font-size: 2rem;
+    opacity: 0.5;
+}
+
+/* 模态框样式优化 */
+#notificationDetailModal .modal-content {
+    border-radius: 15px;
+    box-shadow: 0 15px 60px rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+#notificationDetailModal .modal-dialog {
+    z-index: 1060;
+}
+
+#notificationDetailModal .modal-header {
+    background: #0b5ed7 !important;
+    color: white;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    padding: 1.5rem;
+}
+
+#notificationDetailModal .modal-body {
+    padding: 2rem;
+    min-height: 150px;
+    background-color: #f8f9fa;
+}
+
+#notificationDetailModal .content-label {
+    color: #495057;
+    font-size: 1.1rem;
+    padding-left: 0.25rem;
+}
+
+#notificationDetailContent {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+#notificationDetailContent p {
+    color: #495057;
+    font-size: 1rem;
+}
+
+/* 分页控件样式 */
+#paginationContainer {
+    padding: 1rem 2rem;
+}
+
+#paginationInfo {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.pagination {
+    margin: 0;
+}
+
+.pagination .page-link {
+    background-color: #0b5ed7;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    margin: 0 0.25rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0a52c6;
+    color: white;
+    font-weight: 600;
+}
+
+.pagination .page-link:hover {
+    background-color: #0a52c6;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(11, 94, 215, 0.4);
+}
+
+.pagination .page-item.disabled .page-link {
+    background-color: #cbd5e0;
+    color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.pagination .page-item.disabled .page-link:hover {
+    transform: none;
+    box-shadow: none;
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 全局变量：当前页码
+let currentPage = 1;
+const pageSize = 5;
+
+$(document).ready(function() {
+    loadNotifications(1);
+});
+
+function loadNotifications(page = 1) {
+    currentPage = page;
+    
+    $.ajax({
+        url: '/api/notifications/my',
+        method: 'GET',
+        data: {
+            page: page,
+            page_size: pageSize
+        },
+        success: function(response) {
+            const container = $('#notificationsList');
+            container.empty();
+
+            if (response.success && response.notifications && response.notifications.length > 0) {
+                response.notifications.forEach(function(notification) {
+                    const isRead = notification.is_read;
+                    const readClass = isRead ? 'read' : 'unread';
+                    const priorityClass = notification.priority !== 'normal' ? 
+                        `priority-${notification.priority}` : '';
+
+                    const priorityBadgeClass = {
+                        'normal': 'bg-secondary',
+                        'important': 'bg-warning text-dark',
+                        'urgent': 'bg-danger'
+                    }[notification.priority] || 'bg-secondary';
+
+                    const priorityText = {
+                        'normal': '普通',
+                        'important': '重要',
+                        'urgent': '紧急'
+                    }[notification.priority] || '普通';
+
+                    const icon = notification.priority === 'urgent' ? 'fa-exclamation-circle' :
+                                 notification.priority === 'important' ? 'fa-info-circle' :
+                                 'fa-bell';
+
+                    const notificationHtml = `
+                        <div class="notification-card ${readClass} ${priorityClass} border-bottom p-4" 
+                             data-notification-id="${notification.id}"
+                             data-is-read="${isRead}"
+                             data-priority-text="${priorityText}"
+                             data-priority-class="${priorityBadgeClass}"
+                             onclick="showNotificationModalByElement(this)">
+                            <div class="d-flex align-items-start">
+                                <div class="notification-icon me-3 text-primary">
+                                    <i class="fas ${icon}"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h5 class="mb-0 notification-title">${notification.title}</h5>
+                                        <div class="d-flex align-items-center">
+                                            ${notification.priority !== 'normal' ? 
+                                                `<span class="badge priority-badge ${priorityBadgeClass} me-2">${priorityText}</span>` : 
+                                                ''
+                                            }
+                                            ${!isRead ? '<span class="badge bg-info">未读</span>' : ''}
+                                        </div>
+                                    </div>
+                                    <div class="text-muted small">
+                                        <i class="fas fa-clock me-1"></i>
+                                        ${new Date(notification.created_at).toLocaleString('zh-CN')}
+                                    </div>
+                                    <div class="notification-content-hidden" style="display: none;">${notification.content}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    container.append(notificationHtml);
+                });
+                
+                // 渲染分页控件
+                renderPagination(response.pagination);
+            } else {
+                container.html(`
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-inbox fa-4x mb-3 opacity-25"></i>
+                        <h5>暂无通知</h5>
+                        <p>当前没有任何通知消息</p>
+                    </div>
+                `);
+                // 隐藏分页控件
+                $('#paginationContainer').hide();
+            }
+        },
+        error: function(xhr) {
+            $('#notificationsList').html(`
+                <div class="text-center py-5 text-danger">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                    <p>加载失败，请稍后重试</p>
+                    <button class="btn btn-primary mt-2" onclick="loadNotifications()">
+                        <i class="fas fa-redo me-1"></i>重试
+                    </button>
+                </div>
+            `);
+            console.error('加载通知失败:', xhr);
+        }
+    });
+}
+
+function showNotificationModalByElement(element) {
+    const $element = $(element);
+    
+    // 从元素中获取通知ID
+    const notificationId = $element.data('notification-id');
+    
+    // 从服务器实时获取最新的通知详情
+    $.ajax({
+        url: `/api/notifications/${notificationId}/detail`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.notification) {
+                const notification = response.notification;
+                
+                // 获取优先级信息
+                const priorityBadgeClass = {
+                    'normal': 'bg-secondary',
+                    'important': 'bg-warning text-dark',
+                    'urgent': 'bg-danger'
+                }[notification.priority] || 'bg-secondary';
+
+                const priorityText = {
+                    'normal': '普通',
+                    'important': '重要',
+                    'urgent': '紧急'
+                }[notification.priority] || '普通';
+                
+                // 调用显示模态框函数
+                showNotificationModal(
+                    notificationId, 
+                    notification.title, 
+                    notification.content, 
+                    priorityText, 
+                    priorityBadgeClass, 
+                    notification.is_read
+                );
+            } else {
+                showMessage('获取通知详情失败', 'error');
+            }
+        },
+        error: function(xhr) {
+            console.error('获取通知详情失败:', xhr);
+            showMessage('获取通知详情失败，请稍后重试', 'error');
+        }
+    });
+}
+
+function showNotificationModal(notificationId, title, content, priorityText, priorityBadgeClass, isRead) {
+    // 设置模态框标题和优先级徽章
+    $('#notificationDetailTitle').text(title);
+    
+    if (priorityText !== '普通') {
+        $('#notificationPriorityBadge').html(`<span class="badge priority-badge ${priorityBadgeClass}">${priorityText}</span>`);
+    } else {
+        $('#notificationPriorityBadge').html('');
+    }
+    
+    // 设置通知内容（保留换行）
+    $('#notificationDetailContent').html(`
+        <p class="mb-0" style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(content)}</p>
+    `);
+    
+    // 显示模态框（禁用背景遮罩）
+    const modal = new bootstrap.Modal(document.getElementById('notificationDetailModal'), {
+        backdrop: false,  // 禁用背景遮罩
+        keyboard: true    // 允许ESC键关闭
+    });
+    modal.show();
+    
+    // 如果是未读，标记为已读
+    if (!isRead) {
+        markAsRead(notificationId);
+    }
+}
+
+// HTML转义函数，防止XSS攻击
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 点击模态框外部关闭
+function closeModalOnOutsideClick(event) {
+    if (event.target.id === 'notificationDetailModal') {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('notificationDetailModal'));
+        if (modal) {
+            modal.hide();
+        }
+    }
+}
+
+function markAsRead(notificationId) {
+    $.ajax({
+        url: `/api/notifications/${notificationId}/read`,
+        method: 'POST',
+        success: function(response) {
+            if (response.success) {
+                // 刷新通知列表，保持当前页码
+                loadNotifications(currentPage);
+                
+                // 更新dashboard的通知计数
+                updateNotificationCount();
+            }
+        },
+        error: function(xhr) {
+            console.error('标记已读失败:', xhr);
+        }
+    });
+}
+
+function markAllAsRead() {
+    $.ajax({
+        url: '/api/notifications/mark-all-read',
+        method: 'POST',
+        success: function(response) {
+            if (response.success) {
+                showMessage('已将所有通知标记为已读', 'success');
+                loadNotifications(currentPage);
+                updateNotificationCount();
+            } else {
+                showMessage('操作失败：' + response.message, 'error');
+            }
+        },
+        error: function(xhr) {
+            showMessage('操作失败，请稍后重试', 'error');
+            console.error('标记全部已读失败:', xhr);
+        }
+    });
+}
+
+function updateNotificationCount() {
+    $.ajax({
+        url: '/api/dashboard/statistics',
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.statistics) {
+                // 更新页面上的通知计数（如果有的话）
+                const count = response.statistics.notifications || 0;
+                console.log('未读通知数:', count);
+            }
+        }
+    });
+}
+
+function renderPagination(pagination) {
+    if (!pagination || pagination.total === 0) {
+        $('#paginationContainer').hide();
+        return;
+    }
+    
+    const { page, page_size, total, total_pages } = pagination;
+    
+    // 显示分页容器
+    $('#paginationContainer').show();
+    
+    // 左侧：分页信息
+    const start = (page - 1) * page_size + 1;
+    const end = Math.min(page * page_size, total);
+    
+    if (total_pages <= 1) {
+        // 只有一页时，显示简化的信息
+        $('#paginationInfo').html(`共 ${total} 条记录`);
+    } else {
+        // 多页时，显示详细信息
+        $('#paginationInfo').html(`
+            显示 ${start}-${end} 条，共 ${total} 条记录 | 第 ${page}/${total_pages} 页
+        `);
+    }
+    
+    // 右侧：分页按钮
+    const paginationControls = $('#paginationControls');
+    paginationControls.empty();
+    
+    // 上一页
+    paginationControls.append(`
+        <li class="page-item ${page === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${page - 1}); return false;">上一页</a>
+        </li>
+    `);
+    
+    // 当前页数
+    paginationControls.append(`
+        <li class="page-item active">
+            <span class="page-link">${page}</span>
+        </li>
+    `);
+    
+    // 下一页
+    paginationControls.append(`
+        <li class="page-item ${page === total_pages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${page + 1}); return false;">下一页</a>
+        </li>
+    `);
+}
+
+function changePage(page) {
+    if (page < 1) return;
+    loadNotifications(page);
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showMessage(message, type) {
+    const alertClass = {
+        'success': 'alert-success',
+        'error': 'alert-danger',
+        'warning': 'alert-warning',
+        'info': 'alert-info'
+    }[type] || 'alert-info';
+
+    const icon = {
+        'success': 'fa-check-circle',
+        'error': 'fa-exclamation-circle',
+        'warning': 'fa-exclamation-triangle',
+        'info': 'fa-info-circle'
+    }[type] || 'fa-info-circle';
+
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed start-50 translate-middle-x" 
+             role="alert" style="z-index: 9999; min-width: 300px; top: 65%; transform: translate(-50%, -50%);">
+            <i class="fas ${icon} me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    $('body').append(alertHtml);
+    setTimeout(function() {
+        $('.alert').fadeOut(function() { $(this).remove(); });
+    }, 3000);
+}
+</script>
+{% endblock %}

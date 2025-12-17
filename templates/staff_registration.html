@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+
+{% block title %}随行人员登记 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <div class="row g-0">
+        <div class="col-12">
+            <!-- 页面标题 - 统一优雅设计 -->
+            <div class="page-header-card mx-3">
+                <div class="page-header-content">
+                    <div>
+                        <h2 class="page-title">
+                            <i class="fas fa-user-group me-2"></i>随行人员登记
+                        </h2>
+                        <p class="page-description mb-3">
+                            录入教练、领队、医务等随行人员信息，便于证件与权限统一管理
+                        </p>
+                        <!-- 显示选择的赛事信息 -->
+                        <div id="selectedEventInfo" class="mt-2" style="display: none;">
+                            <div class="alert alert-info py-2 mb-0 d-flex align-items-center" style="max-width: fit-content;">
+                                <i class="fas fa-trophy me-2"></i>
+                                <strong>当前赛事：</strong><span id="currentEventName"></span>
+                                <button class="btn btn-sm btn-outline-primary ms-2" onclick="changeEvent()">
+                                    <i class="fas fa-exchange-alt me-1"></i>更换赛事
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<style>
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #28a745 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+}
+
+.page-header-content {
+    padding: 1.75rem 2rem;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.page-title i {
+    color: #28a745;
+}
+
+.page-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+}
+</style>
+
+            <!-- 人员统计 -->
+            <div class="row g-3 px-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-chalkboard-teacher fa-2x mb-2"></i>
+                            <h4 id="coachCount">0</h4>
+                            <p class="mb-0">教练</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-user-md fa-2x mb-2"></i>
+                            <h4 id="managerCount">0</h4>
+                            <p class="mb-0">医务人员</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-user-friends fa-2x mb-2"></i>
+                            <h4 id="medicalCount">0</h4>
+                            <p class="mb-0">随行人员</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-users fa-2x mb-2"></i>
+                            <h4 id="totalCount">0</h4>
+                            <p class="mb-0">总人数</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 人员列表 -->
+            <div class="card shadow-sm mx-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>人员列表
+                    </h5>
+                    <button class="btn btn-primary" onclick="goToAddStaffPage()">
+                        <i class="fas fa-plus me-2"></i>添加人员
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="staffTable">
+                            <thead>
+                                <tr>
+                                    <th>姓名</th>
+                                    <th>职务</th>
+                                    <th>所属队伍</th>
+                                    <th>联系电话</th>
+                                    <th>身份证号</th>
+                                    <th>性别</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staffTableBody">
+                                <!-- 人员数据将通过JavaScript动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 无数据提示 -->
+                    <div id="noStaffData" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">暂无随行人员信息</h5>
+                        <p class="text-muted">点击上方"添加人员"按钮开始录入随行人员信息</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let staffList = [];
+let currentEditId = null;
+
+$(document).ready(function() {
+    // 检查登录状态
+    if (!checkLoginStatus()) {
+        return;
+    }
+    
+    // 加载随行人员列表
+    loadStaffList();
+    
+});
+
+function checkLoginStatus() {
+    if (!{{ 'true' if is_logged_in else 'false' }}) {
+        showCenterMessage('请先登录后再访问此页面', 'warning');
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 2000);
+        return false;
+    }
+    return true;
+}
+
+function loadStaffList() {
+    // 从localStorage加载人员数据
+    const storedStaffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+    
+    // 获取当前赛事ID，只显示当前赛事的人员
+    const currentEventId = sessionStorage.getItem('currentEventId');
+    
+    if (currentEventId) {
+        // 过滤出当前赛事的人员（通过队伍关联）
+        staffList = storedStaffList.filter(staff => {
+            // 这里可以根据实际需求调整过滤逻辑
+            return true; // 暂时显示所有人员
+        });
+    } else {
+        staffList = storedStaffList;
+    }
+    
+    // 如果没有数据，添加一些示例数据
+    if (staffList.length === 0) {
+        staffList = [
+            {
+                id: 'staff_example_1',
+                name: '张教练',
+                position: 'head_coach',
+                gender: 'male',
+                phone: '13800138001',
+                idCard: '110101199001011234',
+                status: 'active',
+                notes: '擅长长拳、太极拳教学',
+                teamName: '示例队伍',
+                teamLeader: '示例队长'
+            }
+        ];
+    }
+    
+    renderStaffTable();
+    updateStatistics();
+}
+
+function renderStaffTable() {
+    const tbody = $('#staffTableBody');
+    tbody.empty();
+    
+    if (staffList.length === 0) {
+        $('#noStaffData').show();
+        $('#staffTable').hide();
+        return;
+    }
+    
+    $('#noStaffData').hide();
+    $('#staffTable').show();
+    
+    staffList.forEach(staff => {
+        const row = `
+            <tr>
+                <td>${staff.name}</td>
+                <td>${getPositionText(staff.position)}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-users text-primary me-2"></i>
+                        <div>
+                            <div class="fw-bold">${staff.teamName || '未分配'}</div>
+                            <small class="text-muted">队长: ${staff.teamLeader || '未知'}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>${staff.phone}</td>
+                <td>${maskIdCard(staff.idCard)}</td>
+                <td>${extractGenderFromIdCard(staff.idCard)}</td>
+                <td>
+                    <span class="badge ${staff.status === 'active' ? 'bg-success' : 'bg-secondary'}">
+                        ${staff.status === 'active' ? '正常' : '停用'}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="editStaff('${staff.id}')" title="编辑">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteStaff('${staff.id}')" title="删除" style="padding: 0.4rem 0.8rem;">
+                            <i class="fas fa-trash" style="color: white; font-size: 1.1em;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+function updateStatistics() {
+    // 统计教练（包括新旧格式）
+    const coachCount = staffList.filter(s => 
+        s.position === 'coach' || 
+        s.position === 'head_coach' || 
+        s.position === 'assistant_coach'
+    ).length;
+    
+    // 统计医务人员（包括新旧格式）
+    const medicalCount = staffList.filter(s => 
+        s.position === 'medical' ||
+        s.position === 'doctor' || 
+        s.position === 'physiotherapist' || 
+        s.position === 'nutritionist'
+    ).length;
+    
+    // 统计随行人员（包括新旧格式）
+    const staffCount = staffList.filter(s => 
+        s.position === 'staff' ||
+        s.position === 'manager' || 
+        s.position === 'translator' || 
+        s.position === 'other'
+    ).length;
+    
+    $('#coachCount').text(coachCount);
+    $('#managerCount').text(medicalCount);  // 这个卡片显示医务人员
+    $('#medicalCount').text(staffCount);    // 这个卡片显示随行人员
+    $('#totalCount').text(staffList.length);
+}
+
+
+function editStaff(id) {
+    // 获取当前赛事信息
+    const currentEventId = sessionStorage.getItem('currentEventId');
+    const currentEventName = sessionStorage.getItem('currentEventName');
+    
+    if (!currentEventId || !currentEventName) {
+        showCenterMessage('请先选择赛事', 'warning');
+        return;
+    }
+    
+    // 跳转到编辑人员页面，传递人员ID和赛事信息
+    window.location.href = `/add_staff?event_id=${currentEventId}&event_name=${encodeURIComponent(currentEventName)}&edit_id=${id}`;
+}
+
+
+function deleteStaff(id) {
+    if (!confirm('确定要删除这个人员吗？')) {
+        return;
+    }
+    
+    // 从当前显示列表中删除
+    const index = staffList.findIndex(s => s.id === id);
+    if (index !== -1) {
+        staffList.splice(index, 1);
+        
+        // 同时从localStorage中删除
+        const storedStaffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+        const storedIndex = storedStaffList.findIndex(s => s.id === id);
+        if (storedIndex !== -1) {
+            storedStaffList.splice(storedIndex, 1);
+            localStorage.setItem('staffList', JSON.stringify(storedStaffList));
+        }
+        
+        renderStaffTable();
+        updateStatistics();
+        showCenterMessage('人员删除成功！', 'success');
+    }
+}
+
+// 跳转到添加人员页面
+function goToAddStaffPage() {
+    // 获取当前赛事信息
+    const currentEventId = sessionStorage.getItem('currentEventId');
+    const currentEventName = sessionStorage.getItem('currentEventName');
+    
+    if (!currentEventId || !currentEventName) {
+        showCenterMessage('请先选择赛事', 'warning');
+        return;
+    }
+    
+    // 跳转到添加人员页面，传递赛事信息
+    window.location.href = `/add_staff?event_id=${currentEventId}&event_name=${encodeURIComponent(currentEventName)}`;
+}
+
+function getPositionText(position) {
+    const positions = {
+        'coach': '教练',
+        'medical': '医务人员',
+        'staff': '随行人员',
+        // 兼容旧数据
+        'head_coach': '教练',
+        'assistant_coach': '教练',
+        'manager': '随行人员',
+        'doctor': '医务人员',
+        'physiotherapist': '医务人员',
+        'nutritionist': '医务人员',
+        'translator': '随行人员',
+        'other': '随行人员'
+    };
+    return positions[position] || position;
+}
+
+function maskIdCard(idCard) {
+    if (!idCard || idCard.length < 8) return idCard;
+    return idCard.substring(0, 6) + '****' + idCard.substring(idCard.length - 4);
+}
+
+// 从身份证号提取性别
+function extractGenderFromIdCard(idCard) {
+    if (!idCard || idCard.length !== 18) return '-';
+    
+    // 第17位数字：奇数为男，偶数为女
+    const genderDigit = parseInt(idCard.charAt(16));
+    
+    if (isNaN(genderDigit)) return '-';
+    
+    return genderDigit % 2 === 1 ? '男' : '女';
+}
+
+// 页面加载时检查URL参数中的赛事信息
+$(document).ready(function() {
+    checkEventFromUrl();
+    
+    // 定期检查并确保赛事信息显示
+    setInterval(ensureEventInfoVisible, 1000);
+});
+
+// 检查URL中的赛事参数
+function checkEventFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    
+    // 优先从URL参数获取，其次从sessionStorage获取
+    const storedEventId = sessionStorage.getItem('currentEventId');
+    const storedEventName = sessionStorage.getItem('currentEventName');
+    
+    const finalEventId = eventId || storedEventId;
+    const finalEventName = eventName || storedEventName;
+    
+    if (finalEventId && finalEventName) {
+        // 显示选择的赛事信息
+        $('#currentEventName').text(decodeURIComponent(finalEventName));
+        $('#selectedEventInfo').show();
+        
+        // 存储当前赛事信息
+        sessionStorage.setItem('currentEventId', finalEventId);
+        sessionStorage.setItem('currentEventName', finalEventName);
+        
+        // 移除可能存在的选择赛事提示
+        $('#eventPrompt').remove();
+    } else {
+        // 如果没有赛事信息，显示选择赛事的提示
+        showEventSelectionPrompt();
+    }
+}
+
+// 确保赛事信息始终可见
+function ensureEventInfoVisible() {
+    const storedEventId = sessionStorage.getItem('currentEventId');
+    const storedEventName = sessionStorage.getItem('currentEventName');
+    
+    if (storedEventId && storedEventName) {
+        // 如果有存储的赛事信息但界面没有显示，则重新显示
+        if ($('#selectedEventInfo').is(':hidden')) {
+            $('#currentEventName').text(decodeURIComponent(storedEventName));
+            $('#selectedEventInfo').show();
+        }
+        
+        // 确保赛事名称正确显示
+        if ($('#currentEventName').text() !== decodeURIComponent(storedEventName)) {
+            $('#currentEventName').text(decodeURIComponent(storedEventName));
+        }
+        
+        // 移除可能存在的选择赛事提示
+        $('#eventPrompt').remove();
+    }
+}
+
+// 显示选择赛事的提示
+function showEventSelectionPrompt() {
+    const promptHtml = `
+        <div class="alert alert-warning" id="eventPrompt">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <div class="flex-grow-1">
+                    <strong>请先选择赛事</strong>
+                    <p class="mb-0 small">您需要先选择一个赛事才能进行随行人员登记</p>
+                </div>
+                <button class="btn btn-warning btn-sm" onclick="selectEventForStaff()">
+                    <i class="fas fa-trophy me-1"></i>选择赛事
+                </button>
+            </div>
+        </div>
+    `;
+    
+    $('.container-fluid .row .col-12').prepend(promptHtml);
+}
+
+// 选择赛事（用于随行人员登记）
+function selectEventForStaff() {
+    // 跳转回主页面的赛事选择
+    window.location.href = '/#staff-event-selection';
+}
+
+// 更换赛事
+function changeEvent() {
+    // 跳转到赛事选择页面
+    window.location.href = '/event_selection?source=staff';
+}
+
+// 显示更换赛事的确认模态框
+function showChangeEventModal() {
+    const modalHtml = `
+        <div class="modal fade" id="changeEventModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white;">
+                        <h5 class="modal-title">
+                            <i class="fas fa-exclamation-triangle me-2"></i>确认更换赛事
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-exchange-alt fa-3x text-warning mb-3"></i>
+                        </div>
+                        <h6 class="mb-3">您确定要更换赛事吗？</h6>
+                        <p class="text-muted mb-0">
+                            更换赛事将清空当前页面的所有数据，<br>
+                            包括已添加的随行人员信息。
+                        </p>
+                        <div class="alert alert-warning mt-3 py-2">
+                            <small><i class="fas fa-info-circle me-1"></i>此操作不可撤销，请谨慎操作</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>取消
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="confirmChangeEvent()">
+                            <i class="fas fa-check me-1"></i>确认更换
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除已存在的模态框
+    $('#changeEventModal').remove();
+    
+    // 添加新的模态框到页面
+    $('body').append(modalHtml);
+    
+    // 显示模态框
+    $('#changeEventModal').modal('show');
+}
+
+// 确认更换赛事
+function confirmChangeEvent() {
+    // 关闭模态框
+    $('#changeEventModal').modal('hide');
+    
+    // 显示处理中的提示
+    showCenterMessage('正在更换赛事...', 'info');
+    
+    // 延迟执行以显示提示信息
+    setTimeout(() => {
+        // 清除存储的赛事信息
+        sessionStorage.removeItem('currentEventId');
+        sessionStorage.removeItem('currentEventName');
+        
+        // 跳转回主页面重新选择赛事
+        window.location.href = '/';
+    }, 1000);
+}
+</script>
+{% endblock %}

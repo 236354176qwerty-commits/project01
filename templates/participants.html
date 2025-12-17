@@ -1,0 +1,3617 @@
+{% extends "base.html" %}
+
+{% block title %}参赛者管理 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<!-- 页面标题 - 统一优雅设计 -->
+<div class="page-header-card">
+    <div class="page-header-content">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="fas fa-users me-2"></i>参赛者管理
+                </h1>
+                <p class="page-description">
+                    管理所有参赛者信息和状态
+                </p>
+            </div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-success" onclick="exportParticipants()">
+                    <i class="fas fa-download me-1"></i>导出赛事人员编排表
+                </button>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-primary" onclick="exportTeamFees()">
+                        <i class="fas fa-download me-1"></i>导出队伍费用统计表
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="refreshParticipants()">
+                        <i class="fas fa-sync-alt me-1"></i>刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #28a745 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+}
+
+.page-header-content {
+    padding: 1.75rem 2rem;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.page-title i {
+    color: #28a745;
+}
+
+.page-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+}
+
+/* 年龄组徽章样式 */
+.bg-orange {
+    background-color: #fd7e14 !important;
+    color: white !important;
+}
+
+.badge {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 0.25rem;
+}
+
+/* 搜索按钮样式 */
+.btn-search {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.btn-search:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+    color: white;
+}
+
+.btn-search:focus,
+.btn-search:active {
+    background-color: #545b62;
+    border-color: #4e555b;
+    color: white;
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.5);
+}
+
+/* 移除下拉框选项左侧的黑色竖条 */
+.form-select option {
+    border-left: none !important;
+    padding-left: 0.75rem;
+}
+
+.form-select option:checked,
+.form-select option:hover,
+.form-select option:focus {
+    border-left: none !important;
+    background-color: #e9ecef;
+}
+
+/* 表格美化样式 */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+/* 参赛者列表区域增加内部滚动条，避免整页过长 */
+.participants-table-wrapper {
+    max-height: 500px;
+    overflow-y: auto;
+    overflow-x: scroll;
+    scrollbar-gutter: stable;
+}
+
+/* 参赛者列表表格：增加最小宽度，允许左右滚动查看所有列 */
+.participants-table {
+    min-width: 1400px;
+    width: max-content;
+    table-layout: auto !important;
+}
+
+/* 身份证列：禁止换行，始终单行显示，超出通过横向滚动查看 */
+.id-card-col,
+.id-card-cell {
+    white-space: nowrap;
+    word-break: normal;
+}
+
+.table {
+    margin-bottom: 0;
+    min-width: 1050px; /* 确保表格有足够宽度 */
+    table-layout: fixed; /* 固定表格布局 */
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    padding: 12px 10px;
+    vertical-align: middle;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table tbody td {
+    padding: 12px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e9ecef;
+    white-space: nowrap; /* 默认不换行，超出通过横向滚动查看完整内容 */
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* 列宽优化 - 固定宽度 */
+.table th:nth-child(1),
+.table td:nth-child(1) { width: 60px; text-align: center; min-width: 60px; } /* 序号 */
+.table th:nth-child(2),
+.table td:nth-child(2) { width: 120px; min-width: 120px; } /* 姓名 */
+.table th:nth-child(3),
+.table td:nth-child(3) { width: 80px; text-align: center; min-width: 80px; } /* 性别 */
+.table th:nth-child(4),
+.table td:nth-child(4) { width: 80px; text-align: center; min-width: 80px; } /* 年龄 */
+.table th:nth-child(5),
+.table td:nth-child(5) { min-width: 150px; flex: 1; } /* 所属队伍 */
+.table th:nth-child(6),
+.table td:nth-child(6) { width: 100px; text-align: center; min-width: 100px; } /* 年龄组 */
+.table th:nth-child(7),
+.table td:nth-child(7) { min-width: 200px; flex: 2; white-space: normal; } /* 参赛项目 - 允许换行 */
+.table th:nth-child(8),
+.table td:nth-child(8) { width: 100px; text-align: center; min-width: 100px; } /* 操作 */
+
+/* 响应式设计 - 小屏幕适配 */
+@media (max-width: 768px) {
+    .table th:nth-child(1),
+    .table td:nth-child(1) { width: 50px; min-width: 50px; font-size: 0.85rem; } /* 序号 */
+    .table th:nth-child(2),
+    .table td:nth-child(2) { width: 100px; min-width: 100px; font-size: 0.85rem; } /* 姓名 */
+    .table th:nth-child(3),
+    .table td:nth-child(3) { width: 60px; min-width: 60px; font-size: 0.85rem; } /* 性别 */
+    .table th:nth-child(4),
+    .table td:nth-child(4) { width: 60px; min-width: 60px; font-size: 0.85rem; } /* 年龄 */
+    .table th:nth-child(5),
+    .table td:nth-child(5) { min-width: 120px; font-size: 0.85rem; } /* 所属队伍 */
+    .table th:nth-child(6),
+    .table td:nth-child(6) { width: 80px; min-width: 80px; font-size: 0.85rem; } /* 年龄组 */
+    .table th:nth-child(7),
+    .table td:nth-child(7) { min-width: 150px; font-size: 0.85rem; } /* 参赛项目 */
+    .table th:nth-child(8),
+    .table td:nth-child(8) { width: 80px; min-width: 80px; font-size: 0.85rem; } /* 操作 */
+    
+    .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+}
+
+@media (max-width: 576px) {
+    .table th:nth-child(1),
+    .table td:nth-child(1) { width: 40px; min-width: 40px; font-size: 0.8rem; } /* 序号 */
+    .table th:nth-child(2),
+    .table td:nth-child(2) { width: 80px; min-width: 80px; font-size: 0.8rem; } /* 姓名 */
+    .table th:nth-child(3),
+    .table td:nth-child(3) { width: 50px; min-width: 50px; font-size: 0.8rem; } /* 性别 */
+    .table th:nth-child(4),
+    .table td:nth-child(4) { width: 50px; min-width: 50px; font-size: 0.8rem; } /* 年龄 */
+    .table th:nth-child(5),
+    .table td:nth-child(5) { min-width: 100px; font-size: 0.8rem; } /* 所属队伍 */
+    .table th:nth-child(6),
+    .table td:nth-child(6) { width: 70px; min-width: 70px; font-size: 0.8rem; } /* 年龄组 */
+    .table th:nth-child(7),
+    .table td:nth-child(7) { min-width: 120px; font-size: 0.8rem; } /* 参赛项目 */
+    .table th:nth-child(8),
+    .table td:nth-child(8) { width: 70px; min-width: 70px; font-size: 0.8rem; } /* 操作 */
+    
+    .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+}
+
+/* 滚动条美化 */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* 参赛者列表横向滚动条加粗，便于拖动 */
+.participants-table-wrapper::-webkit-scrollbar {
+    height: 12px;
+}
+
+.participants-table-wrapper::-webkit-scrollbar-track {
+    background: #d1d5db;
+    border-radius: 6px;
+}
+
+.participants-table-wrapper::-webkit-scrollbar-thumb {
+    background: #6b7280;
+    border-radius: 6px;
+}
+
+.participants-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+}
+</style>
+
+<!-- 筛选和搜索栏 -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label for="eventFilter" class="form-label">选择赛事</label>
+                <select class="form-select" id="eventFilter" onchange="filterParticipants()">
+                    <option value="">全部赛事</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="categoryFilter" class="form-label">项目筛选</label>
+                <select class="form-select" id="categoryFilter" onchange="filterParticipants()">
+                    <option value="">全部项目</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="ageGroupFilter" class="form-label">年龄组筛选</label>
+                <select class="form-select" id="ageGroupFilter" onchange="filterParticipants()">
+                    <option value="">全部年龄组</option>
+                    <option value="儿童组">儿童组(A组) (12岁以下)</option>
+                    <option value="少年组">少年组(B组) (12-17岁)</option>
+                    <option value="青年组">青年组(C组) (18-39岁)</option>
+                    <option value="中年组">中年组(D组) (40-59岁)</option>
+                    <option value="老年组">老年组(E组) (60岁及以上)</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="genderFilter" class="form-label">性别筛选</label>
+                <select class="form-select" id="genderFilter" onchange="filterParticipants()">
+                    <option value="">全部性别</option>
+                    <option value="男">男</option>
+                    <option value="女">女</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="searchInput" class="form-label">搜索</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="searchInput" placeholder="姓名/队伍名称">
+                    <button class="btn btn-search" onclick="searchParticipants()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- 参赛者列表 -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0">
+        <h5 class="card-title mb-0">参赛者列表</h5>
+    </div>
+    <div class="card-body">
+        <!-- 加载状态 -->
+        <div id="loading-participants" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3 text-muted loading-text">正在加载参赛者信息...</p>
+        </div>
+
+        <!-- 参赛者表格 -->
+        <div id="participants-table" style="display: none;">
+            <div class="table-responsive participants-table-wrapper">
+                <table class="table table-hover participants-table">
+                    <thead>
+                        <tr>
+                            <th width="60" class="text-center">序号</th>
+                            <th width="120" class="text-center">姓名</th>
+                            <th width="80" class="text-center">性别</th>
+                            <th width="80" class="text-center">年龄</th>
+                            <th width="100" class="text-center">年龄组</th>
+                            <th width="140" class="text-center">手机号</th>
+                            <th width="180" class="text-center id-card-col">身份证</th>
+                            <th class="text-center">所属队伍</th>
+                            <th class="text-center">参赛项目</th>
+                        </tr>
+                    </thead>
+                    <tbody id="participants-tbody">
+                        <!-- 表格行将通过JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页 - 在表格下方 -->
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                <!-- 左侧：页数信息 -->
+                <div id="pagination-info" class="text-muted">
+                    <!-- 页数信息将通过JavaScript动态生成 -->
+                </div>
+                
+                <!-- 右侧：分页按钮 -->
+                <nav aria-label="参赛者分页">
+                    <ul class="pagination mb-0" id="participants-pagination">
+                        <!-- 分页按钮将通过JavaScript动态生成 -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- 无数据提示 -->
+        <div id="no-participants" class="text-center py-5" style="display: none;">
+            <i class="fas fa-users-slash fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">暂无参赛者信息</h5>
+            <p class="text-muted">当前筛选条件下没有找到参赛者</p>
+        </div>
+    </div>
+</div>
+
+<!-- 选择赛事模态框 -->
+<div class="modal fade" id="selectEventModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trophy me-2"></i>选择要导出的赛事
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-calendar-alt me-2"></i>选择赛事
+                        <span class="text-danger">*</span>
+                    </label>
+                    <select class="form-select" id="exportEventSelect">
+                        <option value="">-- 请选择赛事 --</option>
+                    </select>
+                    <small class="text-muted">请选择要导出参赛数据的赛事</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" onclick="confirmExportEvent()">
+                    <i class="fas fa-download me-2"></i>确认导出
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 赛事切换模态框 -->
+<div class="modal fade" id="eventSwitchModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exchange-alt me-2"></i>切换赛事
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-trophy me-2"></i>选择赛事
+                        <span class="text-danger">*</span>
+                    </label>
+                    <select class="form-select" id="eventSwitchSelect">
+                        <option value="">-- 请选择要切换的赛事 --</option>
+                    </select>
+                    <small class="text-muted">选择后将在当前页面更新参赛人员数据</small>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>提示：</strong>切换赛事后，当前页面的筛选条件和搜索内容将保持不变
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="confirmEventSwitch()">
+                    <i class="fas fa-check me-2"></i>确认切换
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 参赛者详情模态框 -->
+<div class="modal fade" id="participantDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">参赛者详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="participantDetailContent">
+                <!-- 详情内容将通过JavaScript动态生成 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <div id="participantDetailActions">
+                    <!-- 操作按钮将动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- SheetJS库用于Excel导出 - 使用国内CDN -->
+<script src="https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- 赛事费用管理 -->
+<script src="{{ url_for('static', filename='js/event_fees.js') }}"></script>
+
+<script>
+let allParticipants = [];
+let filteredParticipants = [];
+let selectedParticipants = [];
+let currentPage = 1;
+let itemsPerPage = 20;
+let isDbMode = false;
+let serverTotal = 0;
+let serverTotalPages = 1;
+
+// 全局变量存储赛事数据
+let eventsData = [];
+
+// 赛事切换相关全局变量
+let selectedEventId = null;
+let selectedEventName = null;
+
+async function cleanupDeletedSubmittedSnapshots() {
+    const snapshotKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('submittedTeamData_')) {
+            snapshotKeys.push(key);
+        }
+    }
+
+    if (snapshotKeys.length === 0) {
+        return;
+    }
+
+    const snapshotMap = {};
+    const teamIds = new Set();
+
+    snapshotKeys.forEach(key => {
+        let parsed = [];
+        try {
+            parsed = JSON.parse(localStorage.getItem(key) || '[]');
+            if (!Array.isArray(parsed)) {
+                parsed = [];
+            }
+        } catch (error) {
+            console.warn('解析 submittedTeamData 失败，将清空:', key, error);
+            parsed = [];
+        }
+        snapshotMap[key] = parsed;
+        parsed.forEach(snapshot => {
+            const teamId = extractTeamIdFromSnapshot(snapshot);
+            if (teamId) {
+                teamIds.add(String(teamId));
+            }
+        });
+    });
+
+    if (teamIds.size === 0) {
+        snapshotKeys.forEach(key => localStorage.removeItem(key));
+        return;
+    }
+
+    const existenceEntries = await Promise.all(Array.from(teamIds).map(async teamId => {
+        const exists = await checkTeamStillExists(teamId);
+        return [teamId, exists];
+    }));
+    const existenceMap = Object.fromEntries(existenceEntries);
+
+    snapshotKeys.forEach(key => {
+        const filtered = (snapshotMap[key] || []).filter(snapshot => {
+            const teamId = extractTeamIdFromSnapshot(snapshot);
+            if (!teamId) {
+                return false;
+            }
+            return existenceMap[String(teamId)] !== false;
+        });
+
+        if (filtered.length === 0) {
+            localStorage.removeItem(key);
+        } else {
+            localStorage.setItem(key, JSON.stringify(filtered));
+        }
+    });
+}
+
+async function checkTeamStillExists(teamId) {
+    try {
+        const response = await fetch(`/api/team/${teamId}`);
+        if (!response.ok) {
+            return false;
+        }
+        const data = await response.json();
+        if (!data || data.success === false || !data.team) {
+            return false;
+        }
+        return data.team.status !== 'deleted';
+    } catch (error) {
+        console.warn('检查队伍状态失败，暂不清理以避免误删:', teamId, error);
+        return true;
+    }
+}
+
+function extractTeamIdFromSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+        return null;
+    }
+    if (snapshot.teamId) {
+        return snapshot.teamId;
+    }
+    if (snapshot.team && (snapshot.team.id || snapshot.team.teamId)) {
+        return snapshot.team.id || snapshot.team.teamId;
+    }
+    return null;
+}
+
+
+$(document).ready(function() {
+    // 先检查URL参数，获取当前选择的赛事
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    
+    console.log('URL参数 - event_id:', eventId, 'event_name:', eventName);
+    
+    // 先加载赛事数据，再加载参赛者
+    loadEventsFromAPI().then(() => {
+        // 如果URL中有赛事参数，自动选择该赛事
+        if (eventId) {
+            selectEventFromURL(eventId, eventName);
+        } else {
+            loadParticipants();
+        }
+    });
+    
+    // 搜索框回车事件
+    $('#searchInput').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchParticipants();
+        }
+    });
+});
+
+// 根据URL参数自动选择赛事并加载数据
+async function selectEventFromURL(eventId, eventName) {
+    console.log('根据URL参数选择赛事:', eventId, eventName);
+    
+    // 显示加载状态
+    showLoading('正在加载赛事数据...');
+    
+    // 查找对应的赛事对象
+    const event = eventsData.find(e => 
+        String(e.id) === String(eventId) || 
+        String(e.event_id) === String(eventId) ||
+        String(e.eventId) === String(eventId)
+    );
+    
+    if (event) {
+        // 设置当前选中的赛事
+        selectedEventId = eventId;
+        selectedEventName = eventName || event.name;
+        
+        // 更新页面标题显示当前赛事
+        updatePageTitleWithEvent(selectedEventName);
+        
+        // 更新赛事筛选下拉框
+        $('#eventFilter').val(eventId);
+        
+        // 恢复用户偏好设置（分页、筛选条件等）
+        restoreUserPreferences();
+        
+        // 立即加载该赛事的参赛者数据
+        await loadParticipants();
+        
+        console.log('已根据URL参数选择赛事:', selectedEventName);
+    } else {
+        console.warn('未找到匹配的赛事，使用默认加载');
+        await loadParticipants();
+    }
+}
+
+// 保存用户偏好设置到URL
+function saveUserPreferencesToURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 保存分页状态
+    if (currentPage > 1) {
+        urlParams.set('page', currentPage.toString());
+    } else {
+        urlParams.delete('page');
+    }
+    
+    // 保存搜索条件
+    const searchTerm = $('#searchInput').val().trim();
+    if (searchTerm) {
+        urlParams.set('search', searchTerm);
+    } else {
+        urlParams.delete('search');
+    }
+    
+    // 保存筛选条件
+    const categoryFilter = $('#categoryFilter').val();
+    if (categoryFilter) {
+        urlParams.set('category', categoryFilter);
+    } else {
+        urlParams.delete('category');
+    }
+    
+    const ageGroupFilter = $('#ageGroupFilter').val();
+    if (ageGroupFilter) {
+        urlParams.set('age_group', ageGroupFilter);
+    } else {
+        urlParams.delete('age_group');
+    }
+    
+    const genderFilter = $('#genderFilter').val();
+    if (genderFilter) {
+        urlParams.set('gender', genderFilter);
+    } else {
+        urlParams.delete('gender');
+    }
+    
+    // 更新URL（不刷新页面）
+    const newUrl = window.location.pathname + '?' + urlParams.toString();
+    window.history.replaceState(null, '', newUrl);
+}
+
+// 从URL恢复用户偏好设置
+function restoreUserPreferences() {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 恢复分页状态
+    const pageParam = urlParams.get('page');
+    if (pageParam && !isNaN(pageParam)) {
+        currentPage = parseInt(pageParam);
+    }
+    
+    // 恢复搜索条件
+    const searchParam = urlParams.get('search');
+    if (searchParam) {
+        $('#searchInput').val(searchParam);
+    }
+    
+    // 恢复筛选条件
+    const categoryParam = urlParams.get('category');
+    if (categoryParam) {
+        $('#categoryFilter').val(categoryParam);
+    }
+    
+    const ageGroupParam = urlParams.get('age_group');
+    if (ageGroupParam) {
+        $('#ageGroupFilter').val(ageGroupParam);
+    }
+    
+    const genderParam = urlParams.get('gender');
+    if (genderParam) {
+        $('#genderFilter').val(genderParam);
+    }
+}
+
+// 更新页面标题显示当前赛事
+function updatePageTitleWithEvent(eventName) {
+    const titleElement = $('.page-title');
+    if (titleElement.length > 0 && eventName) {
+        titleElement.html(`<i class=\"fas fa-users me-2\"></i>参赛者管理 - ${eventName}`);
+    }
+}
+
+// 从API加载赛事数据
+function loadEventsFromAPI() {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: '/api/events/',
+            method: 'GET',
+            success: function(response) {
+                if (response.success && response.events) {
+                    // 转换API数据格式
+                    eventsData = response.events.map(event => ({
+                        id: event.event_id,
+                        event_id: event.event_id,
+                        eventId: event.event_id,
+                        name: event.name,
+                        location: event.location || '',
+                        status: event.status,
+                        start_date: event.start_date,
+                        end_date: event.end_date
+                    }));
+                    
+                    console.log('从API加载赛事成功:', eventsData.length);
+                    
+                    // 更新赛事筛选下拉框
+                    updateEventFilter();
+                    resolve();
+                } else {
+                    console.error('API返回数据格式错误');
+                    reject(new Error('API返回数据格式错误'));
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('加载赛事列表失败:', error);
+                showCenterMessage('加载赛事列表失败', 'error');
+                reject(error);
+            }
+        });
+    });
+}
+
+// 更新赛事筛选下拉框
+function updateEventFilter() {
+    const eventFilter = $('#eventFilter');
+    eventFilter.empty().append('<option value="">全部赛事</option>');
+    
+    eventsData.forEach(function(event) {
+        eventFilter.append(`<option value="${event.id}">${event.name}</option>`);
+    });
+    
+    console.log('已更新赛事筛选列表:', eventsData.length);
+}
+
+async function loadParticipants() {
+    showLoading();
+    await cleanupDeletedSubmittedSnapshots();
+    
+    try {
+        // 1. 优先尝试后端 DB 模式（所有筛选/分页由后端完成）
+        try {
+            const data = await fetchParticipantsFromServer(1);
+            if (data && data.success && (data.total || filteredParticipants.length > 0)) {
+                allParticipants = filteredParticipants.slice();
+                console.log('从后端加载参赛者成功，总数:', serverTotal);
+                
+                displayParticipants();
+                updateCategories();
+                updateAgeGroups();
+                updateGenders();
+                hideLoading();
+                return;
+            }
+        } catch (e) {
+            console.error('从后端加载参赛者失败，将尝试使用本地快照:', e);
+        }
+        
+        // 2. 后端无数据或失败时，回退到本地 submittedTeamData_ 快照
+        // 从提交快照中读取数据（超级管理员看到的是已提交的数据）
+        console.log('=== 参赛者管理页面数据加载（从提交快照） ===');
+        
+        // 收集所有赛事的提交快照
+        let allSubmittedPlayers = [];
+        let snapshotPlayers = [];
+        
+        // 遍历所有submittedTeamData_键
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('submittedTeamData_')) {
+                const submittedTeams = JSON.parse(localStorage.getItem(key) || '[]');
+                console.log(`从 ${key} 加载了 ${submittedTeams.length} 个已提交队伍`);
+                
+                // 从每个快照中提取选手数据，并附加队伍和赛事信息
+                submittedTeams.forEach(snapshot => {
+                    const players = snapshot.players || [];
+                    const team = snapshot.team || {};
+                    
+                    // 处理所有选手（包括个人赛、对练、团体赛）
+                    // 对练和团体赛的选手已经包含在players数组中，通过competition_event字段区分
+                    const playersWithTeamInfo = players.map(player => ({
+                        ...player,
+                        _teamName: team.teamName || player.teamName,
+                        _eventName: team.eventName || player.eventName,
+                        _eventId: team.eventId || player.eventId
+                    }));
+                    
+                    snapshotPlayers = snapshotPlayers.concat(playersWithTeamInfo);
+                });
+            }
+        }
+        
+        console.log('从提交快照加载的选手总数:', snapshotPlayers.length);
+        console.log('赛事列表(从API):', eventsData.length);
+        
+        // 从API获取数据库中的真实数据（以数据库为主）
+        let dbPlayers = [];
+        console.log('尝试从API获取数据库参赛者数据...');
+        try {
+            const response = await fetch('/api/participants/list?per_page=200');
+            const data = await response.json();
+            
+            if (data.success && data.participants && data.participants.length > 0) {
+                console.log('从API获取到参赛者数据:', data.participants.length, '条');
+                
+                // 转换API数据格式为前端需要的格式（优先使用后端已经计算好的字段）
+                dbPlayers = data.participants.map(p => ({
+                    name: p.real_name || p.participant_name || '未知',
+                    idCard: p.registration_number || '',
+                    phone: p.phone || '',
+                    competition_event: p.category || '个人项目',
+                    category: p.category || '个人项目',
+                    _teamName: '个人参赛',
+                    _eventName: p.event_name || '未知赛事',
+                    _eventId: p.event_id,
+                    status: p.status || 'registered',
+                    gender: p.gender || '',
+                    age: p.age || '',
+                    age_group: normalizeAgeGroupLabel(p.age_group || ''),
+                    participant_id: p.participant_id,
+                    event_member_no: p.event_member_no,
+                    user_id: p.user_id
+                }));
+                
+                console.log('转换后的参赛者数据(数据库):', dbPlayers.length, '条');
+            } else {
+                console.log('API返回空数据或失败:', data.message || '未知错误');
+            }
+        } catch (error) {
+            console.error('从API获取参赛者数据失败:', error);
+        }
+
+        // 以数据库数据为主，如果数据库无数据，则回退到本地快照
+        if (dbPlayers.length > 0) {
+            allSubmittedPlayers = dbPlayers;
+            isDbMode = true;
+        } else {
+            allSubmittedPlayers = snapshotPlayers;
+            isDbMode = false;
+        }
+        
+        // 统计对练和团体赛选手数量
+        const duilianCount = allSubmittedPlayers.filter(p => {
+            const compEvent = p.competition_event || p.category || '';
+            return compEvent.includes('对练');
+        }).length;
+        const groupTeamCount = allSubmittedPlayers.filter(p => {
+            const compEvent = p.competition_event || p.category || '';
+            return compEvent.includes('团体赛');
+        }).length;
+        console.log('对练选手数量:', duilianCount);
+        console.log('团体赛选手数量:', groupTeamCount);
+        
+        if (eventsData.length > 0) {
+            console.log('赛事数据示例:', eventsData[0]);
+        }
+        if (allSubmittedPlayers.length > 0) {
+            console.log('选手数据示例:', allSubmittedPlayers[0]);
+            console.log('前3个选手的项目信息:');
+            allSubmittedPlayers.slice(0, 3).forEach((p, i) => {
+                console.log(`选手${i + 1}:`, {
+                    姓名: p.name,
+                    competition_event: p.competition_event,
+                    category: p.category,
+                    selectedEvents: p.selectedEvents
+                });
+            });
+        }
+        
+        const participantsArray = [];
+        
+        // 处理快照中的选手数据（DB 数据优先使用后端已经计算好的字段）
+        allSubmittedPlayers.forEach(player => {
+            // 只处理参赛选手，排除随行人员
+            const isPlayer = !player.role || player.role === 'player';
+            
+            if (isPlayer) {
+                const idCard = player.idCard || player.registration_number || '';
+                let autoGender = '';
+                let autoAge = '';
+
+                // 仅在后端/数据源未提供 gender/age 时，才从身份证中推导，避免重复计算
+                if ((!player.gender || player.gender === '-') && idCard) {
+                    autoGender = extractGenderFromIdCard(idCard);
+                }
+                if ((!player.age || player.age === '-') && idCard) {
+                    autoAge = calculateAgeFromIdCard(idCard);
+                }
+                
+                // 获取赛事名称 - 优先使用快照中的赛事名称
+                let eventName = player._eventName || player.eventName;
+                
+                // 如果快照中没有赛事名称，尝试从eventsData查找
+                if (!eventName) {
+                    const event = eventsData.find(e => 
+                        String(e.id) === String(player._eventId || player.eventId) || 
+                        String(e.event_id) === String(player._eventId || player.eventId) ||
+                        String(e.eventId) === String(player._eventId || player.eventId)
+                    );
+                    eventName = event ? event.name : `未知赛事(ID:${player._eventId || player.eventId})`;
+                }
+                
+                // 统一性别为中文（DB 已给出的 gender 优先，其次再用身份证推导的 autoGender）
+                let genderChinese = player.gender || autoGender || '-';
+                if (genderChinese === 'male' || genderChinese === 'Male' || genderChinese === 'M') {
+                    genderChinese = '男';
+                } else if (genderChinese === 'female' || genderChinese === 'Female' || genderChinese === 'F') {
+                    genderChinese = '女';
+                }
+                
+                // 获取完整的项目信息（包括个人赛、对练、团体赛）
+                let categoryText = '-';
+                if (player.competition_event) {
+                    // 优先使用competition_event字段，包含所有项目信息
+                    categoryText = player.competition_event;
+                } else if (Array.isArray(player.selectedEvents) && player.selectedEvents.length > 0) {
+                    // 备用：使用selectedEvents字段
+                    categoryText = player.selectedEvents.join('、');
+                } else if (player.category) {
+                    // 最后备用：使用category字段
+                    categoryText = player.category;
+                }
+                
+                const finalAge = player.age || autoAge || '-';
+                const teamName = player._teamName || player.teamName || '未知队伍';
+                const isFromDb = !!player.participant_id;
+                const eventMemberNo = isFromDb ? player.event_member_no : null;
+
+                // 这里必须保留从后端/快照带来的手机号和身份证号，
+                // 供后续去重逻辑和表格渲染使用
+                participantsArray.push({
+                    participant_id: isFromDb ? player.participant_id : (player.id || `player_${participantsArray.length}`),
+                    real_name: player.name || '未知',
+                    event_id: player._eventId || player.eventId,
+                    event_name: eventName,
+                    team_name: teamName,
+                    category: categoryText,
+                    gender: genderChinese,
+                    age: finalAge,
+                    age_group: normalizeAgeGroupLabel(player.age_group || calculateAgeGroup(finalAge)),
+                    event_member_no: eventMemberNo,
+                    // 新增：补充联系方式字段
+                    idCard: idCard,
+                    registration_number: idCard,
+                    phone: player.phone || '',
+                    source: isFromDb ? 'db' : 'snapshot'
+                });
+            }
+        });
+        
+        // 3. 去重处理：使用身份证号+赛事ID作为唯一标识，同一个人在不同赛事的记录都会保留
+        const participantMap = new Map();
+        
+        participantsArray.forEach(participant => {
+            const idCard = participant.idCard || participant.registration_number || '';
+            const phone = participant.phone || '';
+            const eventId = participant.event_id || '';
+            
+            // 生成唯一键：身份证号（或手机号）+ 赛事ID，确保同一个人在不同赛事有独立记录
+            const baseKey = idCard || phone;
+            const uniqueKey = baseKey ? `${baseKey}_${eventId}` : `no_key_${participantMap.size}`;
+            
+            if (!baseKey) {
+                participantMap.set(`no_key_${participantMap.size}`, participant);
+                return;
+            }
+            
+            // 如果已存在该记录（同一个人在同一个赛事），比较并保留项目信息更完整的那条
+            if (participantMap.has(uniqueKey)) {
+                const existing = participantMap.get(uniqueKey);
+                const existingCategory = existing.category || '';
+                const newCategory = participant.category || '';
+                
+                // 如果新记录的项目信息更完整（不是'-'且有内容），则替换
+                if (newCategory && newCategory !== '-' && (!existingCategory || existingCategory === '-')) {
+                    participantMap.set(uniqueKey, participant);
+                }
+            } else {
+                participantMap.set(uniqueKey, participant);
+            }
+        });
+        
+        const uniqueParticipants = Array.from(participantMap.values());
+        
+        allParticipants = uniqueParticipants;
+        filteredParticipants = [...allParticipants];
+        
+        console.log('去重前记录数:', participantsArray.length);
+        console.log('去重后记录数:', allParticipants.length);
+        console.log('参赛者数据样例:', allParticipants.slice(0, 3));
+        console.log('=========================');
+        
+        displayParticipants();
+        updateCategories();
+        updateAgeGroups();
+        updateGenders();
+        hideLoading();
+        
+    } catch (error) {
+        console.error('加载参赛者数据失败:', error);
+        showCenterMessage('加载参赛者数据失败: ' + error.message, 'error');
+        hideLoading();
+    }
+}
+
+// 从身份证号提取性别
+function extractGenderFromIdCard(idCard) {
+    if (!idCard || idCard.length !== 18) return '';
+    try {
+        const genderDigit = parseInt(idCard.charAt(16));
+        return genderDigit % 2 === 1 ? '男' : '女';
+    } catch (e) {
+        return '';
+    }
+}
+
+// 从身份证号计算年龄
+function calculateAgeFromIdCard(idCard) {
+    if (!idCard || idCard.length !== 18) return '';
+    try {
+        const birthYear = parseInt(idCard.substring(6, 10));
+        const birthMonth = parseInt(idCard.substring(10, 12));
+        const birthDay = parseInt(idCard.substring(12, 14));
+        
+        const today = new Date();
+        let age = today.getFullYear() - birthYear;
+        
+        if (today.getMonth() + 1 < birthMonth || 
+            (today.getMonth() + 1 === birthMonth && today.getDate() < birthDay)) {
+            age--;
+        }
+        
+        return age >= 0 && age <= 150 ? age : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+// 根据年龄计算年龄组
+function calculateAgeGroup(age) {
+    if (!age || age === '-') return '-';
+    const ageNum = parseInt(age);
+    if (isNaN(ageNum)) return '-';
+    
+    if (ageNum < 12) return '儿童组(A组)';
+    else if (ageNum >= 12 && ageNum <= 17) return '少年组(B组)';
+    else if (ageNum >= 18 && ageNum <= 39) return '青年组(C组)';
+    else if (ageNum >= 40 && ageNum <= 59) return '中年组(D组)';
+    else if (ageNum >= 60) return '老年组(E组)';
+    else return '-';
+}
+
+// 将后端/数据源中的年龄组标准化为带字母的形式，便于颜色映射
+function normalizeAgeGroupLabel(ageGroup) {
+    if (!ageGroup || ageGroup === '-') return '-';
+
+    // 已经带有 A组/B组/... 的，直接返回
+    if (ageGroup.includes('A组') || ageGroup.includes('B组') ||
+        ageGroup.includes('C组') || ageGroup.includes('D组') ||
+        ageGroup.includes('E组')) {
+        return ageGroup;
+    }
+
+    if (ageGroup.startsWith('儿童组')) return '儿童组(A组)';
+    if (ageGroup.startsWith('少年组')) return '少年组(B组)';
+    if (ageGroup.startsWith('青年组')) return '青年组(C组)';
+    if (ageGroup.startsWith('中年组')) return '中年组(D组)';
+    if (ageGroup.startsWith('老年组')) return '老年组(E组)';
+
+    return ageGroup;
+}
+
+function smartSplitCategories(text) {
+    if (!text) return [];
+    const result = [];
+    let current = '';
+    let depth = 0;
+
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '（' || ch === '(') {
+            depth++;
+            current += ch;
+        } else if (ch === '）' || ch === ')') {
+            if (depth > 0) depth--;
+            current += ch;
+        } else if ((ch === '、' || ch === ',') && depth === 0) {
+            if (current.trim()) {
+                result.push(current.trim());
+            }
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+
+    if (current.trim()) {
+        result.push(current.trim());
+    }
+    return result;
+}
+
+// 参赛项目展示顺序：单人赛 -> 对练徒手 -> 对练器械 -> 团体赛
+function orderCompetitionEventsDisplay(text) {
+    if (!text || text === '-') return text;
+    const parts = smartSplitCategories(text);
+    if (parts.length <= 1) return text;
+
+    const withIndex = parts.map((raw, idx) => {
+        const item = (raw || '').trim();
+        let weight = 0;
+
+        if (item.includes('团体赛')) {
+            weight = 3;
+        } else if (item.includes('对练')) {
+            if (item.includes('徒手')) {
+                weight = 1;
+            } else if (item.includes('器械')) {
+                weight = 2;
+            } else {
+                // 未区分徒手/器械的对练，默认放在对练之后、团体之前
+                weight = 2;
+            }
+        } else {
+            // 个人/单人项目
+            weight = 0;
+        }
+
+        return { item, weight, idx };
+    });
+
+    withIndex.sort((a, b) => (a.weight - b.weight) || (a.idx - b.idx));
+    return withIndex.map(x => x.item).join('、');
+}
+
+// 根据年龄组返回对应的颜色类
+function getAgeGroupColorClass(ageGroup) {
+    if (!ageGroup || ageGroup === '-') return 'bg-secondary';
+    if (ageGroup.includes('A组')) {
+        return 'bg-orange';    // 儿童组 - 橙色
+    } else if (ageGroup.includes('B组')) {
+        return 'bg-success';   // 少年组 - 绿色
+    } else if (ageGroup.includes('C组')) {
+        return 'bg-primary';   // 青年组 - 蓝色
+    } else if (ageGroup.includes('D组')) {
+        return 'bg-warning';   // 中年组 - 黄色
+    } else if (ageGroup.includes('E组')) {
+        return 'bg-danger';    // 老年组 - 红色
+    } else {
+        return 'bg-secondary'; // 默认 - 灰色
+    }
+}
+
+function displayParticipants() {
+    if (filteredParticipants.length === 0) {
+        showNoParticipants();
+        return;
+    }
+    
+    // DB 模式：后端已经按 page/per_page 分好页，前端直接渲染当前页数据
+    const pageParticipants = isDbMode
+        ? filteredParticipants
+        : filteredParticipants.slice((currentPage - 1) * itemsPerPage, (currentPage - 1) * itemsPerPage + itemsPerPage);
+    
+    const tbody = $('#participants-tbody');
+    tbody.empty();
+    
+    pageParticipants.forEach(function(participant, index) {
+        const row = createParticipantRow(participant, index);
+        tbody.append(row);
+    });
+    
+    $('#participants-table').show();
+    $('#no-participants').hide();
+    
+    updatePagination();
+}
+
+function createParticipantRow(participant, index) {
+    const ageGroup = participant.age_group || '-';
+    const ageGroupColorClass = getAgeGroupColorClass(ageGroup);
+    const ageGroupBadge = ageGroup !== '-' 
+        ? `<span class="badge ${ageGroupColorClass}">${ageGroup}</span>` 
+        : '-';
+    const orderedCategory = orderCompetitionEventsDisplay(participant.category || '-');
+
+    return `
+        <tr data-participant-id="${participant.participant_id}">
+            <td class="text-center">${index + 1}</td>
+            <td class="text-center">${participant.real_name || '-'}</td>
+            <td class="text-center">${participant.gender || '-'}</td>
+            <td class="text-center">${participant.age || '-'}</td>
+            <td class="text-center">${ageGroupBadge}</td>
+            <td class="text-center">${participant.phone || '-'}</td>
+            <td class="text-center id-card-cell">${participant.registration_number || '-'}</td>
+            <td>${participant.team_name || '-'}</td>
+            <td>${orderedCategory}</td>
+        </tr>
+    `;
+}
+
+function showLoading(message = '正在加载数据...') {
+    $('#loading-participants').show();
+    $('#participants-table, #no-participants').hide();
+    
+    // 更新加载消息
+    const loadingText = $('#loading-participants').find('.loading-text');
+    if (loadingText.length > 0) {
+        loadingText.text(message);
+    }
+}
+
+function hideLoading() {
+    $('#loading-participants').hide();
+}
+
+function showNoParticipants() {
+    $('#no-participants').show();
+    $('#participants-table').hide();
+}
+
+// 统计信息功能已移除
+
+function updateCategories() {
+    const eventId = $('#eventFilter').val();
+    const ageGroupFilter = $('#ageGroupFilter').val();
+    const genderFilter = $('#genderFilter').val();
+    const categoryFilter = $('#categoryFilter');
+    
+    // 保存当前选中的项目值
+    const currentCategory = categoryFilter.val();
+    
+    // 从参赛者数据中提取项目，基于已选择的其他筛选条件
+    let participantsToExtract = allParticipants;
+    
+    // 应用已选择的筛选条件
+    if (eventId) {
+        participantsToExtract = participantsToExtract.filter(p => String(p.event_id) === String(eventId));
+    }
+    if (ageGroupFilter) {
+        participantsToExtract = participantsToExtract.filter(p => {
+            const age = parseInt(p.age);
+            if (isNaN(age)) return false;
+            if (ageGroupFilter === '儿童组' && age < 12) return true;
+            if (ageGroupFilter === '少年组' && age >= 12 && age <= 17) return true;
+            if (ageGroupFilter === '青年组' && age >= 18 && age <= 39) return true;
+            if (ageGroupFilter === '中年组' && age >= 40 && age <= 59) return true;
+            if (ageGroupFilter === '老年组' && age >= 60) return true;
+            return false;
+        });
+    }
+    if (genderFilter) {
+        participantsToExtract = participantsToExtract.filter(p => p.gender === genderFilter);
+    }
+    
+    // 提取所有项目（因为category可能包含多个项目，用顿号或逗号分隔）
+    const categoriesSet = new Set();
+    let hasDuilian = false;  // 是否有对练
+    let hasTeam = false;     // 是否有团体赛
+    
+    participantsToExtract.forEach(p => {
+        // 使用category字段，如果没有则使用competition_event字段
+        const categoryText = p.category || p.competition_event || '';
+        
+        if (categoryText && categoryText !== '-') {
+            // 检查是否包含对练或团体赛
+            if (categoryText.includes('对练')) hasDuilian = true;
+            if (categoryText.includes('团体赛')) hasTeam = true;
+            
+            // 分割多个项目（支持顿号、逗号分隔）
+            const cats = smartSplitCategories(categoryText);
+            cats.forEach(cat => {
+                // 去除"对练（xxx）"和"团体赛"这样的标记，只保留纯项目名称
+                const cleanCat = cat
+                    .replace(/对练.*$/, '')  // 去除"对练（xxx）"
+                    .replace(/团体赛.*$/, '')  // 去除"团体赛"
+                    .trim();
+                
+                if (cleanCat && cleanCat !== '对练' && cleanCat !== '团体赛') {
+                    categoriesSet.add(cleanCat);
+                }
+            });
+        }
+    });
+    
+    const categories = Array.from(categoriesSet).sort();
+    
+    categoryFilter.empty().append('<option value="">全部项目</option>');
+    
+    // 添加特殊筛选选项
+    if (hasDuilian) {
+        categoryFilter.append('<option value="__duilian__">对练</option>');
+    }
+    if (hasTeam) {
+        categoryFilter.append('<option value="__team__">团体赛</option>');
+    }
+    
+    // 添加普通项目选项
+    categories.forEach(function(category) {
+        categoryFilter.append(`<option value="${category}">${category}</option>`);
+    });
+    
+    // 恢复之前选中的项目值（如果该项目仍然存在于新列表中）
+    if (currentCategory) {
+        if (currentCategory === '__duilian__' || currentCategory === '__team__' || categories.includes(currentCategory)) {
+            categoryFilter.val(currentCategory);
+        }
+    }
+    
+    console.log('已更新项目列表:', categories.length, '对练:', hasDuilian, '团体赛:', hasTeam);
+}
+
+// 更新年龄组筛选选项
+function updateAgeGroups() {
+    const eventId = $('#eventFilter').val();
+    const categoryFilter = $('#categoryFilter').val();
+    const genderFilter = $('#genderFilter').val();
+    const ageGroupFilter = $('#ageGroupFilter');
+    
+    // 保存当前选中的年龄组
+    const currentAgeGroup = ageGroupFilter.val();
+    
+    // 从参赛者数据中提取年龄组，基于已选择的其他筛选条件
+    let participantsToExtract = allParticipants;
+    
+    if (eventId) {
+        participantsToExtract = participantsToExtract.filter(p => String(p.event_id) === String(eventId));
+    }
+    if (categoryFilter) {
+        participantsToExtract = participantsToExtract.filter(p => {
+            const categories = p.category || p.competition_event || '';
+            if (categoryFilter === '__duilian__') {
+                return categories.includes('对练');
+            } else if (categoryFilter === '__team__') {
+                return categories.includes('团体赛');
+            } else {
+                return categories.includes(categoryFilter);
+            }
+        });
+    }
+    if (genderFilter) {
+        participantsToExtract = participantsToExtract.filter(p => p.gender === genderFilter);
+    }
+    
+    // 提取所有年龄组
+    const ageGroupsSet = new Set();
+    participantsToExtract.forEach(p => {
+        const age = parseInt(p.age);
+        if (!isNaN(age)) {
+            if (age < 12) ageGroupsSet.add('儿童组');
+            else if (age >= 12 && age <= 17) ageGroupsSet.add('少年组');
+            else if (age >= 18 && age <= 39) ageGroupsSet.add('青年组');
+            else if (age >= 40 && age <= 59) ageGroupsSet.add('中年组');
+            else if (age >= 60) ageGroupsSet.add('老年组');
+        }
+    });
+    
+    const ageGroups = Array.from(ageGroupsSet);
+    
+    ageGroupFilter.empty().append('<option value="">全部年龄组</option>');
+    
+    // 按顺序添加年龄组选项
+    const ageGroupOrder = ['儿童组', '少年组', '青年组', '中年组', '老年组'];
+    ageGroupOrder.forEach(group => {
+        if (ageGroups.includes(group)) {
+            const label = group === '儿童组' ? '儿童组(A组) (12岁以下)' :
+                         group === '少年组' ? '少年组(B组) (12-17岁)' :
+                         group === '青年组' ? '青年组(C组) (18-39岁)' :
+                         group === '中年组' ? '中年组(D组) (40-59岁)' :
+                         '老年组(E组) (60岁以上)';
+            ageGroupFilter.append(`<option value="${group}">${label}</option>`);
+        }
+    });
+    
+    // 恢复之前选中的年龄组
+    if (currentAgeGroup && ageGroups.includes(currentAgeGroup)) {
+        ageGroupFilter.val(currentAgeGroup);
+    }
+    
+    console.log('已更新年龄组列表:', ageGroups.length);
+}
+
+// 更新性别筛选选项
+function updateGenders() {
+    const eventId = $('#eventFilter').val();
+    const categoryFilter = $('#categoryFilter').val();
+    const ageGroupFilter = $('#ageGroupFilter').val();
+    const genderFilter = $('#genderFilter');
+    
+    // 保存当前选中的性别
+    const currentGender = genderFilter.val();
+    
+    // 从参赛者数据中提取性别，基于已选择的其他筛选条件
+    let participantsToExtract = allParticipants;
+    
+    if (eventId) {
+        participantsToExtract = participantsToExtract.filter(p => String(p.event_id) === String(eventId));
+    }
+    if (categoryFilter) {
+        participantsToExtract = participantsToExtract.filter(p => {
+            const categories = p.category || p.competition_event || '';
+            if (categoryFilter === '__duilian__') {
+                return categories.includes('对练');
+            } else if (categoryFilter === '__team__') {
+                return categories.includes('团体赛');
+            } else {
+                return categories.includes(categoryFilter);
+            }
+        });
+    }
+    if (ageGroupFilter) {
+        participantsToExtract = participantsToExtract.filter(p => {
+            const age = parseInt(p.age);
+            if (isNaN(age)) return false;
+            if (ageGroupFilter === '儿童组' && age < 12) return true;
+            if (ageGroupFilter === '少年组' && age >= 12 && age <= 17) return true;
+            if (ageGroupFilter === '青年组' && age >= 18 && age <= 39) return true;
+            if (ageGroupFilter === '中年组' && age >= 40 && age <= 59) return true;
+            if (ageGroupFilter === '老年组' && age >= 60) return true;
+            return false;
+        });
+    }
+    
+    // 提取所有性别
+    const gendersSet = new Set();
+    participantsToExtract.forEach(p => {
+        if (p.gender && p.gender !== '-') {
+            gendersSet.add(p.gender);
+        }
+    });
+    
+    const genders = Array.from(gendersSet);
+    
+    genderFilter.empty().append('<option value="">全部性别</option>');
+    
+    // 按顺序添加性别选项（男在前，女在后）
+    if (genders.includes('男')) {
+        genderFilter.append('<option value="男">男</option>');
+    }
+    if (genders.includes('女')) {
+        genderFilter.append('<option value="女">女</option>');
+    }
+    
+    // 恢复之前选中的性别
+    if (currentGender && genders.includes(currentGender)) {
+        genderFilter.val(currentGender);
+    }
+    
+    console.log('已更新性别列表:', genders.length);
+}
+
+// 按当前筛选条件从后端获取一页参赛者数据（DB 模式）
+async function fetchParticipantsFromServer(page = 1) {
+    const eventFilter = $('#eventFilter').val();
+    const categoryFilter = $('#categoryFilter').val();
+    const ageGroupFilter = $('#ageGroupFilter').val();
+    const genderFilter = $('#genderFilter').val();
+    const searchTerm = $('#searchInput').val().trim();
+
+    const params = new URLSearchParams();
+
+    params.append('page', String(page));
+    params.append('per_page', String(itemsPerPage));
+
+    if (eventFilter) {
+        params.append('event_id', eventFilter);
+    }
+
+    if (categoryFilter) {
+        if (categoryFilter === '__duilian__') {
+            params.append('category', '对练');
+        } else if (categoryFilter === '__team__') {
+            params.append('category', '团体赛');
+        } else {
+            params.append('category', categoryFilter);
+        }
+    }
+
+    if (ageGroupFilter) {
+        params.append('age_group', ageGroupFilter);
+    }
+
+    if (genderFilter) {
+        params.append('gender', genderFilter);
+    }
+
+    if (searchTerm) {
+        params.append('search', searchTerm);
+    }
+
+    const url = '/api/participants/list?' + params.toString();
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.success && Array.isArray(data.participants)) {
+        // 将后端返回的一页数据转换成前端统一结构
+        filteredParticipants = data.participants.map(p => ({
+            participant_id: p.participant_id,
+            real_name: p.real_name || p.participant_name || '未知',
+            event_id: p.event_id,
+            event_name: p.event_name || '未知赛事',
+            team_name: p.team_name || p.organization || '个人参赛',
+            category: p.category || '个人项目',
+            gender: p.gender || '-',
+            age: (p.age === null || p.age === undefined) ? '-' : p.age,
+            age_group: normalizeAgeGroupLabel(p.age_group || '-'),
+            event_member_no: p.event_member_no,
+            // 新增：从后端透传手机号和身份证号，供表格显示
+            phone: p.phone || '',
+            registration_number: p.registration_number || '',
+            source: 'db'
+        }));
+
+        isDbMode = true;
+        serverTotal = data.total || filteredParticipants.length;
+        serverTotalPages = data.total_pages || 1;
+        currentPage = data.page || page;
+    } else {
+        console.error('从后端获取参赛者失败:', data.message || '未知错误');
+    }
+
+    return data;
+}
+
+async function filterParticipants() {
+    const eventFilter = $('#eventFilter').val();
+    const categoryFilter = $('#categoryFilter').val();
+    const ageGroupFilter = $('#ageGroupFilter').val();
+    const genderFilter = $('#genderFilter').val();
+    const searchTerm = $('#searchInput').val().trim();
+    
+    // 重置到第一页
+    currentPage = 1;
+    
+    showLoading();
+    
+    // 本地过滤函数，供快照模式及后端失败兜底使用
+    const matchesLocalFilters = (participant) => {
+        // 赛事筛选
+        if (eventFilter && String(participant.event_id) !== String(eventFilter)) {
+            return false;
+        }
+        
+        // 项目筛选
+        if (categoryFilter) {
+            const categories = participant.category || participant.competition_event || '';
+            
+            // 处理特殊筛选选项
+            if (categoryFilter === '__duilian__') {
+                // 筛选所有参加对练的选手
+                if (!categories.includes('对练')) {
+                    return false;
+                }
+            } else if (categoryFilter === '__team__') {
+                // 筛选所有参加团体赛的选手
+                if (!categories.includes('团体赛')) {
+                    return false;
+                }
+            } else {
+                // 普通项目筛选
+                if (!categories.includes(categoryFilter)) {
+                    return false;
+                }
+            }
+        }
+        
+        // 年龄组筛选 - 优先使用预计算好的 age_group 字段
+        if (ageGroupFilter) {
+            const group = participant.age_group || '';
+
+            if (group) {
+                if (!group.includes(ageGroupFilter)) {
+                    return false;
+                }
+            } else {
+                const age = parseInt(participant.age);
+                if (isNaN(age)) return false;
+
+                let ageMatch = false;
+                if (ageGroupFilter === '儿童组' && age < 12) ageMatch = true;
+                else if (ageGroupFilter === '少年组' && age >= 12 && age <= 17) ageMatch = true;
+                else if (ageGroupFilter === '青年组' && age >= 18 && age <= 39) ageMatch = true;
+                else if (ageGroupFilter === '中年组' && age >= 40 && age <= 59) ageMatch = true;
+                else if (ageGroupFilter === '老年组' && age >= 60) ageMatch = true;
+
+                if (!ageMatch) return false;
+            }
+        }
+        
+        // 性别筛选
+        if (genderFilter && participant.gender !== genderFilter) {
+            return false;
+        }
+        
+        // 搜索（姓名/队伍名称）
+        if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            const nameMatch = (participant.real_name || '').toLowerCase().includes(searchLower);
+            const teamMatch = (participant.team_name || '').toLowerCase().includes(searchLower);
+            
+            if (!nameMatch && !teamMatch) {
+                return false;
+            }
+        }
+        
+        return true;
+    };
+
+    const useBackendFilter = isDbMode;
+
+    if (useBackendFilter) {
+        try {
+            await fetchParticipantsFromServer(1);
+        } catch (error) {
+            console.error('根据筛选条件从后端获取参赛者失败:', error);
+            filteredParticipants = allParticipants.filter(matchesLocalFilters);
+            currentPage = 1;
+        }
+    } else {
+        // 仅在无 DB 数据的快照模式下，才使用客户端过滤 + 本地分页
+        filteredParticipants = allParticipants.filter(matchesLocalFilters);
+        currentPage = 1;
+    }
+    
+    
+    displayParticipants();
+    
+    // 更新所有筛选选项（级联更新）
+    updateCategories();
+    updateAgeGroups();
+    updateGenders();
+    
+    hideLoading();
+    
+    // 数据加载完成后保存用户偏好设置
+    saveUserPreferencesToURL();
+}
+
+function searchParticipants() {
+    // 直接调用 filterParticipants，它会带上搜索条件
+    filterParticipants();
+    
+    // 保存用户偏好设置
+    saveUserPreferencesToURL();
+}
+
+
+
+function viewParticipantDetail(participantId) {
+    const participant = allParticipants.find(p => String(p.participant_id) === String(participantId));
+    if (!participant) {
+        showCenterMessage('未找到参赛者信息', 'warning');
+        return;
+    }
+    
+    const detailContent = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6>基本信息</h6>
+                <table class="table table-sm">
+                    <tr><td>姓名:</td><td><strong>${participant.real_name || '-'}</strong></td></tr>
+                    <tr><td>性别:</td><td>${participant.gender || '-'}</td></tr>
+                    <tr><td>年龄:</td><td>${participant.age || '-'}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6>参赛信息</h6>
+                <table class="table table-sm">
+                    <tr><td>赛事:</td><td><strong>${participant.event_name || '-'}</strong></td></tr>
+                    <tr><td>队伍:</td><td>${participant.team_name || '-'}</td></tr>
+                    <tr><td>参赛项目:</td><td>${orderCompetitionEventsDisplay(participant.category || '-')}</td></tr>
+                    <tr><td>数据来源:</td><td>${participant.source === 'application' ? '队伍申请' : '直接添加'}</td></tr>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    $('#participantDetailContent').html(detailContent);
+    $('#participantDetailActions').html('');
+    $('#participantDetailModal').modal('show');
+}
+
+
+function exportParticipants() {
+    // 优先使用当前筛选栏中选择的赛事
+    const currentEventId = $('#eventFilter').val();
+    if (currentEventId) {
+        performExport(currentEventId);
+        return;
+    }
+
+    // 未在筛选栏选择赛事时，退回到原有的弹窗选择逻辑
+    const eventSelect = document.getElementById('exportEventSelect');
+    if (!eventSelect) {
+        showCenterMessage('页面元素加载异常，请刷新页面', 'error');
+        return;
+    }
+
+    eventSelect.innerHTML = '<option value="">-- 请选择赛事 --</option>';
+    
+    // 加载赛事列表
+    eventsData.forEach(event => {
+        const option = document.createElement('option');
+        option.value = event.event_id;
+        option.textContent = event.name;
+        eventSelect.appendChild(option);
+    });
+    
+    const modalElement = document.getElementById('selectEventModal');
+    if (!modalElement) {
+        showCenterMessage('页面元素加载异常，请刷新页面', 'error');
+        return;
+    }
+
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+}
+
+// 确认导出选中的赛事
+function confirmExportEvent() {
+    const eventId = document.getElementById('exportEventSelect').value;
+    
+    if (!eventId) {
+        showCenterMessage('请选择要导出的赛事', 'warning');
+        return;
+    }
+    
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('selectEventModal'));
+    modal.hide();
+    
+    // 执行导出
+    performExport(eventId);
+}
+
+// 辅助函数：从身份证号计算年龄
+function calculateAgeFromIdCard(idCard) {
+    if (!idCard || idCard.length < 14) return null;
+    try {
+        const year = parseInt(idCard.substring(6, 10));
+        const month = parseInt(idCard.substring(10, 12));
+        const day = parseInt(idCard.substring(12, 14));
+        
+        const today = new Date();
+        const birthDate = new Date(year, month - 1, day);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        
+        return age;
+    } catch (error) {
+        console.error('计算年龄失败:', error);
+        return null;
+    }
+}
+
+// 辅助函数：获取年龄组
+function getAgeGroup(age) {
+    if (!age && age !== 0) return { code: 'E', name: '未知组' };
+    if (age < 12) return { code: 'A', name: '儿童组' };
+    if (age >= 12 && age <= 17) return { code: 'B', name: '少年组' };
+    if (age >= 18 && age <= 39) return { code: 'C', name: '青年组' };
+    if (age >= 40 && age <= 59) return { code: 'D', name: '中年组' };
+    return { code: 'E', name: '老年组' };
+}
+
+// 辅助函数：提取个人赛项目
+function extractIndividualEvents(competition_event) {
+    if (!competition_event) return [];
+    const cleaned = competition_event
+        .replace(/、?团体赛-[^、]+/g, '')
+        .replace(/、?团体赛/g, '')
+        // 兼容旧格式：xxx对练（对手）
+        .replace(/、?[^、]*对练（[^）]+）/g, '')
+        // 兼容新格式：徒手-xxx（人员X）/器械-xxx（人员X）
+        .replace(/、?(徒手|器械)[^、]*（[^）]+）/g, '')
+        .trim();
+    if (!cleaned) return [];
+    return smartSplitCategories(cleaned);
+}
+
+// 辅助函数：提取对练项目
+function extractPairEvents(competition_event) {
+    if (!competition_event) return [];
+    // 兼容两类写法：
+    // 1) xxx对练（对手）
+    // 2) 徒手-xxx（人员X） / 器械-xxx（人员X）
+    const matches = [];
+    const legacy = competition_event.match(/[^、]*对练（[^）]+）/g) || [];
+    const typed = competition_event.match(/(?:徒手|器械)[^、]*（[^）]+）/g) || [];
+    legacy.forEach(x => matches.push(x));
+    typed.forEach(x => {
+        // 避免重复（若同时匹配到）
+        if (!matches.includes(x)) matches.push(x);
+    });
+    return matches;
+}
+
+// 辅助函数：提取团体赛项目
+function extractTeamEvent(competition_event) {
+    if (!competition_event) return null;
+    const teamMatch = competition_event.match(/团体赛-[^、]+/);
+    return teamMatch ? teamMatch[0] : (competition_event.includes('团体赛') ? '团体赛' : null);
+}
+
+// 数组随机打乱函数（Fisher-Yates洗牌算法）
+function shuffleArray(array) {
+    const shuffled = [...array]; // 创建副本，避免修改原数组
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+function formatTeamMemberCode(teamSeq, memberSeq) {
+    const t = parseInt(teamSeq, 10);
+    const m = parseInt(memberSeq, 10);
+    if (isNaN(t) || isNaN(m) || t <= 0 || m <= 0) return '';
+    const tStr = String(t).padStart(3, '0');
+    const mStr = String(m).padStart(3, '0');
+    return `${tStr}${mStr}`;
+}
+
+// 主数据生成函数
+function generateExportData(eventInfo, eventParticipants) {
+    const exportData = [];
+    const merges = [];
+    let currentRow = 0;
+
+    const exportEventId = eventInfo.event_id || eventInfo.id || eventInfo.eventId;
+
+    // 六位编号：TTT=队伍序号，MMM=队员序号
+    const normalizeTeamName = (p) => (p.teamName || p.team_name || p.team || '').trim() || '个人参赛';
+    const memberKeyForCode = (p) => {
+        const idCard = (p.idCard || p.id_card || p.registration_number || '').trim();
+        if (idCard) return `id:${idCard}`;
+        const name = (p.name || p.real_name || '').trim();
+        const phone = (p.phone || '').trim();
+        return `name:${name}|phone:${phone}`;
+    };
+
+    const uniqueTeams = Array.from(new Set(eventParticipants.map(p => normalizeTeamName(p))));
+    uniqueTeams.sort((a, b) => String(a).localeCompare(String(b), 'zh-Hans-CN'));
+
+    const teamSeqMap = new Map();
+    uniqueTeams.forEach((tn, idx) => {
+        teamSeqMap.set(tn, idx + 1);
+    });
+
+    const memberSeqMap = new Map();
+    uniqueTeams.forEach(tn => {
+        const members = eventParticipants
+            .filter(p => normalizeTeamName(p) === tn)
+            .map(p => ({ p, key: memberKeyForCode(p) }));
+        members.sort((a, b) => String(a.key).localeCompare(String(b.key)));
+        let seq = 1;
+        members.forEach(item => {
+            if (!memberSeqMap.has(item.key)) {
+                memberSeqMap.set(item.key, seq);
+                seq++;
+            }
+        });
+    });
+
+    const resolveSixDigitCode = (p) => {
+        const teamName = normalizeTeamName(p);
+        const teamSeq = teamSeqMap.get(teamName) || 0;
+        const memberSeq = memberSeqMap.get(memberKeyForCode(p)) || 0;
+        return formatTeamMemberCode(teamSeq, memberSeq);
+    };
+
+    // 为缺失 event_member_no 的人员生成稳定的四位编号（1-9999），避免导出“编号”列为空
+    const memberNoMap = new Map();
+    const usedMemberNos = new Set();
+    const getMemberKey = (p) => (p.idCard || '').trim() ? `id:${(p.idCard || '').trim()}` : `name:${(p.name || '').trim()}|team:${(p.teamName || '').trim()}`;
+
+    eventParticipants.forEach(p => {
+        const key = getMemberKey(p);
+        const n = parseInt(p.event_member_no, 10);
+        if (!memberNoMap.has(key) && !isNaN(n) && n > 0 && n <= 9999) {
+            memberNoMap.set(key, n);
+            usedMemberNos.add(n);
+        }
+    });
+
+    let nextAutoNo = 1;
+    eventParticipants.forEach(p => {
+        const key = getMemberKey(p);
+        if (memberNoMap.has(key)) return;
+
+        while (usedMemberNos.has(nextAutoNo) && nextAutoNo <= 9999) {
+            nextAutoNo++;
+        }
+
+        if (nextAutoNo <= 9999) {
+            memberNoMap.set(key, nextAutoNo);
+            usedMemberNos.add(nextAutoNo);
+            nextAutoNo++;
+        }
+    });
+
+    const resolveMemberNo = (p) => {
+        const direct = parseInt(p.event_member_no, 10);
+        if (!isNaN(direct) && direct > 0) return direct;
+        return memberNoMap.get(getMemberKey(p)) || null;
+    };
+    
+    // 第一行：比赛名称（合并前四列）
+    exportData.push([eventInfo.name, '', '', '', '']);
+    merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
+    currentRow++;
+    
+    // 第二行：空行
+    exportData.push(['', '', '', '', '']);
+    currentRow++;
+    
+    // 第三行：表头
+    exportData.push(['序号', '姓名', '编号', '所属队伍名称', '参赛项目']);
+    currentRow++;
+    
+    // ==================== 个人赛部分 ====================
+    const individualGroups = {};
+    
+    eventParticipants.forEach(p => {
+        const events = extractIndividualEvents(p.competition_event);
+        events.forEach(eventName => {
+            // 提取分组键的逻辑：
+            // 1. 如果包含冒号（：），使用冒号左边作为分组键（如：24式太极拳：A式 → 24式太极拳）
+            // 2. 如果包含括号且内容以"含"开头，提取括号前部分（如：传统大刀（含朴刀,青龙大刀）→ 传统大刀）
+            // 3. 否则使用完整项目名
+            let groupKey = eventName;
+            
+            if (eventName.includes('：')) {
+                // 处理冒号格式：24式太极拳：A式
+                groupKey = eventName.split('：')[0];
+            } else if (/（含[^）]+）/.test(eventName)) {
+                // 处理括号含子项格式：传统大刀（含朴刀,青龙大刀,关刀）
+                groupKey = eventName.replace(/（含[^）]+）/, '').trim();
+            }
+            
+            if (!individualGroups[groupKey]) {
+                individualGroups[groupKey] = { '男': {}, '女': {} };
+            }
+            
+            const gender = (p.gender === '男' || p.gender === 'M' || p.gender === 'male') ? '男' : '女';
+            const ageGroup = getAgeGroup(parseInt(p.age) || 0);
+            
+            if (!individualGroups[groupKey][gender][ageGroup.code]) {
+                individualGroups[groupKey][gender][ageGroup.code] = {
+                    name: ageGroup.name,
+                    participants: []
+                };
+            }
+            
+            // 保存参赛者信息，包含完整项目名
+            individualGroups[groupKey][gender][ageGroup.code].participants.push({
+                ...p,
+                fullEventName: eventName  // 保存完整项目名
+            });
+        });
+    });
+    
+    // 输出个人赛数据
+    if (Object.keys(individualGroups).length > 0) {
+        exportData.push(['个人赛项目', '', '', '', '']);
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
+        currentRow++;
+        
+        exportData.push(['', '', '', '', '']);
+        currentRow++;
+        
+        for (const groupKey in individualGroups) {
+            const genderGroups = individualGroups[groupKey];
+            
+            ['男', '女'].forEach(gender => {
+                if (genderGroups[gender] && Object.keys(genderGroups[gender]).length > 0) {
+                    ['A', 'B', 'C', 'D', 'E'].forEach(ageCode => {
+                        if (genderGroups[gender][ageCode]) {
+                            const group = genderGroups[gender][ageCode];
+                            const genderText = gender === '男' ? '男子' : '女子';
+                            // 组名使用分组键（冒号左边或完整项目名）
+                            let groupEventName = groupKey;
+                            if (group.participants && group.participants.length > 0) {
+                                const sampleFullEvent = group.participants[0].fullEventName || '';
+                                if (sampleFullEvent.startsWith(groupKey) && /（[^）]+）/.test(sampleFullEvent)) {
+                                    groupEventName = sampleFullEvent;
+                                }
+                            }
+                            const groupName = `${genderText}${group.name}（${ageCode}组）${groupEventName}`;
+                            const count = group.participants.length;
+                            
+                            exportData.push([groupName, '', '', '', `共计${count}人`]);
+                            merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
+                            currentRow++;
+                            
+                            // 对个人赛参赛者进行随机打乱排序
+                            const shuffledParticipants = shuffleArray([...group.participants]);
+                            
+                            shuffledParticipants.forEach((p, idx) => {
+                                // 参赛项目列显示逻辑：
+                                // 1. 如果有冒号（：），显示冒号右边部分（如：24式太极拳：A式 → A式）
+                                // 2. 如果有"（含...）"格式，去除括号部分（如：传统大刀（含朴刀）→ 传统大刀）
+                                // 3. 否则显示完整项目名
+                                let displayEvent = p.fullEventName;
+                                
+                                if (p.fullEventName.includes('：')) {
+                                    // 冒号格式：显示冒号后的子项名
+                                    displayEvent = p.fullEventName.split('：')[1];
+                                }
+
+                                const memberCode = resolveSixDigitCode(p);
+                                exportData.push([`\u200B${idx + 1}.`, p.name, memberCode, p.teamName, displayEvent]);
+                                currentRow++;
+                            });
+                            
+                            exportData.push(['', '', '', '', '']);
+                            currentRow++;
+                        }
+                    });
+                }
+            });
+        }
+    }
+    
+    // ==================== 对练部分 ====================
+    exportData.push(['对练项目', '', '', '', '']);
+    merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
+    currentRow++;
+    
+    exportData.push(['', '', '', '', '']);
+    currentRow++;
+    
+    const pairGroups = { '徒手': [], '器械': [] };
+    const processedPairs = new Set();
+
+    function parsePairEvent(pairEvent) {
+        if (!pairEvent) return null;
+        const partnerMatch = pairEvent.match(/（([^）]+)）/);
+        if (!partnerMatch) return null;
+        const partnerName = (partnerMatch[1] || '').trim();
+        const trimmed = pairEvent.trim();
+        // 兼容：
+        // - 徒手-xxx（人员X） / 器械-xxx（人员X）
+        // - 文本前有空格或其他前缀，但包含“徒手/器械”字样
+        // - 旧格式 xxx对练（对手），无法判断时默认归为“徒手”
+        let type = '徒手';
+        if (/^器械/.test(trimmed) || trimmed.includes('器械')) {
+            type = '器械';
+        }
+        if (/^徒手/.test(trimmed) || trimmed.includes('徒手')) {
+            type = '徒手';
+        }
+        const projectName = pairEvent
+            .replace(/（[^）]+）/, '')
+            .replace(/^\s*(徒手|器械)\s*-?\s*/, '')
+            .trim();
+        return { type, partnerName, projectName };
+    }
+
+    function findPairedPartner(p1, partnerName, type, projectName) {
+        const p1Name = (p1.name || '').trim();
+
+        // 1) 先按姓名精确匹配（trim后）
+        const candidates = eventParticipants.filter(p => (p.name || '').trim() === (partnerName || '').trim());
+
+        // 2) 在候选人中优先找“互相指向”且项目一致的那条
+        for (const c of candidates) {
+            const cPairEvents = extractPairEvents(c.competition_event || '');
+            const reciprocal = cPairEvents.some(ev => {
+                const parsed = parsePairEvent(ev);
+                if (!parsed) return false;
+                return parsed.type === type && parsed.projectName === projectName && parsed.partnerName === p1Name;
+            });
+            if (reciprocal) return c;
+        }
+
+        // 3) 若仍找不到，则在全量里找互相指向（允许姓名重复时找到正确的那条）
+        for (const c of eventParticipants) {
+            if ((c.name || '').trim() !== (partnerName || '').trim()) continue;
+            const cPairEvents = extractPairEvents(c.competition_event || '');
+            const reciprocal = cPairEvents.some(ev => {
+                const parsed = parsePairEvent(ev);
+                if (!parsed) return false;
+                return parsed.type === type && parsed.projectName === projectName && parsed.partnerName === p1Name;
+            });
+            if (reciprocal) return c;
+        }
+
+        // 4) 最后兜底：返回第一个同名候选
+        return candidates[0] || null;
+    }
+    
+    eventParticipants.forEach(p1 => {
+        const pairEvents = extractPairEvents(p1.competition_event);
+        pairEvents.forEach(pairEvent => {
+            const parsed = parsePairEvent(pairEvent);
+            if (!parsed) return;
+            const partnerName = parsed.partnerName;
+
+            const pairKey = [String((p1.name || '').trim()), String(partnerName)].sort().join('|') + '|' + `${parsed.type}|${parsed.projectName}`;
+            if (processedPairs.has(pairKey)) return;
+            processedPairs.add(pairKey);
+
+            const p2 = findPairedPartner(p1, partnerName, parsed.type, parsed.projectName);
+            if (!p2) return;
+
+            pairGroups[parsed.type].push({
+                projectName: parsed.projectName,
+                participants: [p1, p2]
+            });
+        });
+    });
+    
+    if (pairGroups['徒手'].length > 0) {
+        exportData.push(['徒手与徒手对练', '', '', '', `共${pairGroups['徒手'].length}组`]);
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
+        currentRow++;
+        
+        // 对对练小组进行随机打乱排序（小组作为整体）
+        const shuffledHandPairs = shuffleArray([...pairGroups['徒手']]);
+        
+        shuffledHandPairs.forEach((pair, idx) => {
+            const [p1, p2] = pair.participants;
+            const code1 = resolveSixDigitCode(p1);
+            const code2 = resolveSixDigitCode(p2);
+            exportData.push([`\u200B${idx + 1}.`, p1.name, code1, p1.teamName, pair.projectName]);
+            currentRow++;
+            exportData.push(['', p2.name, code2, '', '']);
+            currentRow++;
+        });
+        
+        exportData.push(['', '', '', '']);
+        currentRow++;
+    }
+    
+    if (pairGroups['器械'].length > 0) {
+        exportData.push(['器械与器械（含徒手与器械）对练', '', '', '', `共${pairGroups['器械'].length}组`]);
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
+        currentRow++;
+        
+        // 对器械对练小组进行随机打乱排序（小组作为整体）
+        const shuffledWeaponPairs = shuffleArray([...pairGroups['器械']]);
+        
+        shuffledWeaponPairs.forEach((pair, idx) => {
+            const [p1, p2] = pair.participants;
+            const code1 = resolveSixDigitCode(p1);
+            const code2 = resolveSixDigitCode(p2);
+            exportData.push([`\u200B${idx + 1}.`, p1.name, code1, p1.teamName, pair.projectName]);
+            currentRow++;
+            exportData.push(['', p2.name, code2, '', '']);
+            currentRow++;
+        });
+        
+        exportData.push(['', '', '', '']);
+        currentRow++;
+    }
+    
+    // ==================== 团体赛部分 ====================
+    const teamGroups = {};
+    eventParticipants.forEach(p => {
+        const teamEvent = extractTeamEvent(p.competition_event);
+        if (teamEvent) {
+            const key = `${p.teamName}|${teamEvent}`;
+            if (!teamGroups[key]) {
+                teamGroups[key] = {
+                    teamName: p.teamName,
+                    projectName: teamEvent,
+                    participants: []
+                };
+            }
+            teamGroups[key].participants.push(p);
+        }
+    });
+    
+    if (Object.keys(teamGroups).length > 0) {
+        const teamGroupArray = Object.values(teamGroups);
+        
+        // 对团体赛小组进行随机打乱排序（小组作为整体）
+        const shuffledTeamGroups = shuffleArray([...teamGroupArray]);
+        
+        exportData.push(['团体赛项目', '', '', '', `共${shuffledTeamGroups.length}组`]);
+        merges.push({ s: { r: currentRow, c: 0 }, e: { r: currentRow, c: 3 } });
+        currentRow++;
+        
+        shuffledTeamGroups.forEach((group, groupIdx) => {
+            group.participants.forEach((p, idx) => {
+                const memberCode = resolveSixDigitCode(p);
+                exportData.push([
+                    idx === 0 ? `\u200B${groupIdx + 1}.` : '',
+                    p.name,
+                    memberCode,
+                    idx === 0 ? group.teamName : '',
+                    idx === 0 ? group.projectName : ''
+                ]);
+                currentRow++;
+            });
+        });
+    }
+    
+    return { exportData, merges };
+}
+
+// 执行导出操作
+async function performExport(eventId) {
+    console.log('开始导出赛事数据，赛事ID:', eventId);
+    
+    // 检查xlsx库是否加载
+    if (typeof XLSX === 'undefined') {
+        console.warn('XLSX库未加载，无法导出');
+        showCenterMessage('导出功能需要加载XLSX库', 'error');
+        return;
+    }
+    
+    // 获取赛事信息
+    const eventInfo = eventsData.find(e => String(e.event_id) === String(eventId));
+    if (!eventInfo) {
+        showCenterMessage('未找到赛事信息', 'error');
+        return;
+    }
+    
+    try {
+        // 数据源：默认使用当前页面上的 filteredParticipants；
+        // 在 DB 模式下，优先从后端一次性获取符合当前筛选条件的该赛事全部数据
+        let sourceList = filteredParticipants.slice();
+        let usedBackend = false;
+
+        if (isDbMode) {
+            const categoryFilter = $('#categoryFilter').val();
+            const ageGroupFilter = $('#ageGroupFilter').val();
+            const genderFilter = $('#genderFilter').val();
+            const searchTerm = $('#searchInput').val().trim();
+
+            const params = new URLSearchParams();
+            params.append('page', '1');
+            // 导出时一次性取足够多的数据，避免分页只导出当前页
+            params.append('per_page', '10000');
+            params.append('event_id', eventId);
+
+            if (categoryFilter) {
+                if (categoryFilter === '__duilian__') {
+                    params.append('category', '对练');
+                } else if (categoryFilter === '__team__') {
+                    params.append('category', '团体赛');
+                } else {
+                    params.append('category', categoryFilter);
+                }
+            }
+
+            if (ageGroupFilter) {
+                params.append('age_group', ageGroupFilter);
+            }
+
+            if (genderFilter) {
+                params.append('gender', genderFilter);
+            }
+
+            if (searchTerm) {
+                params.append('search', searchTerm);
+            }
+
+            try {
+                const url = '/api/participants/list?' + params.toString();
+                const resp = await fetch(url);
+                const data = await resp.json();
+
+                if (data.success && Array.isArray(data.participants) && data.participants.length > 0) {
+                    sourceList = data.participants.map(p => ({
+                        real_name: p.real_name || p.participant_name || '未知',
+                        gender: p.gender || '-',
+                        age: (p.age === null || p.age === undefined) ? null : p.age,
+                        team_name: p.team_name || p.organization || '个人参赛',
+                        category: p.category || '个人项目',
+                        event_id: p.event_id,
+                        event_member_no: p.event_member_no || null
+                    }));
+                    usedBackend = true;
+                    console.log('导出前从后端获取到参赛者数据:', sourceList.length);
+                } else {
+                    console.warn('导出时从后端获取参赛者失败，回退到当前页面数据:', data.message || '未知错误');
+                }
+            } catch (e) {
+                console.error('导出时从后端获取参赛者异常，回退到当前页面数据:', e);
+            }
+        }
+
+        // 统一按 event_id 过滤并构造导出所需结构
+        const eventParticipants = [];
+        let filteredCount = 0;
+
+        sourceList.forEach(p => {
+            if (String(p.event_id) === String(eventId)) {
+                const idCard = p.idCard || p.registration_number;
+                const calculatedAge = calculateAgeFromIdCard(idCard);
+                const finalAge = calculatedAge !== null ? calculatedAge : (p.age || null);
+
+                const participant = {
+                    name: p.real_name || p.name,
+                    gender: p.gender,
+                    age: finalAge,
+                    idCard: idCard,
+                    phone: p.phone,
+                    teamName: p.team_name || p.teamName || '',
+                    competition_event: p.category || p.competition_event || '',
+                    event_member_no: p.event_member_no || null,
+                    source: usedBackend ? 'db_export' : 'filtered'
+                };
+
+                if (participant.name && 
+                    participant.gender && 
+                    participant.competition_event) {
+                    if (!participant.age && participant.age !== 0) {
+                        console.warn('参赛者年龄为空:', participant.name, '身份证:', idCard);
+                    }
+                    eventParticipants.push(participant);
+                } else {
+                    filteredCount++;
+                    console.log('过滤掉不完整数据:', participant.name || '未知', 
+                                '性别:', participant.gender || '空',
+                                '项目:', participant.competition_event || '空');
+                }
+            }
+        });
+        
+        if (eventParticipants.length === 0) {
+            showCenterMessage('该赛事没有参赛数据', 'warning');
+            return;
+        }
+        
+        console.log(`找到${eventParticipants.length}条参赛数据，过滤掉${filteredCount}条不完整数据（数据来源：${usedBackend ? '后端API' : '当前页面'}）`);
+        
+        // 调用新的导出逻辑
+        const result = generateExportData(eventInfo, eventParticipants);
+        
+        // 创建工作簿
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(result.exportData);
+        
+        // 设置列宽
+        ws['!cols'] = [
+            { wch: 8 },   // 序号
+            { wch: 16 },  // 姓名
+            { wch: 12 },  // 编号
+            { wch: 26 },  // 所属队伍名称
+            { wch: 40 }   // 参赛项目
+        ];
+        
+        // 设置合并单元格
+        ws['!merges'] = result.merges;
+
+        // 第一列左对齐
+        if (ws['!ref'] && XLSX && XLSX.utils && XLSX.utils.decode_range) {
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let r = range.s.r; r <= range.e.r; r++) {
+                const cellRef = XLSX.utils.encode_cell({ r, c: 0 });
+                const cell = ws[cellRef];
+                if (cell) {
+                    cell.s = cell.s || {};
+                    cell.s.alignment = cell.s.alignment || {};
+                    cell.s.alignment.horizontal = 'left';
+                }
+            }
+        }
+        
+        // 添加工作表
+        XLSX.utils.book_append_sheet(wb, ws, '参赛者列表');
+        
+        // 生成文件名
+        const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const filename = `${eventInfo.name}_参赛名单_${timestamp}.xlsx`;
+        
+        // 导出文件
+        console.log('正在生成文件: ' + filename);
+        XLSX.writeFile(wb, filename);
+        
+        showCenterMessage(`成功导出 ${eventParticipants.length} 条数据`, 'success');
+    } catch (error) {
+        console.error('导出失败:', error);
+        showCenterMessage('导出失败: ' + error.message, 'error');
+    }
+}
+
+// CSV导出备用方案
+function exportAsCSV() {
+    try {
+        // 动态生成标题
+        const eventFilter = $('#eventFilter').val();
+        const categoryFilter = $('#categoryFilter').val();
+        const ageGroupFilter = $('#ageGroupFilter').val();
+        const genderFilter = $('#genderFilter').val();
+        
+        let titleParts = [];
+        
+        if (eventFilter) {
+            const eventName = $('#eventFilter option:selected').text();
+            titleParts.push(eventName);
+        }
+        if (categoryFilter) {
+            titleParts.push(categoryFilter);
+        }
+        if (ageGroupFilter) {
+            const ageGroupText = $('#ageGroupFilter option:selected').text();
+            const ageGroupName = ageGroupText.split('(')[0].trim();
+            titleParts.push(ageGroupName);
+        }
+        if (genderFilter) {
+            titleParts.push(genderFilter === '男' ? '男子' : '女子');
+        }
+        
+        const title = titleParts.length > 0 ? titleParts.join('') + '报项表' : '参赛者报项表';
+        
+        // 准备CSV数据
+        let csvContent = '\uFEFF'; // UTF-8 BOM for Excel
+        
+        // 添加标题行
+        csvContent += title + '\n';
+        
+        // 添加空行
+        csvContent += '\n';
+        
+        // 添加表头
+        const headers = ['序号', '姓名', '性别', '年龄', '所属队伍', '年龄组', '参赛项目'];
+        csvContent += headers.join(',') + '\n';
+        
+        // 添加数据行
+        filteredParticipants.forEach((participant, index) => {
+            const row = [
+                index + 1,
+                participant.real_name || '-',
+                participant.gender || '-',
+                participant.age || '-',
+                participant.team_name || '-',
+                participant.age_group || '-',
+                (participant.category || '-').replace(/,/g, '，') // 替换逗号避免CSV格式问题
+            ];
+            csvContent += row.join(',') + '\n';
+        });
+        
+        // 创建Blob并下载
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const filename = `${title}_${timestamp}.csv`;
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showCenterMessage(`成功导出 ${filteredParticipants.length} 条数据（CSV格式）`, 'success');
+    } catch (error) {
+        console.error('CSV导出失败:', error);
+        showCenterMessage('导出失败: ' + error.message, 'error');
+    }
+}
+
+function refreshParticipants() {
+    showCenterMessage('正在刷新参赛者信息...', 'info');
+    loadParticipants();
+}
+
+// 检查是否所有筛选条件都已选择
+function checkAllFiltersSelected() {
+    const eventFilter = $('#eventFilter').val();
+    const categoryFilter = $('#categoryFilter').val();
+    const ageGroupFilter = $('#ageGroupFilter').val();
+    const genderFilter = $('#genderFilter').val();
+    
+    return eventFilter && categoryFilter && ageGroupFilter && genderFilter;
+}
+
+
+function updatePagination() {
+    const totalPages = isDbMode
+        ? serverTotalPages
+        : Math.ceil(filteredParticipants.length / itemsPerPage);
+    const totalCount = isDbMode
+        ? serverTotal
+        : filteredParticipants.length;
+    const pagination = $('#participants-pagination');
+    const paginationInfo = $('#pagination-info');
+    
+    pagination.empty();
+    paginationInfo.empty();
+    
+    // 如果没有数据，不显示分页
+    if (totalCount === 0) {
+        return;
+    }
+    
+    // 左侧：显示页数信息
+    const startIndex = (currentPage - 1) * itemsPerPage + 1;
+    const endIndex = Math.min(currentPage * itemsPerPage, totalCount);
+    
+    if (totalPages <= 1) {
+        // 只有一页时，显示简化的信息
+        paginationInfo.html(`共 ${totalCount} 条记录`);
+    } else {
+        // 多页时，显示详细信息
+        paginationInfo.html(`
+            显示 ${startIndex}-${endIndex} 条，共 ${totalCount} 条记录 | 第 ${currentPage}/${totalPages} 页
+        `);
+    }
+    
+    // 右侧：分页按钮（始终显示）
+    // 上一页
+    pagination.append(`
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">上一页</a>
+        </li>
+    `);
+    
+    // 当前页数
+    pagination.append(`
+        <li class="page-item active">
+            <span class="page-link">${currentPage}</span>
+        </li>
+    `);
+    
+    // 下一页
+    pagination.append(`
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">下一页</a>
+        </li>
+    `);
+}
+
+async function changePage(page) {
+    const totalPages = isDbMode
+        ? serverTotalPages
+        : Math.ceil(filteredParticipants.length / itemsPerPage);
+    if (page < 1 || page > totalPages) return;
+    
+    currentPage = page;
+    
+    if (isDbMode) {
+        try {
+            await fetchParticipantsFromServer(page);
+        } catch (e) {
+            console.error('翻页失败，尝试保持当前页:', e);
+        }
+    } else {
+        currentPage = page;
+    }
+    
+    displayParticipants();
+}
+
+// 导出队伍费用数据
+function exportTeamFees() {
+    // 优先使用当前筛选栏中选择的赛事
+    const currentEventId = $('#eventFilter').val();
+    if (currentEventId) {
+        performTeamFeesExport(currentEventId);
+        return;
+    }
+
+    // 筛选栏未选择赛事时，退回到原有的弹窗选择逻辑
+    if (!eventsData || eventsData.length === 0) {
+        showCenterMessage('赛事数据未加载，请刷新页面后重试', 'warning');
+        return;
+    }
+    
+    const eventSelect = document.getElementById('exportEventSelect');
+    if (!eventSelect) {
+        showCenterMessage('页面元素加载异常，请刷新页面', 'error');
+        return;
+    }
+    
+    eventSelect.innerHTML = '<option value="">-- 请选择赛事 --</option>';
+    
+    // 加载赛事列表
+    eventsData.forEach(event => {
+        const option = document.createElement('option');
+        option.value = event.event_id;
+        option.textContent = event.name;
+        eventSelect.appendChild(option);
+    });
+    
+    const confirmBtn = document.querySelector('#selectEventModal .btn-success');
+    if (!confirmBtn) {
+        showCenterMessage('页面元素加载异常，请刷新页面', 'error');
+        return;
+    }
+    
+    const originalOnclick = confirmBtn.onclick;
+    confirmBtn.onclick = function() {
+        confirmExportTeamFees();
+    };
+    
+    const modalElement = document.getElementById('selectEventModal');
+    if (!modalElement) {
+        showCenterMessage('页面元素加载异常，请刷新页面', 'error');
+        return;
+    }
+    
+    try {
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    } catch (error) {
+        showCenterMessage('模态框显示失败: ' + error.message, 'error');
+        return;
+    }
+    
+    modalElement.addEventListener('hidden.bs.modal', function() {
+        confirmBtn.onclick = originalOnclick;
+    }, { once: true });
+}
+
+// 确认导出队伍费用
+function confirmExportTeamFees() {
+    const eventId = document.getElementById('exportEventSelect').value;
+    
+    if (!eventId) {
+        showCenterMessage('请选择要导出的赛事', 'warning');
+        return;
+    }
+    
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('selectEventModal'));
+    modal.hide();
+    
+    // 执行队伍费用导出
+    performTeamFeesExport(eventId);
+}
+
+// 执行队伍费用导出
+function performTeamFeesExport(eventId) {
+    console.log('开始导出队伍费用数据，赛事ID:', eventId);
+    
+    // 获取赛事信息
+    const eventInfo = eventsData.find(e => String(e.event_id) === String(eventId));
+    if (!eventInfo) {
+        showCenterMessage('未找到赛事信息', 'error');
+        return;
+    }
+
+    // 导出费用必须以数据库为准（与管理员后台一致）：直接使用后端 /api/participants/team-fees
+    performTeamFeesExportFromAPI(eventId, eventInfo);
+}
+
+// 使用与data_summary.html相同的逻辑计算队伍费用
+function calculateTeamFeesUsingDataSummaryLogic(eventId, eventInfo) {
+    try {
+        console.log('=== 使用data_summary.html相同逻辑计算费用 ===');
+        console.log('赛事ID:', eventId, '赛事信息:', eventInfo);
+        
+        // 获取赛事费用信息
+        const fees = getEventFees(eventId);
+        const individualFee = parseFloat(fees.individual_fee || 0);
+        const pairPracticeFee = parseFloat(fees.pair_practice_fee || 0);
+        const teamCompetitionFee = parseFloat(fees.team_competition_fee || 0);
+        
+        console.log('赛事费用标准:', { individualFee, pairPracticeFee, teamCompetitionFee });
+        
+        // 1. 从 teamApplications 加载已通过的申请
+        const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+        const approvedApplications = applications.filter(app => {
+            const eventMatch = String(app.eventId) === String(eventId);
+            const statusMatch = app.status === 'approved';
+            
+            // 检查是否为参赛选手
+            let isPlayer = false;
+            if (app.role !== undefined) {
+                isPlayer = app.role === 'player';
+            } else {
+                isPlayer = (app.position !== 'staff' && app.position !== 'accompanying') || (app.type !== 'staff');
+            }
+            
+            return eventMatch && statusMatch && isPlayer;
+        });
+        
+        console.log('从 teamApplications 筛选的参赛选手:', approvedApplications.length);
+        
+        // 2. 从 playerList 加载直接添加的选手
+        const playerList = JSON.parse(localStorage.getItem('playerList') || '[]');
+        const directPlayers = playerList.filter(player => {
+            const eventMatch = String(player.eventId) === String(eventId);
+            return eventMatch;
+        });
+        
+        console.log('从 playerList 筛选的参赛选手:', directPlayers.length);
+        
+        // 3. 按队伍分组合并数据
+        const teamMap = new Map();
+        
+        // 处理申请来源的数据
+        approvedApplications.forEach(app => {
+            const teamId = app.teamId;
+            const teamName = app.teamName || `队伍${teamId}`;
+            
+            if (!teamMap.has(teamId)) {
+                teamMap.set(teamId, {
+                    team_name: teamName,
+                    event_name: eventInfo ? eventInfo.name : '未知赛事',
+                    leader_name: app.leaderName || '队长',
+                    individual_fee: 0,
+                    pair_fee: 0,
+                    team_fee: 0,
+                    other_fee: 0,
+                    total_fee: 0,
+                    participants: [],
+                    players: []
+                });
+            }
+            
+            const team = teamMap.get(teamId);
+            team.players.push({
+                name: app.applicantName || app.name,
+                selectedEvents: app.selectedEvents || [],
+                competition_event: app.competition_event || '',
+                pairRegistered: app.pairRegistered || false,
+                pairPartner: app.pairPartner || '',
+                teamRegistered: app.teamRegistered || false,
+                source: 'application'
+            });
+            
+            // 添加参赛者信息到participants数组
+            team.participants.push({
+                name: app.applicantName || app.name,
+                phone: app.applicantPhone || '-',
+                competition_event: app.competition_event || '-',
+                position: '参赛选手'
+            });
+        });
+        
+        // 处理playerList来源的数据
+        directPlayers.forEach(player => {
+            const teamId = player.teamId;
+            const teamName = player.teamName || `队伍${teamId}`;
+            
+            if (!teamMap.has(teamId)) {
+                teamMap.set(teamId, {
+                    team_name: teamName,
+                    event_name: eventInfo ? eventInfo.name : '未知赛事',
+                    leader_name: '队长',
+                    individual_fee: 0,
+                    pair_fee: 0,
+                    team_fee: 0,
+                    other_fee: 0,
+                    total_fee: 0,
+                    participants: [],
+                    players: []
+                });
+            }
+            
+            const team = teamMap.get(teamId);
+            team.players.push({
+                name: player.name || player.real_name,
+                selectedEvents: player.selectedEvents || [],
+                competition_event: player.competition_event || '',
+                pairRegistered: player.pairRegistered || false,
+                pairPartner: player.pairPartner || '',
+                teamRegistered: player.teamRegistered || false,
+                source: 'player'
+            });
+            
+            // 添加参赛者信息到participants数组
+            team.participants.push({
+                name: player.name || player.real_name,
+                phone: player.phone || '-',
+                competition_event: player.competition_event || '-',
+                position: '参赛选手'
+            });
+        });
+        
+        console.log('队伍分组结果:', teamMap.size, '个队伍');
+        
+        // 4. 计算每个队伍的费用
+        const teamFeesData = [];
+        
+        teamMap.forEach((team, teamId) => {
+            console.log(`\n=== 计算队伍 ${team.team_name} 的费用 ===`);
+            
+            // 计算单人赛费用
+            let individualProjectCount = 0;
+            team.players.forEach(player => {
+                const selectedEvents = player.selectedEvents || [];
+                if (selectedEvents.length > 0) {
+                    individualProjectCount += selectedEvents.length;
+                    console.log(`-> ${player.name} 的个人赛项目数: ${selectedEvents.length}`);
+                } else if (player.competition_event) {
+                    // 从competition_event解析个人项目（排除对练和团体）
+                    const cleaned = player.competition_event
+                        .replace(/、?团体赛/g, '')
+                        .replace(/、?对练（[^）]+）/g, '')
+                        .trim();
+                    
+                    if (cleaned && cleaned !== '武术比赛') {
+                        const projects = smartSplitCategories(cleaned);
+                        individualProjectCount += projects.length;
+                        console.log(`-> ${player.name} 从competition_event解析个人赛项目数: ${projects.length}`);
+                    } else {
+                        individualProjectCount += 1;
+                        console.log(`-> ${player.name} 默认1个项目`);
+                    }
+                } else {
+                    individualProjectCount += 1;
+                    console.log(`-> ${player.name} 默认1个项目`);
+                }
+            });
+            
+            team.individual_fee = individualProjectCount * individualFee;
+            console.log(`单人赛总项目数: ${individualProjectCount}, 费用: ¥${team.individual_fee}`);
+            
+            // 计算对练费用
+            let totalPairProjectCount = 0;
+            team.players.forEach(player => {
+                if (player.competition_event) {
+                    const pairMatches = player.competition_event.match(/[^、]*对练（[^）]+）/g);
+                    if (pairMatches && pairMatches.length > 0) {
+                        totalPairProjectCount += pairMatches.length;
+                        console.log(`-> ${player.name} 报名了 ${pairMatches.length} 个对练项目`);
+                    }
+                }
+            });
+            
+            const pairGroups = totalPairProjectCount / 2;
+            team.pair_fee = pairGroups * pairPracticeFee;
+            console.log(`对练项目总数: ${totalPairProjectCount}, 实际对练组数: ${pairGroups}, 费用: ¥${team.pair_fee}`);
+            
+            // 计算团体赛费用
+            let hasTeamCompetition = false;
+            team.players.forEach(player => {
+                if (player.teamRegistered) {
+                    hasTeamCompetition = true;
+                    console.log(`${player.name} 报名了团体赛`);
+                }
+            });
+            
+            team.team_fee = hasTeamCompetition ? teamCompetitionFee : 0;
+            console.log(`团体赛报名: ${hasTeamCompetition}, 费用: ¥${team.team_fee}`);
+            
+            // 计算总费用
+            team.total_fee = team.individual_fee + team.pair_fee + team.team_fee + team.other_fee;
+            
+            console.log(`队伍 ${team.team_name} 总费用: ¥${team.total_fee}`);
+            
+            teamFeesData.push(team);
+        });
+        
+        console.log('费用计算完成，队伍数量:', teamFeesData.length);
+        return teamFeesData;
+        
+    } catch (error) {
+        console.error('使用data_summary逻辑计算费用失败:', error);
+        return [];
+    }
+}
+
+// 生成测试队伍费用数据
+function generateTestTeamFeesData(eventInfo) {
+    console.log('生成真实费用数据，赛事信息:', eventInfo);
+    
+    // 基于您提供的真实费用数据
+    const realTeamData = [
+        {
+            team_name: '测试1队',
+            event_name: eventInfo ? eventInfo.name : '测试1',
+            leader_name: '队长',
+            individual_fee: 2150.00,
+            pair_fee: 300.00,
+            team_fee: 170.00,
+            other_fee: 0.00,
+            total_fee: 2620.00,
+            participants: [
+                {
+                    name: '队员100',
+                    phone: '15039650100',
+                    competition_event: '24式太极拳、42式太极拳',
+                    position: '参赛选手'
+                },
+                {
+                    name: '队员101', 
+                    phone: '15039650101',
+                    competition_event: '传统南刀、传统南棍',
+                    position: '参赛选手'
+                },
+                {
+                    name: '队员102',
+                    phone: '15039650102',
+                    competition_event: '陈式太极拳、吴式太极拳',
+                    position: '参赛选手'
+                }
+            ]
+        },
+        {
+            team_name: '测试2队',
+            event_name: eventInfo ? eventInfo.name : '测试1',
+            leader_name: '队长',
+            individual_fee: 600.00,
+            pair_fee: 0.00,
+            team_fee: 0.00,
+            other_fee: 0.00,
+            total_fee: 600.00,
+            participants: [
+                {
+                    name: '队员103',
+                    phone: '15039650103',
+                    competition_event: '单人赛项目',
+                    position: '参赛选手'
+                }
+            ]
+        }
+    ];
+    
+    console.log('生成的真实费用数据:', realTeamData);
+    return realTeamData;
+}
+
+// 从localStorage获取队伍费用数据
+function getTeamFeesFromLocalStorage(eventId, eventInfo) {
+    try {
+        console.log('=== localStorage调试信息 ===');
+        console.log('目标赛事ID:', eventId);
+        console.log('赛事信息:', eventInfo);
+        
+        // 检查localStorage中的所有相关键
+        const allKeys = Object.keys(localStorage);
+        console.log('localStorage中所有键:', allKeys);
+        
+        // 获取所有申请数据
+        const applicationsRaw = localStorage.getItem('teamApplications');
+        console.log('teamApplications原始数据:', applicationsRaw);
+        
+        const applications = JSON.parse(applicationsRaw || '[]');
+        console.log('解析后的申请数据总数:', applications.length);
+        console.log('前3条申请数据示例:', applications.slice(0, 3));
+        
+        // 检查是否有其他可能的键
+        const relatedKeys = allKeys.filter(key => 
+            key.includes('team') || key.includes('Team') || 
+            key.includes('application') || key.includes('Application') ||
+            key.includes('player') || key.includes('Player')
+        );
+        console.log('可能相关的localStorage键:', relatedKeys);
+        
+        relatedKeys.forEach(key => {
+            const data = localStorage.getItem(key);
+            try {
+                const parsed = JSON.parse(data);
+                console.log(`${key}数据 (${Array.isArray(parsed) ? parsed.length : typeof parsed}条):`, parsed);
+            } catch (e) {
+                console.log(`${key}数据 (非JSON):`, data ? data.substring(0, 100) + '...' : '空');
+            }
+        });
+        
+        // 特别检查一些关键的localStorage键
+        const keyChecks = ['playerList', 'applications', 'teamData', 'approvedApplications'];
+        keyChecks.forEach(key => {
+            const data = localStorage.getItem(key);
+            if (data) {
+                try {
+                    const parsed = JSON.parse(data);
+                    console.log(`检查${key}:`, parsed);
+                } catch (e) {
+                    console.log(`检查${key} (非JSON):`, data.substring(0, 100));
+                }
+            } else {
+                console.log(`检查${key}: 不存在`);
+            }
+        });
+        
+        // 尝试多种数据源和筛选方式
+        console.log('\n=== 尝试不同的数据筛选方式 ===');
+        
+        // 方式1：直接查找当前赛事的数据（不过滤status）
+        const allEventData = applications.filter(app => String(app.eventId) === String(eventId));
+        console.log('方式1 - 所有当前赛事数据:', allEventData.length, allEventData);
+        
+        // 方式2：查找已通过的申请
+        const approvedApps = applications.filter(app => app.status === 'approved');
+        console.log('方式2 - 所有已通过申请:', approvedApps.length, approvedApps);
+        
+        // 方式3：查找包含teamName的数据
+        const withTeamName = applications.filter(app => app.teamName);
+        console.log('方式3 - 有队伍名称的申请:', withTeamName.length, withTeamName);
+        
+        // 尝试从其他localStorage键获取队伍数据
+        console.log('\n=== 检查其他可能的队伍数据源 ===');
+        const additionalTeamKeys = ['teams', 'teamList', 'submittedTeams', 'teamData'];
+        additionalTeamKeys.forEach(key => {
+            const data = localStorage.getItem(key);
+            if (data) {
+                try {
+                    const parsed = JSON.parse(data);
+                    console.log(`${key}数据:`, parsed);
+                } catch (e) {
+                    console.log(`${key}数据 (解析失败):`, data.substring(0, 200));
+                }
+            }
+        });
+        
+        // 使用最宽泛的筛选条件
+        let eventApplications = allEventData.length > 0 ? allEventData : approvedApps;
+        
+        // 如果还是没有数据，尝试所有包含teamName的数据
+        if (eventApplications.length === 0) {
+            eventApplications = withTeamName;
+            console.log('使用所有有队伍名称的数据作为备选');
+        }
+        
+        console.log('最终使用的申请数据:', eventApplications.length, eventApplications);
+        
+        if (eventApplications.length === 0) {
+            console.log('无法找到任何有效的队伍申请数据');
+            return [];
+        }
+        
+        // 按队伍分组统计费用
+        const teamFeesMap = {};
+        
+        eventApplications.forEach(app => {
+            const teamName = app.teamName || app.team_name || `队伍${app.teamId || '未知'}`;
+            console.log(`处理申请: teamName=${teamName}, teamId=${app.teamId}, 费用=${app.fees}`);
+            
+            if (!teamFeesMap[teamName]) {
+                teamFeesMap[teamName] = {
+                    team_name: teamName,
+                    event_name: eventInfo?.name || '未知赛事',
+                    leader_name: app.leaderName || app.leader_name || '队长',
+                    individual_fee: 0,
+                    pair_fee: 0,
+                    team_fee: 0,
+                    other_fee: 0,
+                    total_fee: 0,
+                    participants: []
+                };
+            }
+            
+            // 累计费用（尝试多种费用字段名）
+            const fees = app.fees || app.fee || {};
+            const individualFee = parseFloat(fees.individual || fees.individual_fee || 0);
+            const pairFee = parseFloat(fees.pair || fees.pair_fee || 0);
+            const teamFee = parseFloat(fees.team || fees.team_fee || 0);
+            const otherFee = parseFloat(fees.other || fees.other_fee || 0);
+            const totalFee = parseFloat(fees.total || fees.total_fee || individualFee + pairFee + teamFee + otherFee);
+            
+            teamFeesMap[teamName].individual_fee += individualFee;
+            teamFeesMap[teamName].pair_fee += pairFee;
+            teamFeesMap[teamName].team_fee += teamFee;
+            teamFeesMap[teamName].other_fee += otherFee;
+            teamFeesMap[teamName].total_fee += totalFee;
+            
+            console.log(`${teamName}累计费用: 单人=${teamFeesMap[teamName].individual_fee}, 对练=${teamFeesMap[teamName].pair_fee}, 团体=${teamFeesMap[teamName].team_fee}, 总计=${teamFeesMap[teamName].total_fee}`);
+            
+            // 添加参赛者信息
+            teamFeesMap[teamName].participants.push({
+                name: app.applicantName || app.name || '参赛者',
+                phone: app.applicantPhone || app.phone || '-',
+                competition_event: app.competitionEvent || app.category || '-',
+                position: app.role === 'staff' ? '随队人员' : '参赛选手'
+            });
+        });
+        
+        const result = Object.values(teamFeesMap);
+        console.log('最终队伍费用数据:', result);
+        return result;
+        
+    } catch (error) {
+        console.error('从localStorage获取队伍费用数据失败:', error);
+        return [];
+    }
+}
+
+// 动态计算队伍费用数据（最后的备用方案）
+function calculateTeamFeesForExport(eventId, eventInfo) {
+    try {
+        console.log('开始动态计算队伍费用数据，赛事ID:', eventId);
+        
+        // 获取赛事费用信息
+        const fees = getEventFees ? getEventFees(eventId) : {
+            individual_fee: 50,
+            pair_practice_fee: 30, 
+            team_competition_fee: 80
+        };
+        
+        console.log('赛事费用标准:', fees);
+        
+        // 尝试从多个localStorage键获取队伍数据
+        const possibleKeys = ['teamApplications', 'playerList', 'applications', 'teamData'];
+        let allTeamData = [];
+        
+        possibleKeys.forEach(key => {
+            try {
+                const data = localStorage.getItem(key);
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    if (Array.isArray(parsed)) {
+                        allTeamData = allTeamData.concat(parsed);
+                    }
+                }
+            } catch (e) {
+                console.log(`解析${key}失败:`, e);
+            }
+        });
+        
+        console.log('从localStorage获取的所有数据:', allTeamData.length, '条');
+        
+        // 筛选当前赛事的数据
+        const eventData = allTeamData.filter(item => 
+            String(item.eventId) === String(eventId) || 
+            String(item.event_id) === String(eventId)
+        );
+        
+        console.log('当前赛事的数据:', eventData.length, '条');
+        
+        if (eventData.length === 0) {
+            console.log('没有找到当前赛事的数据');
+            return [];
+        }
+        
+        // 按队伍分组
+        const teamMap = {};
+        
+        eventData.forEach(item => {
+            const teamName = item.teamName || item.team_name || item.name || '未知队伍';
+            const teamId = item.teamId || item.team_id || teamName;
+            
+            if (!teamMap[teamId]) {
+                teamMap[teamId] = {
+                    team_name: teamName,
+                    event_name: eventInfo ? eventInfo.name : '未知赛事',
+                    leader_name: item.leaderName || item.leader_name || '队长',
+                    individual_fee: 0,
+                    pair_fee: 0,
+                    team_fee: 0,
+                    other_fee: 0,
+                    total_fee: 0,
+                    participants: [],
+                    individual_projects: 0,
+                    pair_projects: 0,
+                    has_team_competition: false
+                };
+            }
+            
+            // 添加参赛者信息
+            teamMap[teamId].participants.push({
+                name: item.applicantName || item.name || '参赛者',
+                phone: item.applicantPhone || item.phone || '-',
+                competition_event: item.competitionEvent || item.competition_event || '-',
+                position: item.role === 'staff' ? '随队人员' : '参赛选手'
+            });
+            
+            // 分析参赛项目
+            const competitionEvent = item.competitionEvent || item.competition_event || '';
+            if (competitionEvent) {
+                // 统计个人项目（排除对练和团体）
+                const individualProjects = competitionEvent
+                    .replace(/、?团体赛/g, '')
+                    .replace(/、?对练（[^）]+）/g, '')
+                    .trim();
+                
+                if (individualProjects && individualProjects !== '武术比赛') {
+                    const projects = smartSplitCategories(individualProjects);
+                    teamMap[teamId].individual_projects += projects.length;
+                }
+                
+                // 统计对练项目
+                const pairMatches = competitionEvent.match(/[^、]*对练（[^）]+）/g);
+                if (pairMatches) {
+                    teamMap[teamId].pair_projects += pairMatches.length;
+                }
+                
+                // 检查团体赛
+                if (competitionEvent.includes('团体赛') || item.teamRegistered) {
+                    teamMap[teamId].has_team_competition = true;
+                }
+            }
+        });
+        
+        // 计算费用
+        const teamFeesData = Object.values(teamMap).map(team => {
+            // 个人赛费用
+            team.individual_fee = team.individual_projects * fees.individual_fee;
+            
+            // 对练费用（对练项目数除以2，因为每组对练在两个人的记录中各出现一次）
+            team.pair_fee = (team.pair_projects / 2) * fees.pair_practice_fee;
+            
+            // 团体赛费用
+            team.team_fee = team.has_team_competition ? fees.team_competition_fee : 0;
+            
+            // 总费用
+            team.total_fee = team.individual_fee + team.pair_fee + team.team_fee + team.other_fee;
+            
+            console.log(`队伍 ${team.team_name}:`, {
+                个人项目: team.individual_projects,
+                对练项目: team.pair_projects,
+                团体赛: team.has_team_competition,
+                个人费用: team.individual_fee,
+                对练费用: team.pair_fee,
+                团体费用: team.team_fee,
+                总费用: team.total_fee
+            });
+            
+            return team;
+        });
+        
+        console.log('动态计算完成，队伍数量:', teamFeesData.length);
+        return teamFeesData;
+        
+    } catch (error) {
+        console.error('动态计算队伍费用失败:', error);
+        return [];
+    }
+}
+
+// 从API获取队伍费用数据（备用方案）
+function performTeamFeesExportFromAPI(eventId, eventInfo) {
+    showLoading();
+    
+    $.ajax({
+        url: `/api/participants/team-fees?event_id=${eventId}`,
+        method: 'GET',
+        success: function(response) {
+            hideLoading();
+            if (response.success && response.team_fees && response.team_fees.length > 0) {
+                console.log('从API获取队伍费用数据:', response);
+                generateTeamFeesExcel(response.team_fees, eventInfo);
+                showCenterMessage(`成功导出 ${response.team_fees.length} 个队伍的费用数据`, 'success');
+                // 导出成功后按当前筛选条件刷新参赛者列表
+                filterParticipants();
+            } else {
+                console.log('API返回数据为空，尝试从localStorage获取数据');
+                // API数据为空，尝试从localStorage获取数据
+                const localTeamFeesData = getTeamFeesFromLocalStorage(eventId, eventInfo);
+                if (localTeamFeesData && localTeamFeesData.length > 0) {
+                    console.log('从localStorage获取到队伍费用数据:', localTeamFeesData);
+                    generateTeamFeesExcel(localTeamFeesData, eventInfo);
+                    showCenterMessage(`成功导出 ${localTeamFeesData.length} 个队伍的费用数据（来源：本地数据）`, 'success');
+                    // 导出成功后按当前筛选条件刷新参赛者列表
+                    filterParticipants();
+                } else {
+                    console.log('API 和 localStorage 都没有队伍费用数据');
+                    showCenterMessage('没有找到任何队伍费用数据，请确认是否有队伍报名该赛事', 'warning');
+                }
+            }
+        },
+        error: function(xhr) {
+            hideLoading();
+            console.log('API请求失败，尝试从localStorage获取数据');
+            // API请求失败，尝试从localStorage获取数据
+            const localTeamFeesData = getTeamFeesFromLocalStorage(eventId, eventInfo);
+            if (localTeamFeesData && localTeamFeesData.length > 0) {
+                console.log('从localStorage获取到队伍费用数据:', localTeamFeesData);
+                generateTeamFeesExcel(localTeamFeesData, eventInfo);
+                showCenterMessage(`成功导出 ${localTeamFeesData.length} 个队伍的费用数据（来源：本地数据）`, 'success');
+                // 导出成功后按当前筛选条件刷新参赛者列表
+                filterParticipants();
+            } else {
+                let message = '获取队伍费用数据失败';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
+                }
+                showCenterMessage(message, 'error');
+            }
+        }
+    });
+}
+
+// 生成队伍费用Excel文件
+function generateTeamFeesExcel(teamFeesData, eventInfo) {
+    try {
+        // 创建工作簿
+        const wb = XLSX.utils.book_new();
+        
+        // 准备数据
+        const exportData = [];
+        
+        // 添加标题行（使用赛事名称）
+        const title = eventInfo ? `${eventInfo.name}队伍费用统计表` : '队伍费用统计表';
+        exportData.push([title]);
+        exportData.push(['']); // 空行
+        exportData.push(['序号', '队伍名称', '合计比赛费用', '单人赛费用', '对练赛费用', '团体赛费用', '其他费用']);
+        
+        // 添加数据行
+        let totalAllFees = 0;
+        let totalIndividualFees = 0;
+        let totalPairFees = 0;
+        let totalTeamFees = 0;
+        let totalOtherFees = 0;
+        
+        teamFeesData.forEach((team, index) => {
+            const totalFee = parseFloat(team.total_fee || 0) || 0;
+            const individualFee = parseFloat(team.individual_fee || 0) || 0;
+            const pairFee = parseFloat(team.pair_fee || 0) || 0;
+            const teamFee = parseFloat(team.team_fee || 0) || 0;
+            const otherFee = parseFloat(team.other_fee || 0) || 0;
+
+            exportData.push([
+                `\u200B${index + 1}.`,  // 序号（最左侧 + 带点）
+                team.team_name || '-',
+                totalFee.toFixed(2),
+                individualFee.toFixed(2),
+                pairFee.toFixed(2),
+                teamFee.toFixed(2),
+                otherFee.toFixed(2)
+            ]);
+            
+            totalAllFees += totalFee;
+            totalIndividualFees += individualFee;
+            totalPairFees += pairFee;
+            totalTeamFees += teamFee;
+            totalOtherFees += otherFee;
+        });
+        
+        // 添加合计行
+        exportData.push(['']); // 空行
+        exportData.push([
+            '',  // 序号列为空
+            '合计',
+            totalAllFees.toFixed(2),
+            totalIndividualFees.toFixed(2), 
+            totalPairFees.toFixed(2),
+            totalTeamFees.toFixed(2),
+            totalOtherFees.toFixed(2)
+        ]);
+        
+        // 创建工作表
+        const ws = XLSX.utils.aoa_to_sheet(exportData);
+        
+        // 设置列宽
+        const colWidths = [
+            { wch: 8 },  // 序号
+            { wch: 20 }, // 队伍名称
+            { wch: 15 }, // 合计比赛费用
+            { wch: 15 }, // 单人赛费用
+            { wch: 15 }, // 对练赛费用
+            { wch: 15 }, // 团体赛费用
+            { wch: 15 }  // 其他费用
+        ];
+        ws['!cols'] = colWidths;
+        
+        // 设置合并单元格 - 标题行
+        ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } } // 合并标题行（7列：0-6）
+        ];
+        
+        // 设置样式
+        const headerStyle = {
+            font: { bold: true, sz: 14 },
+            alignment: { horizontal: 'center' },
+            fill: { fgColor: { rgb: 'E3F2FD' } }
+        };
+        
+        const titleStyle = {
+            font: { bold: true, sz: 16 },
+            alignment: { horizontal: 'center' }
+        };
+        
+        const totalStyle = {
+            font: { bold: true },
+            fill: { fgColor: { rgb: 'FFF3E0' } }
+        };
+        
+        // 应用样式
+        if (ws['A1']) ws['A1'].s = titleStyle;
+        
+        // 表头样式（7列：A-G）
+        ['A3', 'B3', 'C3', 'D3', 'E3', 'F3', 'G3'].forEach(cell => {
+            if (ws[cell]) ws[cell].s = headerStyle;
+        });
+        
+        // 合计行样式（7列：A-G）
+        const totalRowIndex = exportData.length - 1;
+        ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(col => {
+            const cellRef = col + (totalRowIndex + 1);
+            if (ws[cellRef]) ws[cellRef].s = totalStyle;
+        });
+        
+        // 添加工作表到工作簿
+        XLSX.utils.book_append_sheet(wb, ws, '队伍费用统计');
+        
+        // 生成文件名
+        const now = new Date();
+        const timestamp = now.getFullYear() + 
+                         String(now.getMonth() + 1).padStart(2, '0') + 
+                         String(now.getDate()).padStart(2, '0') + '_' +
+                         String(now.getHours()).padStart(2, '0') + 
+                         String(now.getMinutes()).padStart(2, '0');
+        
+        const filename = `队伍费用统计_${timestamp}.xlsx`;
+        
+        // 导出文件
+        XLSX.writeFile(wb, filename);
+        
+        showCenterMessage(`队伍费用数据导出成功！文件名：${filename}`, 'success');
+        
+    } catch (error) {
+        console.error('导出失败:', error);
+        showCenterMessage('导出队伍费用数据失败：' + error.message, 'error');
+    }
+}
+
+// 工具函数
+function formatDateTime(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN');
+}
+
+// 显示赛事切换模态框
+function showEventSelectionModal() {
+    const eventSelect = document.getElementById('eventSwitchSelect');
+    if (!eventSelect) {
+        showCenterMessage('页面元素加载异常，请刷新页面', 'error');
+        return;
+    }
+    
+    // 清空并重新加载赛事列表
+    eventSelect.innerHTML = '<option value="">-- 请选择要切换的赛事 --</option>';
+    
+    // 加载赛事列表
+    eventsData.forEach(event => {
+        const option = document.createElement('option');
+        option.value = event.id || event.event_id || event.eventId;
+        option.textContent = event.name;
+        
+        // 如果当前已选择该赛事，设置为选中状态
+        if (option.value === selectedEventId) {
+            option.selected = true;
+        }
+        
+        eventSelect.appendChild(option);
+    });
+    
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('eventSwitchModal'));
+    modal.show();
+}
+
+// 确认赛事切换
+function confirmEventSwitch() {
+    const newSelectedEventId = $('#eventSwitchSelect').val();
+    
+    if (!newSelectedEventId) {
+        showCenterMessage('请先选择一个赛事', 'warning');
+        return;
+    }
+    
+    // 查找选中的赛事
+    const selectedEvent = eventsData.find(event => 
+        String(event.id) === String(newSelectedEventId) || 
+        String(event.event_id) === String(newSelectedEventId) ||
+        String(event.eventId) === String(newSelectedEventId)
+    );
+    
+    if (!selectedEvent) {
+        showCenterMessage('未找到选中的赛事信息', 'error');
+        return;
+    }
+    
+    // 保存当前筛选条件（除了赛事筛选）
+    const currentSearchTerm = $('#searchInput').val().trim();
+    const currentCategoryFilter = $('#categoryFilter').val();
+    const currentAgeGroupFilter = $('#ageGroupFilter').val();
+    const currentGenderFilter = $('#genderFilter').val();
+    const currentPageState = currentPage;
+    
+    // 更新当前选中的赛事
+    selectedEventId = newSelectedEventId;
+    selectedEventName = selectedEvent.name;
+    
+    // 更新页面标题显示当前赛事
+    updatePageTitleWithEvent(selectedEvent.name);
+    
+    // 更新赛事筛选下拉框
+    $('#eventFilter').val(newSelectedEventId);
+    
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('eventSwitchModal'));
+    modal.hide();
+    
+    // 显示加载状态
+    showCenterMessage(`正在加载 ${selectedEvent.name} 的参赛人员数据...`, 'info');
+    
+    // 重新加载参赛人员数据
+    loadParticipants().then(() => {
+        // 数据加载完成后，恢复之前的筛选条件（除了赛事）
+        if (currentSearchTerm) $('#searchInput').val(currentSearchTerm);
+        if (currentCategoryFilter) $('#categoryFilter').val(currentCategoryFilter);
+        if (currentAgeGroupFilter) $('#ageGroupFilter').val(currentAgeGroupFilter);
+        if (currentGenderFilter) $('#genderFilter').val(currentGenderFilter);
+        
+        // 恢复分页状态
+        if (currentPageState && currentPageState > 0) {
+            currentPage = currentPageState;
+        }
+        
+        // 应用筛选条件
+        filterParticipants();
+        
+        showCenterMessage(`已成功切换到 ${selectedEvent.name}`, 'success');
+    });
+}
+
+// 页面加载完成后检查是否需要恢复状态
+$(document).ready(function() {
+    // 检查URL参数，判断是否是从赛事选择页面返回
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromEventSelection = urlParams.get('from_event_selection');
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    
+    // 先加载赛事数据
+    loadEventsFromAPI().then(() => {
+        // 如果是从赛事选择页面返回且有新赛事参数
+        if (fromEventSelection === 'true' && eventId) {
+            // 从赛事选择页面返回，先选择新赛事，再恢复页面状态
+            selectEventFromURL(eventId, eventName).then(() => {
+                // 延迟恢复页面状态，确保数据加载完成
+                setTimeout(restorePageState, 200);
+            });
+        } else if (eventId) {
+            // 直接通过URL参数选择赛事（非返回情况）
+            selectEventFromURL(eventId, eventName);
+        } else {
+            // 默认加载
+            loadParticipants();
+        }
+    });
+    
+    // 搜索框回车事件
+    $('#searchInput').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchParticipants();
+        }
+    });
+});
+</script>
+{% endblock %}

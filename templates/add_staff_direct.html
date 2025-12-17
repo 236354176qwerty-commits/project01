@@ -1,0 +1,781 @@
+{% extends "base.html" %}
+
+{% block title %}添加随队人员 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <div class="row g-0">
+        <div class="col-12">
+            <!-- 页面标题 -->
+            <div class="page-header-card mx-3">
+                <div class="page-header-content">
+                    <div>
+                        <h2 class="page-title">
+                            <i class="fas fa-user-plus me-2"></i>添加随队人员
+                        </h2>
+                        <p class="page-description mb-3">
+                            填写随队人员信息，确保所有必填字段都已填写
+                        </p>
+                        <!-- 显示选择的赛事信息（去掉“更换赛事”入口，仅展示当前赛事） -->
+                        <div id="selectedEventInfo" class="mt-2 d-flex align-items-center gap-3">
+                            <button class="btn btn-primary step-nav-btn" onclick="goBack()">
+                                <i class="fas fa-arrow-left me-2"></i>上一步
+                            </button>
+                            <div class="current-event-box">
+                                <i class="fas fa-trophy me-2"></i>
+                                <strong>当前赛事：</strong><span id="currentEventName"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 添加人员表单 -->
+            <div class="card mx-3">
+                <div class="card-body">
+                    <form id="addStaffForm" class="needs-validation" novalidate>
+                        <!-- 第一行：姓名、身份证号 -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">姓名 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="name" required>
+                                    <div class="invalid-feedback">
+                                        请输入姓名
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="idCard" class="form-label">身份证号 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="idCard" required>
+                                    <div class="invalid-feedback">
+                                        请输入身份证号
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 第二行：联系电话、职务 -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="phone" class="form-label">联系电话 <span class="text-danger">*</span></label>
+                                    <input type="tel" class="form-control" id="phone" required>
+                                    <div class="invalid-feedback">
+                                        请输入联系电话
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="position" class="form-label">职务 <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="position" required>
+                                        <option value="">请选择职务</option>
+                                        <option value="coach">教练</option>
+                                        <option value="medical">医务人员</option>
+                                        <option value="staff">随队人员</option>
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        请选择职务
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-secondary" onclick="goBack()">
+                                <i class="fas fa-arrow-left me-2"></i>返回
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>保存信息
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #007bff 0%, #28a745 50%, #ffc107 100%);
+}
+
+.page-header-content {
+    padding: 2rem;
+}
+
+.page-title {
+    color: #2c3e50;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    font-size: 1.75rem;
+}
+
+.page-title i {
+    color: #28a745;
+}
+
+.page-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+}
+
+/* 当前赛事信息框 - 与随队人员列表保持一致 */
+.current-event-box {
+    display: inline-flex;
+    align-items: center;
+    background-color: #cff4fc;
+    border: 1px solid #9eeaf9;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    color: #055160;
+    font-size: 1rem;
+    max-width: fit-content;
+    transition: none !important;
+    animation: none !important;
+    opacity: 1 !important;
+    margin-bottom: 0;
+}
+
+.current-event-box i.fa-trophy {
+    color: #055160;
+}
+
+.step-nav-btn {
+    padding: 0.85rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 0.75rem;
+}
+
+.step-nav-btn i {
+    font-size: 1.05rem;
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 全局变量 - 当前登录用户
+let currentUsername = '{{ session.get("username", "") }}';
+
+// 页面加载时检查赛事信息
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化用户信息
+    initializeUserInfo();
+    // 检查URL参数中的赛事信息
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    
+    if (eventId && eventName) {
+        // 显示赛事信息
+        document.getElementById('currentEventName').textContent = decodeURIComponent(eventName);
+        document.getElementById('selectedEventInfo').style.display = 'block';
+        
+        // 保存赛事信息到sessionStorage
+        sessionStorage.setItem('currentEvent', JSON.stringify({
+            id: eventId,
+            name: eventName
+        }));
+    } else {
+        // 尝试从sessionStorage获取赛事信息
+        const savedEvent = sessionStorage.getItem('currentEvent');
+        if (savedEvent) {
+            const event = JSON.parse(savedEvent);
+            window.location.href = `/add_staff_direct?event_id=${event.id}&event_name=${encodeURIComponent(event.name)}`;
+            return;
+        }
+        
+        // 如果没有赛事信息，显示提示并跳转到赛事选择
+        showMessage('请先选择赛事', 'warning');
+        setTimeout(() => {
+            window.location.href = '/event_selection?source=staff_list';
+        }, 2000);
+    }
+    
+    // 初始化表单验证
+    initFormValidation();
+});
+
+// 获取职务中文名称
+function getPositionName(position) {
+    const positionMap = {
+        'coach': '教练',
+        'medical': '医务人员',
+        'staff': '随队人员'
+    };
+    return positionMap[position] || position;
+}
+
+// 初始化表单验证
+function initFormValidation() {
+    const form = document.getElementById('addStaffForm');
+    
+    form.addEventListener('submit', handleSubmit);
+}
+
+// 表单提交处理
+function handleSubmit(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const form = document.getElementById('addStaffForm');
+    if (form.checkValidity()) {
+        saveStaff();
+    }
+    
+    form.classList.add('was-validated');
+}
+
+// 保存随队人员信息
+function saveStaff() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    
+    if (!eventId) {
+        showMessage('缺少赛事信息', 'error');
+        return;
+    }
+    
+    // 获取表单数据
+    const name = document.getElementById('name').value.trim();
+    const idCard = document.getElementById('idCard').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const position = document.getElementById('position').value.trim();
+    
+    // 1. 基础表单验证
+    if (!name || !idCard || !phone || !position) {
+        showMessage('请填写所有必填字段', 'error');
+        return;
+    }
+    
+    // 2. 身份证号格式验证
+    if (idCard.length !== 18) {
+        showMessage('身份证号必须为18位', 'error');
+        return;
+    }
+    
+    // 3. 手机号格式验证
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+        showMessage('请输入正确的手机号码', 'error');
+        return;
+    }
+    
+    // 4. 获取当前队伍信息
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        showMessage('无法获取当前用户信息', 'error');
+        return;
+    }
+    
+    // 获取当前队伍信息 - 优先使用URL中的队伍ID
+    const teamIdFromUrl = new URLSearchParams(window.location.search).get('team_id');
+    
+    console.log('查找队伍 - 用户:', currentUser, '赛事ID:', eventId, 'URL队伍ID:', teamIdFromUrl);
+    
+    let currentEventTeam = null;
+    
+    // 遍历所有存储键查找队伍
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('createdTeams_')) {
+            const teams = JSON.parse(localStorage.getItem(key) || '[]');
+            
+            // 如果URL中有队伍ID，精确匹配
+            if (teamIdFromUrl) {
+                const team = teams.find(t => t.id === teamIdFromUrl);
+                if (team) {
+                    currentEventTeam = team;
+                    console.log('通过URL队伍ID找到队伍:', team);
+                    break;
+                }
+            } else {
+                // 如果没有队伍ID，按赛事ID查找第一个匹配的队伍
+                const team = teams.find(t => 
+                    String(t.eventId) === String(eventId) && 
+                    (t.isCreated === true || t.isCreated === undefined)
+                );
+                if (team) {
+                    currentEventTeam = team;
+                    console.log('通过赛事ID找到队伍:', team);
+                    break;
+                }
+            }
+        }
+    }
+    
+    console.log('找到的当前赛事队伍:', currentEventTeam);
+    
+    if (!currentEventTeam) {
+        showMessage('未找到当前队伍信息，请先创建队伍', 'error');
+        console.error('查找失败 - 赛事ID:', eventId, 'URL队伍ID:', teamIdFromUrl);
+        return;
+    }
+    
+    // 5. 检查身份证号和手机号是否重复
+    const staffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+    
+    console.log('=== 开始检测重复 ===');
+    console.log('当前队伍ID:', currentEventTeam.id);
+    console.log('当前赛事ID:', eventId);
+    console.log('当前用户:', currentUser);
+    console.log('所有随队人员:', staffList);
+    
+    // 当前队伍的随队人员：
+    // 1. 有teamId且等于当前队伍ID
+    // 2. 没有teamId但是当前用户创建的（兼容旧数据）
+    const currentTeamStaff = staffList.filter(staff => {
+        if (String(staff.eventId) !== String(eventId)) return false;
+        
+        // 有teamId，直接判断
+        if (staff.teamId) {
+            return staff.teamId === currentEventTeam.id;
+        }
+        
+        // 没有teamId（旧数据），根据createdBy判断
+        // 如果是当前用户创建的，则认为是当前队伍
+        return staff.createdBy === currentUser;
+    });
+    
+    // 其他队伍的随队人员：
+    // 1. 有teamId且与当前队伍不同
+    // 2. 没有teamId但不是当前用户创建的（旧数据，归类为其他队伍）
+    const otherTeamStaff = staffList.filter(staff => {
+        if (String(staff.eventId) !== String(eventId)) return false;
+        
+        // 有teamId，直接判断
+        if (staff.teamId) {
+            return staff.teamId !== currentEventTeam.id;
+        }
+        
+        // 没有teamId（旧数据），如果不是当前用户创建的，则认为是其他队伍
+        return staff.createdBy !== currentUser;
+    });
+    
+    console.log('当前队伍的随队人员:', currentTeamStaff);
+    console.log('其他队伍的随队人员:', otherTeamStaff);
+    
+    // 检查身份证号是否在当前队伍中重复
+    const duplicateIdInTeam = currentTeamStaff.find(staff => 
+        staff.idCard === idCard
+    );
+    if (duplicateIdInTeam) {
+        showMessage(`该身份证号与【${duplicateIdInTeam.name}】(${getPositionName(duplicateIdInTeam.position)}) 重复`, 'error');
+        return;
+    }
+    
+    // 检查身份证号是否在其他队伍中重复
+    const duplicateIdInOther = otherTeamStaff.find(staff => 
+        staff.idCard === idCard
+    );
+    if (duplicateIdInOther) {
+        showMessage(`该人员【${duplicateIdInOther.name}】已加入其他队伍`, 'error');
+        return;
+    }
+    
+    // 检查手机号是否在当前队伍中重复
+    const duplicatePhoneInTeam = currentTeamStaff.find(staff => 
+        staff.phone === phone
+    );
+    if (duplicatePhoneInTeam) {
+        showMessage(`该手机号与【${duplicatePhoneInTeam.name}】(${getPositionName(duplicatePhoneInTeam.position)}) 重复`, 'error');
+        return;
+    }
+    
+    // 检查手机号是否在其他队伍中重复
+    const duplicatePhoneInOther = otherTeamStaff.find(staff => 
+        staff.phone === phone
+    );
+    if (duplicatePhoneInOther) {
+        showMessage(`该人员【${duplicatePhoneInOther.name}】已加入其他队伍`, 'error');
+        return;
+    }
+    
+    // 6. 检查互斥规则
+    // 当前赛事的所有随队人员（用于互斥规则检查）
+    const eventStaff = staffList.filter(staff => 
+        String(staff.eventId) === String(eventId)
+    );
+    
+    if (position === 'staff') {
+        // 职务为"随队人员"时，不能是参赛选手、医务人员或教练
+        
+        // 6.1 检查是否已是参赛选手
+        const playerList = JSON.parse(localStorage.getItem('playerList') || '[]');
+        const teamApplications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+        
+        const isPlayer = playerList.find(player => 
+            String(player.eventId) === String(eventId) && 
+            (player.idCard === idCard || player.registration_number === idCard || player.phone === phone)
+        );
+        
+        const isPlayerApp = teamApplications.find(app => 
+            String(app.eventId) === String(eventId) && 
+            app.role === 'player' && 
+            app.status === 'approved' &&
+            (app.idCard === idCard || app.applicantIdCard === idCard || app.phone === phone || app.applicantPhone === phone)
+        );
+        
+        if (isPlayer || isPlayerApp) {
+            const playerName = isPlayer ? (isPlayer.name || isPlayer.real_name) : (isPlayerApp.applicantName);
+            showMessage(`该人员【${playerName}】已是参赛选手，不能添加为随队人员`, 'error');
+            return;
+        }
+        
+        // 6.2 检查是否已是医务人员或教练
+        const existingStaff = eventStaff.find(staff => 
+            (staff.position === 'medical' || staff.position === 'coach') &&
+            (staff.idCard === idCard || staff.phone === phone)
+        );
+        
+        if (existingStaff) {
+            showMessage(`该人员【${existingStaff.name}】已是${getPositionName(existingStaff.position)}，不能添加为随队人员`, 'error');
+            return;
+        }
+    } else {
+        // 职务为"医务人员"或"教练"时，不能已是"随队人员"
+        const isStaffMember = eventStaff.find(staff => 
+            staff.position === 'staff' &&
+            (staff.idCard === idCard || staff.phone === phone)
+        );
+        
+        if (isStaffMember) {
+            showMessage(`该人员【${isStaffMember.name}】已是随队人员，不能添加为${getPositionName(position)}`, 'error');
+            return;
+        }
+    }
+    
+    console.log('验证通过，准备保存数据');
+    
+    // 创建随队人员数据（兼容后端字段命名）
+    const staffData = {
+        // 后端 add_team_staff 需要的核心字段
+        event_id: parseInt(eventId),
+        name: name,
+        position: position,
+        phone: phone,
+        id_card: idCard,
+        // 额外信息（后端会按需使用或忽略）
+        idCard: idCard,
+        eventId: parseInt(eventId),
+        eventName: eventName,
+        teamId: currentEventTeam.id,
+        teamName: currentEventTeam.teamName || currentEventTeam.name || '未命名队伍',
+        gender: extractGenderFromIdCard(idCard) || null,
+        age: calculateAgeFromIdCard(idCard) || null
+    };
+    
+    console.log('保存的随队人员数据:', staffData);
+    
+    // 显示加载中
+    const submitBtn = document.querySelector('#addStaffForm button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>保存中...';
+    
+    // 发送请求到后端API（切换到新的按队伍维度的接口）
+    const teamId = currentEventTeam.id;
+    const apiUrl = `/api/team/${teamId}/staff`;
+
+    fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(staffData)
+    })
+    .then(response =>
+        response.text().then(text => {
+            let data = null;
+            if (text) {
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.error('解析随队人员添加响应失败，返回内容非 JSON:', text);
+                    throw new Error(`"${text.slice(0, 60)}"... is not valid JSON error`);
+                }
+            }
+            return { response, data };
+        })
+    )
+    .then(({ response, data }) => {
+        if (!response.ok || !data || data.success === false) {
+            const msg = data && data.message ? data.message : `HTTP ${response.status} 添加随队人员失败`;
+            throw new Error(msg);
+        }
+
+        if (data.success) {
+            console.log('后端返回数据:', data);
+            
+            // 统一显示简单的成功消息
+            let successMsg = '随队人员添加成功';
+            
+            // 如果自动创建了账号，在控制台输出账号信息供调试
+            if (data.user_created) {
+                console.log('已自动创建账号:', data.user);
+                console.log('账号:', data.user.username, '密码:', idCard.slice(-6));
+            }
+            
+            // 保存到localStorage（用于前端显示）
+            if (data.staff) {
+                const staffListData = {
+                    id: Date.now().toString(),
+                    eventId: data.staff.eventId,
+                    eventName: eventName,
+                    teamId: data.staff.teamId,
+                    teamName: data.staff.teamName,
+                    name: data.staff.name,
+                    idCard: data.staff.idCard,
+                    phone: data.staff.phone,
+                    position: data.staff.position,
+                    gender: data.staff.gender === 'male' ? '男' : (data.staff.gender === 'female' ? '女' : ''),
+                    age: data.staff.age,
+                    status: 'active',
+                    createdAt: data.staff.createdAt,
+                    createdBy: currentUser,
+                    userId: data.staff.userId
+                };
+                
+                staffList.push(staffListData);
+                localStorage.setItem('staffList', JSON.stringify(staffList));
+                console.log('随队人员已保存到localStorage');
+                
+                // 将随队人员也加入到 teamApplications 中，使其登录后能看到队伍
+                const applicationRecord = {
+                    id: Date.now(),
+                    teamId: data.staff.teamId,
+                    teamName: data.staff.teamName,
+                    eventId: parseInt(data.staff.eventId),
+                    eventName: eventName || '未知赛事',
+                    userId: data.staff.userId,
+                    applicantName: data.staff.name,
+                    applicantIdCard: data.staff.idCard,
+                    applicantPhone: data.staff.phone,
+                    phone: data.staff.phone,
+                    idCard: data.staff.idCard,
+                    gender: data.staff.gender,
+                    age: data.staff.age,
+                    position: data.staff.position,
+                    role: 'staff',  // 随队人员角色
+                    status: 'approved',  // 自动通过
+                    appliedAt: data.staff.createdAt,
+                    approvedAt: data.staff.createdAt,
+                    approvedBy: currentUser  // 由当前用户（领队）批准
+                };
+                
+                console.log('保存的申请记录（随队人员）:', applicationRecord);
+                
+                // 保存到 teamApplications
+                const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+                applications.push(applicationRecord);
+                localStorage.setItem('teamApplications', JSON.stringify(applications));
+                
+                console.log('随队人员申请已保存到teamApplications');
+            }          
+            // 保存成功消息到 sessionStorage，在目标页面显示
+            sessionStorage.setItem('successMessage', successMsg);
+            
+            // 获取来源参数
+            const urlParams = new URLSearchParams(window.location.search);
+            const source = urlParams.get('source') || '';
+            const teamId = urlParams.get('team_id') || (staffData.teamId ? String(staffData.teamId) : '');
+
+            // 直接跳转到随队人员列表页面，保留 source 和 team_id 参数
+            let redirectUrl = `/staff_list?event_id=${eventId}&event_name=${encodeURIComponent(eventName || '')}`;
+            if (teamId) {
+                redirectUrl += `&team_id=${encodeURIComponent(teamId)}`;
+            }
+            if (source) {
+                redirectUrl += `&source=${source}`;
+            }
+            window.location.href = redirectUrl;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showMessage(`添加失败: ${error.message}`, 'error');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    });
+}
+
+// 从身份证号提取性别
+function extractGenderFromIdCard(idCard) {
+    if (!idCard || idCard.length < 17) {
+        return '';
+    }
+    
+    // 18位身份证号的第17位数字表示性别，奇数为男，偶数为女
+    const genderDigit = parseInt(idCard.charAt(16));
+    if (isNaN(genderDigit)) {
+        return '';
+    }
+    
+    return genderDigit % 2 === 1 ? '男' : '女';
+}
+
+// 从身份证号计算年龄
+function calculateAgeFromIdCard(idCard) {
+    if (!idCard || idCard.length < 14) {
+        return '';
+    }
+    
+    let birthYear, birthMonth, birthDay;
+    
+    if (idCard.length === 18) {
+        // 18位身份证
+        birthYear = parseInt(idCard.substring(6, 10));
+        birthMonth = parseInt(idCard.substring(10, 12));
+        birthDay = parseInt(idCard.substring(12, 14));
+    } else if (idCard.length === 15) {
+        // 15位身份证（老式）
+        birthYear = 1900 + parseInt(idCard.substring(6, 8));
+        birthMonth = parseInt(idCard.substring(8, 10));
+        birthDay = parseInt(idCard.substring(10, 12));
+    } else {
+        return '';
+    }
+    
+    if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) {
+        return '';
+    }
+    
+    const today = new Date();
+    const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
+    
+    let age = today.getFullYear() - birthYear;
+    
+    // 如果今年的生日还没过，年龄减1
+    if (today.getMonth() < birthMonth - 1 || 
+        (today.getMonth() === birthMonth - 1 && today.getDate() < birthDay)) {
+        age--;
+    }
+    
+    return age >= 0 && age <= 150 ? age : '';
+}
+
+// 初始化用户信息
+function initializeUserInfo() {
+    // 从API获取最新的用户信息
+    fetch('/api/check_login')
+        .then(response => response.json())
+        .then(data => {
+            if (data.logged_in && data.user_name) {
+                currentUsername = data.user_name;
+                // 更新sessionStorage
+                sessionStorage.setItem('user_name', data.user_name);
+                sessionStorage.setItem('username', data.username || data.user_name);
+                console.log('用户信息已初始化:', currentUsername);
+            }
+        })
+        .catch(error => {
+            console.error('获取用户信息失败:', error);
+            // 尝试从sessionStorage获取
+            currentUsername = sessionStorage.getItem('user_name') || 
+                           sessionStorage.getItem('username') || 
+                           '{{ session.get("username", "") }}';
+        });
+}
+
+// 获取当前登录用户
+function getCurrentUser() {
+    // 优先从API/sessionStorage获取
+    let userInfo = sessionStorage.getItem('user_name') || 
+                   sessionStorage.getItem('username') || 
+                   currentUsername;
+    
+    console.log('getCurrentUser 返回:', userInfo);
+    return userInfo || null;
+}
+
+// 返回上一页
+function goBack() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    const source = urlParams.get('source'); // 获取source参数
+    const teamId = urlParams.get('team_id');
+    
+    if (eventId && eventName) {
+        // 构建返回URL，保留source和team_id参数
+        let backUrl = `/staff_list?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}`;
+        if (teamId) {
+            backUrl += `&team_id=${encodeURIComponent(teamId)}`;
+        }
+        if (source) {
+            backUrl += `&source=${source}`;
+        }
+        window.location.href = backUrl;
+    } else if (eventId) {
+        // 如果只有eventId，尝试从sessionStorage获取eventName
+        const savedEvent = sessionStorage.getItem('currentEvent');
+        if (savedEvent) {
+            const event = JSON.parse(savedEvent);
+            let backUrl = `/staff_list?event_id=${eventId}&event_name=${encodeURIComponent(event.name)}`;
+            if (source) {
+                backUrl += `&source=${source}`;
+            }
+            window.location.href = backUrl;
+        } else {
+            window.history.back();
+        }
+    } else {
+        window.history.back();
+    }
+}
+
+// 切换赛事
+function changeEvent() {
+    // 跳转到赛事选择页面
+    window.location.href = '/event_selection?source=staff_list';
+}
+
+// 旧的goBack函数（保留用于兼容）
+function goBackOld() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    const source = urlParams.get('source') || '';
+    
+    if (eventId && eventName) {
+        // 构建返回URL，保留source参数
+        let backUrl = `/staff_list?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}`;
+        if (source) {
+            backUrl += `&source=${source}`;
+        }
+        window.location.href = backUrl;
+    } else {
+        window.history.back();
+    }
+}
+
+// 使用全局的 showMessage 函数（在 main.js 中定义）
+</script>
+{% endblock %}

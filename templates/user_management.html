@@ -1,0 +1,727 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <div class="row g-0">
+        <div class="col-12">
+            <!-- 页面标题 - 统一优雅设计 -->
+            <div class="page-header-card mx-3">
+                <div class="page-header-content">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="page-title">
+                                <i class="fas fa-users me-2"></i>用户管理
+                            </h2>
+                            <p class="page-description">
+                                管理系统所有用户的账号和权限
+                            </p>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="refreshUserList()">
+                                <i class="fas fa-sync-alt me-2"></i>刷新
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<style>
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #28a745 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+}
+
+.page-header-content {
+    padding: 1.75rem 2rem;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.page-title i {
+    color: #28a745;
+}
+
+.page-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+}
+</style>
+
+            <div class="card shadow-sm mx-3" style="overflow-x: auto;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>用户列表
+                    </h5>
+                    <div class="input-group" style="max-width: 320px;">
+                        <input type="text" id="userSearch" class="form-control" placeholder="搜索用户（用户名/用户昵称/邮箱/手机号）">
+                        <button class="btn btn-outline-primary" type="button" id="userSearchBtn"><i class="fas fa-search"></i></button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="overflow-x: auto;">
+                        <table class="table table-hover" id="userTable" style="width: 100%; min-width: 1400px; table-layout: fixed;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 150px;">用户昵称</th>
+                                    <th style="width: 100px;">姓名</th>
+                                    <th style="width: 120px;">账号</th>
+                                    <th style="width: 150px;">密码</th>
+                                    <th style="width: 150px;">手机号</th>
+                                    <th style="width: 120px;">权限等级</th>
+                                    <th style="width: 160px;">注册时间</th>
+                                    <th style="width: 100px;">状态</th>
+                                    <th style="width: 120px;">角色管理</th>
+                                    <th style="width: 120px;">密码管理</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userTableBody">
+                                <!-- 用户数据将通过JavaScript加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页控件 -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="text-muted">
+                            <span id="pageInfo">第 1 页，共 1 页</span>
+                            <span class="ms-3" id="totalInfo">共 0 个用户</span>
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0">
+                                <li class="page-item" id="prevPage">
+                                    <a class="page-link" href="#" onclick="changePage(currentPage - 1)">上一页</a>
+                                </li>
+                                <li class="page-item active" id="currentPageItem">
+                                    <span class="page-link" id="currentPageSpan" style="color: #fff; background-color: #0d6efd; border-color: #0d6efd;">1</span>
+                                </li>
+                                <li class="page-item" id="nextPage">
+                                    <a class="page-link" href="#" onclick="changePage(currentPage + 1)">下一页</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 角色修改模态框 -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-cog me-2"></i>修改用户角色和状态
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="roleForm">
+                    <div class="mb-3">
+                        <label class="form-label">用户信息</label>
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <strong id="modalUsername"></strong> (<span id="modalRealName"></span>)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newRole" class="form-label">权限等级</label>
+                        <select class="form-select" id="newRole" required>
+                            <option value="">请选择角色</option>
+                            <option value="super_admin">超级管理员</option>
+                            <option value="admin">管理员</option>
+                            <option value="judge">裁判</option>
+                            <option value="user">普通用户</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newStatus" class="form-label">用户状态</label>
+                        <select class="form-select" id="newStatus" required>
+                            <option value="normal">正常</option>
+                            <option value="abnormal">异常</option>
+                            <option value="frozen">冻结</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="updateUserRoleAndStatus()">
+                    <i class="fas fa-save me-2"></i>确认修改
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 用户管理表格样式优化 */
+#userTable {
+    white-space: nowrap;
+}
+
+#userTable th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    vertical-align: middle;
+    text-align: center;
+}
+
+#userTable td {
+    vertical-align: middle;
+    text-align: center;
+}
+
+/* 确保权限等级列不换行 */
+#userTable .role-badge {
+    white-space: nowrap;
+    display: inline-block;
+}
+
+/* 按钮样式优化 */
+#userTable .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* 表格容器样式 */
+.table-responsive {
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+/* 分页样式优化 */
+.pagination .page-item.active .page-link {
+    color: #fff !important;
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+}
+
+/* 确保横向滚动条可见 */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* 去掉模态框背景遮罩 */
+.modal-backdrop {
+    display: none !important;
+}
+
+/* 让模态框更突出 */
+#roleModal .modal-content {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 1px solid #dee2e6;
+}
+
+/* 确保模态框在正确位置 */
+#roleModal {
+    z-index: 1055 !important;
+}
+
+#roleModal.show {
+    display: block !important;
+}
+
+#roleModal .modal-dialog {
+    margin: 1.75rem auto;
+    position: relative;
+    width: auto;
+}
+
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentEditUser = null;
+let allUsers = [];
+let filteredUsers = [];
+let currentPage = 1;
+const usersPerPage = 10;
+let totalPages = 1;
+
+$(document).ready(function() {
+    
+    // 检查权限
+    if (!checkManagementPermission()) {
+        showCenterMessage('权限不足，无法访问用户管理页面', 'error');
+        setTimeout(() => {
+            window.location.href = '/dashboard';
+        }, 2000);
+        return;
+    }
+    
+    // 加载用户列表
+    loadUserList();
+    
+    // 当页面重新获得焦点时，自动刷新用户列表（例如从其他页面切换回来）
+    $(window).on('focus', function() {
+        loadUserList();
+    });
+    
+    // 模态框事件监听
+    $('#roleModal').on('hidden.bs.modal', function () {
+        // 模态框关闭后清理
+        currentEditUser = null;
+        $('#roleForm')[0].reset();
+    });
+
+    // 搜索事件
+    $('#userSearchBtn').on('click', applyUserSearch);
+    $('#userSearch').on('keyup', function(e) {
+        if (e.key === 'Enter') {
+            applyUserSearch();
+        } else {
+            // 实时过滤（可选）
+            applyUserSearch();
+        }
+    });
+});
+
+function checkManagementPermission() {
+    // 这里应该检查当前用户是否有管理权限
+    // 暂时简化处理
+    return true;
+}
+
+function loadUserList() {
+    $.ajax({
+        url: '/api/users',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                allUsers = response.users;
+                filteredUsers = allUsers;
+                currentPage = 1;
+                renderUserTable();
+            } else {
+                showCenterMessage('获取用户列表失败: ' + response.message, 'error');
+            }
+        },
+        error: function() {
+            showCenterMessage('网络错误，无法加载用户列表', 'error');
+        }
+    });
+}
+
+function applyUserSearch() {
+    const keyword = ($('#userSearch').val() || '').trim().toLowerCase();
+    if (!keyword) {
+        filteredUsers = allUsers;
+    } else {
+        filteredUsers = allUsers.filter(u => {
+            const username = (u.username || '').toLowerCase();
+            const realName = (u.real_name || '').toLowerCase();
+            const email = (u.email || '').toLowerCase();
+            const phone = (u.phone || '').toLowerCase();
+            const nickname = (u.nickname || '').toLowerCase();
+            return username.includes(keyword) || realName.includes(keyword) || email.includes(keyword) || phone.includes(keyword) || nickname.includes(keyword);
+        });
+    }
+    currentPage = 1; // 搜索后重置到第一页
+    renderUserTable();
+}
+
+function renderUserTable() {
+    const tbody = $('#userTableBody');
+    tbody.empty();
+    
+    // 计算分页
+    totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+    const startIndex = (currentPage - 1) * usersPerPage;
+    const endIndex = startIndex + usersPerPage;
+    const currentUsers = filteredUsers.slice(startIndex, endIndex);
+    
+    // 获取当前用户信息（从模板变量中获取）
+    const currentUserRole = '{{ user_role|default("") }}';
+    const currentUsername = '{{ session.get("username", "") }}';  // 使用真实用户名而不是显示名称
+    const isSuperAdmin = currentUserRole === 'super_admin';
+    
+    currentUsers.forEach(user => {
+        // 密码显示逻辑：显示用户的当前密码
+        const passwordDisplay = user.password || '未设置';
+        
+        // 显示用户昵称，如果没有昵称则显示用户名
+        const nickname = user.nickname || user.username;
+        
+        // 权限判断逻辑
+        let canOperate = false;
+        
+        // 调试信息
+        console.log('=== 权限判断 ===');
+        console.log('目标用户:', user.username, '目标角色:', user.role);
+        console.log('当前用户角色:', currentUserRole, '当前用户名:', currentUsername);
+        console.log('用户名匹配:', user.username === currentUsername);
+        
+        // 超级管理员可以操作所有用户
+        if (currentUserRole === 'super_admin') {
+            canOperate = true;
+            console.log('超级管理员，允许操作');
+        }
+        // 管理员的权限判断
+        else if (currentUserRole === 'admin') {
+            // 如果是自己的账号，可以操作
+            if (user.username === currentUsername) {
+                canOperate = true;
+                console.log('匹配自己账号，允许操作');
+            }
+            // 如果是普通用户或裁判，可以操作
+            else if (user.role === 'user' || user.role === 'judge') {
+                canOperate = true;
+                console.log('普通用户或裁判，允许操作');
+            }
+            // 其他情况不能操作
+            else {
+                canOperate = false;
+                console.log('其他角色，不允许操作');
+            }
+        }
+        console.log('最终权限结果:', canOperate);
+        console.log('==================');
+        
+        // 操作按钮HTML
+        const roleButton = canOperate ? 
+            `<button class="btn btn-sm btn-outline-primary" onclick="console.log('按钮点击'); showRoleModal('${user.username.replace(/'/g, "\\'")}', '${(user.real_name || '').replace(/'/g, "\\'")}', '${user.role}', '${user.status === 'normal' ? '正常' : user.status === 'frozen' ? '冻结' : '异常'}')">
+                <i class="fas fa-user-cog me-1"></i>修改
+            </button>` : 
+            `<span class="text-muted">无权限</span>`;
+            
+        const passwordButton = canOperate ? 
+            `<button class="btn btn-sm btn-outline-dark" onclick="resetUserPassword('${user.username}')" title="重置为默认密码">
+                <i class="fas fa-key me-1"></i>重置密码
+            </button>` : 
+            `<span class="text-muted">无权限</span>`;
+        
+        const row = `
+            <tr>
+                <td>${nickname}</td>
+                <td>${user.full_name || '-'}</td>
+                <td>${user.username}</td>
+                <td>${passwordDisplay}</td>
+                <td>${user.phone || '-'}</td>
+                <td>
+                    <span class="${getRoleBadgeClass(user.role)}">
+                        ${getRoleDisplayName(user.role)}
+                    </span>
+                </td>
+                <td>${formatDateTime(user.created_at)}</td>
+                <td>
+                    <span class="badge ${user.status === 'normal' || (user.status === undefined && user.is_active) ? 'bg-success' : user.status === 'abnormal' || (user.status === undefined && !user.is_active) ? 'bg-danger' : 'bg-primary'}">
+                        ${user.status === 'normal' || (user.status === undefined && user.is_active) ? '正常' : user.status === 'abnormal' || (user.status === undefined && !user.is_active) ? '异常' : '冻结'}
+                    </span>
+                </td>
+                <td>
+                    ${roleButton}
+                </td>
+                <td>
+                    ${passwordButton}
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+    
+    // 更新分页信息
+    updatePaginationInfo();
+}
+
+function getRoleBadgeClass(role) {
+    const classes = {
+        'super_admin': 'role-badge super-admin',
+        'admin': 'role-badge admin',
+        'judge': 'role-badge judge',
+        'user': 'role-badge user'
+    };
+    return classes[role] || 'role-badge user';
+}
+
+function getRoleDisplayName(role) {
+    const names = {
+        'super_admin': '超级管理员',
+        'admin': '管理员',
+        'judge': '裁判',
+        'user': '普通用户'
+    };
+    return names[role] || '未知角色';
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleString('zh-CN');
+}
+
+function showRoleModal(username, realName, currentRole, currentStatus) {
+    console.log('showRoleModal被调用:', username, realName, currentRole, currentStatus);
+    
+    currentEditUser = username;
+    $('#modalUsername').text(username);
+    $('#modalRealName').text(realName);
+    $('#newRole').val(currentRole || '');
+    
+    // 设置当前状态
+    let statusValue = 'normal';
+    if (currentStatus === '异常' || currentStatus === '禁用') statusValue = 'abnormal';
+    if (currentStatus === '冻结') statusValue = 'frozen';
+    $('#newStatus').val(statusValue);
+    
+    // 根据当前用户权限过滤可选角色
+    filterRoleOptions(currentRole, username);
+    
+    // 检查模态框元素
+    const modalElement = $('#roleModal');
+    console.log('模态框元素数量:', modalElement.length);
+    console.log('模态框元素:', modalElement);
+    
+    if (modalElement.length === 0) {
+        console.error('找不到模态框元素!');
+        return;
+    }
+    
+    // 强制显示模态框
+    modalElement.css('display', 'block');
+    modalElement.addClass('show');
+    modalElement.addClass('fade');
+    $('body').addClass('modal-open');
+    
+    // 绑定关闭事件
+    modalElement.find('.btn-close').off('click').on('click', function() {
+        console.log('关闭按钮被点击');
+        closeRoleModal();
+    });
+    
+    modalElement.find('[data-bs-dismiss="modal"]').off('click').on('click', function() {
+        console.log('取消按钮被点击');
+        closeRoleModal();
+    });
+    
+    // ESC键关闭
+    $(document).off('keydown.roleModal').on('keydown.roleModal', function(e) {
+        if (e.key === 'Escape') {
+            closeRoleModal();
+        }
+    });
+    
+    console.log('模态框显示命令已执行');
+}
+
+function closeRoleModal() {
+    console.log('关闭模态框');
+    const modalElement = $('#roleModal');
+    modalElement.removeClass('show');
+    modalElement.css('display', 'none');
+    $('body').removeClass('modal-open');
+    
+    // 清理事件监听
+    $(document).off('keydown.roleModal');
+    
+    // 清理表单
+    currentEditUser = null;
+    $('#roleForm')[0].reset();
+}
+
+function filterRoleOptions(currentRole, targetUsername) {
+    // 根据当前登录用户的权限来过滤可选角色
+    const currentUserRole = '{{ user_role }}';
+    const currentUsername = '{{ session.get("username", "") }}';  // 使用真实用户名
+    const options = $('#newRole option');
+    
+    if (currentUserRole === 'super_admin') {
+        // 超级管理员可以设置所有角色
+        options.show();
+    } else if (currentUserRole === 'admin') {
+        // 管理员的权限规则
+        options.each(function() {
+            const value = $(this).val();
+            if (value === 'super_admin') {
+                // 管理员永远不能设置超级管理员角色
+                $(this).hide();
+            } else if (value === 'admin') {
+                // 管理员只能给自己设置管理员角色，不能给其他人设置
+                if (targetUsername === currentUsername) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            } else {
+                // 普通用户和裁判角色都可以设置
+                $(this).show();
+            }
+        });
+    } else {
+        // 其他角色不能修改任何角色
+        options.hide();
+        options.first().show(); // 只显示"请选择角色"选项
+    }
+}
+
+function updateUserRoleAndStatus() {
+    if (!currentEditUser) {
+        showCenterMessage('没有选择要修改的用户', 'error');
+        return;
+    }
+    
+    const newRole = $('#newRole').val();
+    const newStatus = $('#newStatus').val();
+    
+    if (!newRole) {
+        showCenterMessage('请选择新角色', 'warning');
+        return;
+    }
+    
+    if (!newStatus) {
+        showCenterMessage('请选择用户状态', 'warning');
+        return;
+    }
+    
+    // 发送角色和状态更新请求
+    $.ajax({
+        url: '/api/users/role_and_status',
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            username: currentEditUser,
+            new_role: newRole,
+            new_status: newStatus
+        }),
+        success: function(response) {
+            if (response.success) {
+                showCenterMessage('用户角色和状态修改成功', 'success');
+                closeRoleModal();
+                loadUserList(); // 重新加载用户列表
+            } else {
+                showCenterMessage('修改失败: ' + response.message, 'error');
+            }
+        },
+        error: function() {
+            showCenterMessage('网络错误，修改失败', 'error');
+        }
+    });
+}
+
+function refreshUserList() {
+    loadUserList();
+    showCenterMessage('用户列表已刷新', 'info');
+}
+
+// 更新分页信息
+function updatePaginationInfo() {
+    // 更新页面信息
+    $('#pageInfo').text(`第 ${currentPage} 页，共 ${totalPages} 页`);
+    $('#totalInfo').text(`共 ${filteredUsers.length} 个用户`);
+    $('#currentPageSpan').text(currentPage);
+    
+    // 更新分页按钮状态
+    if (currentPage <= 1) {
+        $('#prevPage').addClass('disabled');
+    } else {
+        $('#prevPage').removeClass('disabled');
+    }
+    
+    if (currentPage >= totalPages) {
+        $('#nextPage').addClass('disabled');
+    } else {
+        $('#nextPage').removeClass('disabled');
+    }
+}
+
+// 切换页面
+function changePage(page) {
+    if (page < 1 || page > totalPages) {
+        return;
+    }
+    currentPage = page;
+    renderUserTable();
+}
+
+// 生成8位中英文乱码昵称
+function generateRandomNickname() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789一二三四五六七八九十';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+function resetUserPassword(username) {
+    if (!confirm(`确定要重置用户 ${username} 的密码吗？\n密码将重置为默认密码，重置后的密码将显示在密码列中。`)) {
+        return;
+    }
+    
+    $.ajax({
+        url: '/api/users/reset_password',
+        method: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            username: username
+        }),
+        success: function(response) {
+            if (response.success) {
+                showCenterMessage(`密码重置成功！新密码：${response.new_password}`, 'success');
+                loadUserList(); // 重新加载用户列表以显示新密码
+            } else {
+                showCenterMessage('密码重置失败: ' + response.message, 'error');
+            }
+        },
+        error: function() {
+            showCenterMessage('网络错误，密码重置失败', 'error');
+        }
+    });
+}
+
+</script>
+{% endblock %}

@@ -1,0 +1,3782 @@
+{% extends "base.html" %}
+
+{% block title %}报名比赛管理 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <div class="row g-0">
+        <div class="col-12">
+            <!-- 页面标题 - 统一优雅设计 -->
+            <div class="page-header-card mx-3">
+                <div class="page-header-content">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-2">
+                                <h2 class="page-title mb-0">
+                                    <i class="fas fa-clipboard-list me-2"></i>报名比赛管理
+                                </h2>
+                            </div>
+                            <p class="page-description mb-3">
+                                报名对练赛或团体赛，管理队员和随行人员，查看队伍完整信息
+                            </p>
+                            <!-- 顶部导航按钮：上一步 / 返回首页 -->
+                            <div id="selectedEventInfo" class="d-flex align-items-center gap-3 mb-3">
+                                <!-- 上一步按钮 -->
+                                <button class="btn btn-primary navigation-btn" onclick="goBackToParticipantOverview()" style="white-space: nowrap; color: white; background-color: #007bff; border: 2px solid #0056b3; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3); min-width: 120px; height: 42px; padding: 0.5rem 1.5rem; font-size: 1rem; line-height: 1.4; transition: all 0.3s ease;">
+                                    <i class="fas fa-arrow-left me-1"></i>上一步
+                                </button>
+                                <!-- 返回首页按钮 -->
+                                <button class="btn btn-primary navigation-btn" onclick="goToHome()" style="white-space: nowrap; color: white; background-color: #007bff; border: 2px solid #0056b3; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3); min-width: 120px; height: 42px; padding: 0.5rem 1.5rem; font-size: 1rem; line-height: 1.4; transition: all 0.3s ease;">
+                                    <i class="fas fa-home me-1"></i>返回首页
+                                </button>
+                            </div>
+                            <!-- 领队操作提示框：移动到按钮下方 -->
+                            <div class="d-none" id="leaderTipAlert" style="background-color: #f8d7da; border: 1px solid #dc3545; border-left: 4px solid #dc3545; color: #721c24; margin-bottom: 0; padding: 1rem 1.25rem; border-radius: 0.375rem; position: relative;">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-exclamation-triangle fa-2x me-3" style="color: #dc3545;"></i>
+                                    <div>
+                                        <h6 class="mb-1 fw-bold" style="color: #721c24;">领队请注意！</h6>
+                                        <p class="mb-0" style="color: #721c24;">添加或修改完队伍信息后，<strong style="color: #dc3545; font-size: 1.1rem;">必须点击右侧"提交信息"按钮</strong>才能正式提交！</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ms-3" id="leaderActionsContainer">
+                            <!-- 只有领队可以看到提交按钮 -->
+                            <button class="btn btn-primary submit-btn-pulse" onclick="submitAllData()" id="submitBtn" style="font-size: 1.5rem; padding: 1.25rem 3rem; font-weight: bold; box-shadow: 0 6px 20px rgba(13, 110, 253, 0.5); border-radius: 16px; min-width: 180px; height: auto; line-height: 1.4;">
+                                <i class="fas fa-paper-plane me-3" style="font-size: 1.7rem;"></i>提交信息
+                            </button>
+                            <button class="btn btn-primary submit-btn-pulse ms-3 d-none" onclick="resubmitData()" id="resubmitBtn" style="font-size: 1.5rem; padding: 1.25rem 3rem; font-weight: bold; box-shadow: 0 6px 20px rgba(13, 110, 253, 0.5); border-radius: 16px; min-width: 180px; height: auto; line-height: 1.4;">
+                                <i class="fas fa-sync-alt me-3" style="font-size: 1.7rem;"></i>重新提交
+                            </button>
+                        </div>
+                        <div class="ms-3 d-none" id="memberTipContainer">
+                            <!-- 队员看到的提示 -->
+                            <span class="badge bg-info fs-6 px-3 py-2">
+                                <i class="fas fa-info-circle me-2"></i>你不是此队伍的领队，仅可查看资料，如需修改请联系领队
+                            </span>
+                        </div>
+                        <div class="ms-3 d-none" id="noTeamTipContainer">
+                            <!-- 未加入队伍的提示 -->
+                            <span class="badge bg-warning fs-6 px-3 py-2">
+                                <i class="fas fa-exclamation-triangle me-2"></i>你暂未加入此赛事的任意一个队伍，请在首页的 创建/加入队伍 入口进行 创建/加入队伍
+                            </span>
+                        </div>
+                        <div class="ms-3 d-none" id="adminViewTipContainer">
+                            <!-- 管理员查看模式的提示 -->
+                            <span class="badge bg-info fs-6 px-3 py-2">
+                                <i class="fas fa-user-shield me-2"></i>当前为管理员查看模式
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<style>
+/* 导航按钮统一样式 - 响应式设计 */
+.navigation-btn {
+    color: white !important;
+    background-color: #007bff !important;
+    border: 2px solid #0056b3 !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3) !important;
+    min-width: 140px !important;
+    height: 54px !important;
+    padding: 0.85rem 2.1rem !important;
+    font-size: 1.12rem !important;
+    line-height: 1.4 !important;
+    transition: all 0.3s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.navigation-btn:hover {
+    background-color: #0056b3 !important;
+    border-color: #004085 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 12px rgba(0, 123, 255, 0.4) !important;
+}
+
+.navigation-btn:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+}
+
+/* 队伍信息表标题整体居中放大 */
+.team-info-header {
+    position: relative;
+}
+
+.team-info-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #17202f;
+    letter-spacing: 0.5px;
+}
+
+/* 队伍信息表操作按钮样式 */
+.info-action-btn {
+    color: #fff !important;
+    border-radius: 14px !important;
+    padding: 0.5rem 1.4rem !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 2px solid transparent !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    min-width: 150px !important;
+    transition: all 0.3s ease !important;
+}
+
+.info-action-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+.info-action-btn.export {
+    background-color: #0f8a5f !important;
+    border-color: #0c704c !important;
+}
+
+.info-action-btn.edit {
+    background-color: #0d6efd !important;
+    border-color: #0a58ca !important;
+}
+.team-info-title {
+    color: #17202f;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .navigation-btn {
+        min-width: 100px !important;
+        height: 38px !important;
+        padding: 0.4rem 1.2rem !important;
+        font-size: 0.9rem !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .navigation-btn {
+        min-width: 90px !important;
+        height: 36px !important;
+        padding: 0.35rem 1rem !important;
+        font-size: 0.85rem !important;
+    }
+}
+
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #28a745 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+}
+
+/* 提交按钮脉冲动画 */
+.submit-btn-pulse {
+    animation: btnPulse 2s infinite;
+    transition: all 0.3s ease;
+}
+
+.submit-btn-pulse:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(13, 110, 253, 0.6) !important;
+}
+
+@keyframes btnPulse {
+    0%, 100% {
+        box-shadow: 0 4px 15px rgba(13, 110, 253, 0.4);
+    }
+    50% {
+        box-shadow: 0 6px 25px rgba(13, 110, 253, 0.7);
+    }
+}
+
+/* 提示框下滑动画 */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-header-content {
+    padding: 1.75rem 2rem;
+}
+
+/* 当前赛事信息框 - 自定义样式，避免与Bootstrap冲突，保持原alert-info外观 */
+.current-event-box {
+    display: inline-flex;
+    align-items: center;
+    background-color: #cff4fc;
+    border: 1px solid #9eeaf9;
+    border-radius: 0.375rem;
+    padding: 0.5rem 1rem;
+    color: #055160;
+    font-size: 1rem;
+    max-width: fit-content;
+    transition: none !important;
+    animation: none !important;
+    opacity: 1 !important;
+    margin-bottom: 0;
+}
+
+.current-event-box strong {
+    color: #055160;
+}
+
+.current-event-box i.fa-trophy {
+    color: #055160;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.page-title i {
+    color: #28a745;
+}
+
+.page-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+}
+
+/* 去掉所有模态框的背景遮罩 */
+.modal-backdrop {
+    display: none !important;
+}
+</style>
+
+            <!-- 功能引导区域 -->
+            <div class="row px-3 mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #e3f2fd 0%, #f1f8ff 100%); border-left: 5px solid #2196F3 !important;">
+                        <div class="card-body py-3">
+                            <h6 class="mb-3" style="color: #1976D2; font-weight: 600;">
+                                <i class="fas fa-route me-2"></i>操作指南
+                            </h6>
+                            <ol class="mb-0 ps-3" style="color: #27313f; font-size: 0.95rem; line-height: 1.9;">
+                                <li><strong>确认参赛选手信息表：</strong>核对每位选手姓名、项目、证件号等关键信息，缺项就补齐。</li>
+                                <li><strong>确认随队人员信息表：</strong>确认教练、医务、随行人员资料齐全，联系方式正确。</li>
+                                <li><strong>确认队伍信息表：</strong>检查队伍名称、领队与联系方式、队伍简介等基础资料。</li>
+                                <li><strong>全部确认无误后</strong>，点击右上角“提交信息”按钮即可完成报名，如有修改记得重新提交。</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 资料概览 -->
+            <div class="row g-4 px-3 mb-4">
+                <div class="col-12 col-md-6 col-lg-6">
+                    <div class="card border-warning cursor-pointer hover:shadow-md transition-shadow h-100" onclick="goToPlayerList()">
+                        <div class="card-body text-center d-flex flex-column justify-content-center" style="min-height: 200px; padding: 2rem;">
+                            <div>
+                                <i class="fas fa-id-card fa-3x text-warning mb-3"></i>
+                                <h5 class="mb-2 fw-bold">参赛选手信息表</h5>
+                                <small class="text-muted">查看或补充每位参赛选手的姓名、项目、证件号等报名信息。</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-6">
+                    <div class="card border-success h-100 cursor-pointer hover:shadow-md transition-shadow" onclick="goToStaffList()">
+                        <div class="card-body text-center d-flex flex-column justify-content-center" style="min-height: 200px; padding: 2rem;">
+                            <div>
+                                <i class="fas fa-user-group fa-3x text-success mb-3"></i>
+                                <h5 class="mb-2 fw-bold">随队人员信息表</h5>
+                                <small class="text-muted">登记教练、医务及其他随行人员资料，保持联系方式准确。</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 赛事资料展示 -->
+            <div class="row px-3 mb-3">
+                <div class="col-12">
+                    <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);">
+                        <div class="card-header py-4 d-flex justify-content-end align-items-center flex-wrap team-info-header" style="background-color: #ffffff; border-bottom: 2px solid #dee2e6;">
+                            <h6 class="mb-0 team-info-title">
+                                队伍信息表
+                            </h6>
+                            <div>
+                                <button class="btn info-action-btn export me-3" onclick="exportTeamInfo()" title="导出队伍信息表格">
+                                    <i class="fas fa-file-excel me-1"></i>导出表格
+                                </button>
+                                <button class="btn info-action-btn edit" onclick="showEditTeamModal()" id="editTeamBtn">
+                                    <i class="fas fa-edit me-1"></i>修改资料
+                                </button>
+                                <button class="btn btn-danger btn-sm d-none" onclick="showLeaveTeamModal()" id="leaveTeamBtn">
+                                    <i class="fas fa-sign-out-alt me-1"></i>退出队伍
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-3" style="background-color: #f8f9fa;">
+                            <form id="teamProfileForm">
+                                <div class="row g-3">
+                                    <!-- 第一部分：基本信息 - 分成两行 -->
+                                    <div class="col-12">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="fas fa-building me-2" style="color: #6c757d;"></i>
+                                            <span class="fw-bold" style="color: #495057; font-size: 0.9rem;">基本信息</span>
+                                            <hr class="flex-grow-1 ms-3 my-0" style="border-top: 1px dashed #dee2e6;">
+                                        </div>
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-users me-1"></i>队伍名称</label>
+                                                <input type="text" class="form-control form-control-sm" id="teamName" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default; font-weight: 600; color: #2c3e50;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-tag me-1"></i>队伍类型</label>
+                                                <input type="text" class="form-control form-control-sm" id="teamTypeDisplay" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;">
+                                                <select class="form-select form-select-sm d-none" id="teamType" disabled>
+                                                    <option value="">请选择</option>
+                                                    <option value="school">学校队伍</option>
+                                                    <option value="club">俱乐部</option>
+                                                    <option value="professional">专业队</option>
+                                                    <option value="individual">个人组队</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-user-tie me-1"></i>领队姓名</label>
+                                                <input type="text" class="form-control form-control-sm" id="leaderName" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;">
+                                            </div>
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-phone me-1"></i>联系电话</label>
+                                                <input type="tel" class="form-control form-control-sm" id="leaderPhone" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-envelope me-1"></i>邮箱地址</label>
+                                                <input type="email" class="form-control form-control-sm" id="leaderEmail" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-check-circle me-1"></i>提交状态</label>
+                                                <input type="text" class="form-control form-control-sm" id="teamSubmitStatus" readonly style="background-color: #e9ecef; border: none; cursor: default;" value="未提交">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 第二部分：地址和简介 -->
+                                    <div class="col-12">
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-map-marker-alt me-1"></i>队伍地址</label>
+                                                <input type="text" class="form-control form-control-sm" id="teamAddress" readonly style="background-color: #e9ecef !important; border: 1px solid #dee2e6; cursor: default;">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-clock me-1"></i>提交时间</label>
+                                                <input type="text" class="form-control form-control-sm" id="teamSubmitTime" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="-">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label small mb-1 text-muted"><i class="fas fa-align-left me-1"></i>队伍简介</label>
+                                        <textarea class="form-control form-control-sm" id="teamDescription" rows="2" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default; resize: none;"></textarea>
+                                    </div>
+                                    <!-- 第三部分：队伍统计信息 -->
+                                    <div class="col-12">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="fas fa-chart-bar me-2" style="color: #6c757d;"></i>
+                                            <span class="fw-bold" style="color: #495057; font-size: 0.9rem;">人员统计</span>
+                                            <hr class="flex-grow-1 ms-3 my-0" style="border-top: 1px dashed #dee2e6;">
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-users me-1"></i>队伍总人数</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamTotalCount" readonly style="background-color: #d1ecf1; border: 1px solid #bee5eb; cursor: default; font-weight: bold; color: #0c5460;" value="0">
+                                            </div>
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-running me-1"></i>参赛人数</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamAthleteCount" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="0">
+                                            </div>
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-user-md me-1"></i>医务人员</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamMedicalCount" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="0">
+                                            </div>
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-chalkboard-teacher me-1"></i>教练人数</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamCoachCount" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="0">
+                                            </div>
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-user-friends me-1"></i>随行人员</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamStaffCount" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 第四部分：费用统计信息 -->
+                                    <div class="col-12">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="fas fa-coins me-2" style="color: #6c757d;"></i>
+                                            <span class="fw-bold" style="color: #495057; font-size: 0.9rem;">费用统计</span>
+                                            <hr class="flex-grow-1 ms-3 my-0" style="border-top: 1px dashed #dee2e6;">
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-12 col-md-3">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-calculator me-1" style="color: #ffc107;"></i>合计报名费用</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamTotalFee" readonly style="background-color: #fff3cd; border: 2px solid #ffc107; cursor: default; font-weight: bold; color: #856404; font-size: 1.05rem;" value="¥0.00">
+                                            </div>
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted">单人赛</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamIndividualFee" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="¥0.00">
+                                            </div>
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted">对练赛</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamPairPracticeFee" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="¥0.00">
+                                            </div>
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted">团体赛</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamCompetitionFee" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="¥0.00">
+                                            </div>
+                                            <div class="col-6 col-md">
+                                                <label class="form-label small mb-1 text-muted">其他费用</label>
+                                                <input type="text" class="form-control form-control-sm text-center" id="teamOtherFee" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="¥0.00">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- 编辑队伍资料模态框 -->
+<div class="modal fade" id="editTeamModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑队伍资料</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">队伍名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editTeamName" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">队伍类型 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="editTeamType" required>
+                                <option value="">请选择队伍类型</option>
+                                <option value="school">学校队伍</option>
+                                <option value="club">俱乐部</option>
+                                <option value="professional">专业队</option>
+                                <option value="individual">个人组队</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">领队姓名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editLeaderName" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">职务 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editLeaderPosition" value="领队" readonly style="background-color: #e9ecef; cursor: not-allowed;">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">联系电话 <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control" id="editLeaderPhone" maxlength="11" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">邮箱地址</label>
+                            <input type="email" class="form-control" id="editLeaderEmail">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                            <label class="form-label">队伍地址</label>
+                            <textarea class="form-control" id="editTeamAddress" rows="2" placeholder="请输入详细地址"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                            <label class="form-label">队伍简介</label>
+                            <textarea class="form-control" id="editTeamDescription" rows="3" placeholder="请介绍队伍的历史、特色、成就等"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveTeamEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 文件上传模态框 -->
+<div class="modal fade" id="uploadModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-upload me-2"></i>上传文件
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadForm">
+                    <div class="mb-3">
+                        <label for="fileType" class="form-label">文件类型</label>
+                        <select class="form-select" id="fileType" required>
+                            <option value="">请选择文件类型</option>
+                            <option value="certificate">资质证书</option>
+                            <option value="license">执照许可</option>
+                            <option value="insurance">保险证明</option>
+                            <option value="medical">体检报告</option>
+                            <option value="other">其他文件</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fileInput" class="form-label">选择文件或拖拽到下方区域</label>
+                        <!-- 拖拽上传区域 -->
+                        <div id="dropZone" class="border-2 border-dashed border-info rounded-lg p-5 text-center mb-3">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-info mb-2"></i>
+                            <p id="dropZoneText" class="mb-0">拖拽文件到此处，或点击选择文件</p>
+                            <p class="text-sm text-muted mt-1">支持PDF、Word文档、图片格式，文件大小不超过10MB</p>
+                            <input type="file" class="form-control d-none" id="fileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
+                        </div>
+                    </div>
+                </form>
+                <!-- 操作按钮 -->
+                <div class="flex gap-3 justify-end mt-4">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmResubmit()">
+                        <i class="fas fa-check me-2"></i>确认重新提交
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 现代化提交审核确认模态框 -->
+<!-- 随行人员信息模态框 -->
+<div class="modal fade" id="staffModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-group me-2"></i>随行人员信息
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-success">
+                            <tr>
+                                <th>序号</th>
+                                <th>人员名称</th>
+                                <th>职务</th>
+                                <th>联系电话</th>
+                                <th>身份证号</th>
+                                <th>性别</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staffTableBody">
+                            <!-- 表格内容将通过JavaScript动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 队伍人员信息模态框 -->
+<div class="modal fade" id="teamMembersModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-users me-2"></i>当前队伍人员信息
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-warning">
+                            <tr>
+                                <th>序号</th>
+                                <th>人员名称</th>
+                                <th>职务</th>
+                                <th>参赛项目</th>
+                                <th>联系电话</th>
+                                <th>身份证号</th>
+                                <th>性别</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teamMembersTableBody">
+                            <!-- 人员信息将通过JavaScript动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 状态修改确认模态框 -->
+<div class="modal fade" id="statusChangeModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">修改人员状态</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确认将 <strong id="memberNameToChange"></strong> 的状态更改为：</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="newStatus" id="statusNormal" value="normal" checked>
+                    <label class="form-check-label" for="statusNormal">正常</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="newStatus" id="statusAbnormal" value="abnormal">
+                    <label class="form-check-label" for="statusAbnormal">异常</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="confirmStatusChange()">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 项目选择模态框 -->
+<div class="modal fade" id="eventSelectionModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trophy me-2"></i>选择报名类型
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <!-- 对练报名选项 -->
+                <div style="width: 100%; padding: 20px; border: 1px solid #0d6efd; border-radius: 8px; margin-bottom: 15px; cursor: pointer; text-align: center;" onclick="selectEventType('对练赛事')">
+                    <div style="display: flex; align-items: center; width: 100%;">
+                        <div style="background-color: #0d6efd; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 20px;">
+                            <i class="fas fa-users fa-lg"></i>
+                        </div>
+                        <div style="width: calc(100% - 70px); text-align: center;" align="center">
+                            <div style="font-weight: bold; margin-bottom: 5px;" align="center">对练报名</div>
+                            <div align="center">对抗演练项目报名</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 团体赛报名选项 -->
+                <div style="width: 100%; padding: 20px; border: 1px solid #0d6efd; border-radius: 8px; cursor: pointer; text-align: center;" onclick="selectEventType('组队赛事')">
+                    <div style="display: flex; align-items: center; width: 100%;">
+                        <div style="background-color: #0d6efd; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 20px;">
+                            <i class="fas fa-people-group fa-lg"></i>
+                        </div>
+                        <div style="width: calc(100% - 70px); text-align: center;" align="center">
+                            <div style="font-weight: bold; margin-bottom: 5px;" align="center">团体赛报名</div>
+                            <div align="center">团队集体演练项目报名</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 队伍信息模态框 -->
+<div class="modal fade" id="teamsModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-people-group me-2"></i>当前赛事队伍信息
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-primary">
+                            <tr>
+                                <th>序号</th>
+                                <th>队伍名称</th>
+                                <th>领队人姓名</th>
+                                <th>队伍人数</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teamsTableBody">
+                            <!-- 队伍信息将通过JavaScript动态填充 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="submitConfirmationModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true" data-bs-backdrop="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <!-- 模态框头部 -->
+            <div class="modal-header">
+                <h5 class="modal-title" id="submitModalLabel">
+                    <i class="fas fa-file-export me-2"></i>提交确认
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            
+            <!-- 模态框内容 -->
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="fas fa-exclamation-triangle fa-2x text-warning mb-3"></i>
+                    <h6 class="mb-2">请确认提交内容</h6>
+                    <p class="text-muted">确定要提交所有资料吗？提交后可修改提交结果。</p>
+                </div>
+            </div>
+            
+            <!-- 模态框底部按钮 -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="confirmSubmission()">
+                    <i class="fas fa-paper-plane me-2"></i>确认提交
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 重新提交确认模态框 -->
+<div class="modal fade" id="resubmitConfirmationModal" tabindex="-1" aria-labelledby="resubmitModalLabel" aria-hidden="true" data-bs-backdrop="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <!-- 模态框头部 -->
+            <div class="modal-header">
+                <h5 class="modal-title" id="resubmitModalLabel">
+                    <i class="fas fa-sync-alt me-2"></i>重新提交确认
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            
+            <!-- 模态框内容 -->
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="fas fa-info-circle fa-2x text-info mb-3"></i>
+                    <h6 class="mb-2">确认重新提交</h6>
+                    <p class="text-muted">确定要重新提交吗？新的数据将覆盖之前提交的内容。</p>
+                </div>
+            </div>
+            
+            <!-- 模态框底部按钮 -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="confirmResubmit()">
+                    <i class="fas fa-check me-2"></i>确认重新提交
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 简单的异常跳转日志记录（仅存入浏览器 localStorage，便于后续分析）
+function logAbnormalFlow(action, details) {
+    try {
+        const key = 'registrationFlowLogs';
+        const raw = localStorage.getItem(key);
+        const list = raw ? JSON.parse(raw) : [];
+        list.push({
+            action,
+            details,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {
+        console.warn('记录报名流程日志失败:', e);
+    }
+}
+
+// 页面加载时校验是否已完成第三步，未完成则拦截访问并引导到第三步
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const adminView = urlParams.get('admin_view') === 'true';
+        if (adminView) {
+            try {
+                sessionStorage.setItem('registrationCurrentStep', '4');
+            } catch (e2) {
+                console.warn('记录当前步骤为第四步失败:', e2);
+            }
+            return;
+        }
+
+        const step3Done = sessionStorage.getItem('registrationStep3Completed') === 'true';
+        if (!step3Done) {
+            if (typeof showMessage === 'function') {
+                showMessage('请先完成第三步：参赛人员列表，然后再进行报名比赛管理。', 'warning');
+            }
+
+            logAbnormalFlow('block_step4_without_step3', {
+                page: 'data_summary',
+                reason: 'step3_not_completed'
+            });
+
+            setTimeout(function() {
+                const eventId = urlParams.get('event_id') || sessionStorage.getItem('selectedEventId') || '';
+                const eventName = urlParams.get('event_name') || sessionStorage.getItem('selectedEventName') || '';
+                const params = new URLSearchParams();
+                if (eventId) params.set('event_id', eventId);
+                if (eventName) params.set('event_name', eventName);
+                const query = params.toString();
+                const target = query ? `/participant_overview?${query}` : '/participant_overview';
+                window.location.href = target;
+            }, 1000);
+        } else {
+            try {
+                sessionStorage.setItem('registrationCurrentStep', '4');
+            } catch (e2) {
+                console.warn('记录当前步骤为第四步失败:', e2);
+            }
+        }
+    } catch (e) {
+        console.warn('校验第四步访问权限时出错:', e);
+    }
+});
+
+// 从“报名比赛管理”返回到“参赛人员列表”页面
+function goBackToParticipantOverview() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const adminView = urlParams.get('admin_view') === 'true';
+        let eventId = urlParams.get('event_id') || sessionStorage.getItem('selectedEventId');
+        let eventName = urlParams.get('event_name') || sessionStorage.getItem('selectedEventName');
+
+        if (!eventId) {
+            if (typeof showMessage === 'function') {
+                showMessage('请先选择赛事', 'warning');
+            }
+            setTimeout(function() {
+                window.location.href = adminView ? '/team_review_list' : '/participant_overview';
+            }, 800);
+            return;
+        }
+
+        if (eventName) {
+            try { eventName = decodeURIComponent(eventName); } catch (e) {}
+        }
+
+        const params = new URLSearchParams();
+        params.set('event_id', eventId);
+        if (eventName) {
+            params.set('event_name', eventName);
+        }
+
+        window.location.href = (adminView ? '/team_review_list?' : '/participant_overview?') + params.toString();
+    } catch (e) {
+        console.warn('返回参赛人员列表时出错，直接回退：', e);
+        const urlParams = new URLSearchParams(window.location.search);
+        const adminView = urlParams.get('admin_view') === 'true';
+        window.location.href = adminView ? '/team_review_list' : '/participant_overview';
+    }
+}
+
+// 当提交确认模态框显示前，更新数据统计
+document.getElementById('submitConfirmationModal').addEventListener('show.bs.modal', function () {
+    document.getElementById('submitStaffCount').textContent = summaryData.staff.length + ' 人';
+    document.getElementById('submitPlayerCount').textContent = summaryData.players.length + ' 人';
+    document.getElementById('submitDocumentCount').textContent = summaryData.documents.length + ' 个';
+});
+</script>
+
+<!-- 退出队伍确认模态框 -->
+<div id="leaveTeamConfirmModal" class="logout-modal">
+    <div class="logout-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="padding: 0.25rem 1rem; min-height: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-bottom: none;">
+                <button type="button" class="btn-close" id="closeLeaveTeamModal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要退出当前队伍吗？</p>
+                <p class="text-muted small mb-0">退出后，您将不再属于该队伍，需要重新加入或创建新队伍。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelLeaveTeamBtn">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmLeaveTeamBtn">确认退出</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/participant_dataset.js') }}"></script>
+<script>
+let summaryData = {
+    team: null,
+    staff: [],
+    players: [],
+    documents: [],
+    duilianTeams: [],
+    groupTeams: []
+};
+
+// 从云端加载队伍成员（team_players + team_staff），填充 summaryData.players / summaryData.staff
+async function loadTeamMembersFromBackend(teamId, eventId) {
+    try {
+        const [playersRes, staffRes] = await Promise.all([
+            fetch(`/api/team/${teamId}/players`),
+            fetch(`/api/team/${teamId}/staff`)
+        ]);
+
+        let playersData = { success: false, players: [] };
+        let staffData = { success: false, staff: [] };
+
+        try {
+            playersData = await playersRes.json();
+        } catch (e) {
+            console.warn('解析队伍选手返回数据失败:', e);
+        }
+        try {
+            staffData = await staffRes.json();
+        } catch (e) {
+            console.warn('解析随行人员返回数据失败:', e);
+        }
+
+        if (!playersRes.ok || playersData.success === false) {
+            console.warn('获取队伍选手列表失败：', playersData && playersData.message, 'HTTP 状态：', playersRes.status);
+        }
+        if (!staffRes.ok || staffData.success === false) {
+            console.warn('获取队伍随行人员列表失败：', staffData && staffData.message, 'HTTP 状态：', staffRes.status);
+        }
+
+        const rawPlayers = Array.isArray(playersData.players) ? playersData.players : [];
+        const rawStaff = Array.isArray(staffData.staff) ? staffData.staff : [];
+
+        summaryData.players = rawPlayers.map(p => ({
+            player_id: p.player_id,
+            event_id: p.event_id || eventId,
+            team_id: p.team_id || teamId,
+            name: p.name,
+            gender: p.gender,
+            age: p.age,
+            phone: p.phone,
+            id_card: p.id_card || p.registration_number,
+            registration_number: p.registration_number || p.id_card,
+            competition_event: p.competition_event || '',
+            selectedEvents: p.selected_events || [],
+            status: p.status,
+        }));
+
+        summaryData.staff = rawStaff.map(s => ({
+            staff_id: s.staff_id,
+            event_id: s.event_id || eventId,
+            team_id: s.team_id || teamId,
+            name: s.name,
+            position: s.position || 'staff',
+            gender: s.gender,
+            age: s.age,
+            phone: s.phone,
+            id_card: s.id_card,
+            status: s.status,
+        }));
+    } catch (error) {
+        console.error('从云端加载队伍成员失败:', error);
+        summaryData.players = [];
+        summaryData.staff = [];
+    }
+}
+
+async function cleanupDeletedSubmittedSnapshots() {
+    const storageKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('submittedTeamData_')) {
+            storageKeys.push(key);
+        }
+    }
+
+    if (storageKeys.length === 0) {
+        return;
+    }
+
+    const snapshotsMap = {};
+    const teamIds = new Set();
+
+    storageKeys.forEach(key => {
+        let parsed = [];
+        try {
+            parsed = JSON.parse(localStorage.getItem(key) || '[]');
+            if (!Array.isArray(parsed)) {
+                parsed = [];
+            }
+        } catch (error) {
+            console.warn('解析提交快照失败，将清空:', key, error);
+            parsed = [];
+        }
+        snapshotsMap[key] = parsed;
+        parsed.forEach(snapshot => {
+            const teamId = extractTeamIdFromSnapshot(snapshot);
+            if (teamId) {
+                teamIds.add(String(teamId));
+            }
+        });
+    });
+
+    if (teamIds.size === 0) {
+        storageKeys.forEach(key => localStorage.removeItem(key));
+        return;
+    }
+
+    const existenceEntries = await Promise.all(Array.from(teamIds).map(async teamId => {
+        const exists = await checkTeamStillExists(teamId);
+        return [teamId, exists];
+    }));
+    const existenceMap = Object.fromEntries(existenceEntries);
+
+    storageKeys.forEach(key => {
+        const filtered = (snapshotsMap[key] || []).filter(snapshot => {
+            const teamId = extractTeamIdFromSnapshot(snapshot);
+            if (!teamId) {
+                return false;
+            }
+            return existenceMap[String(teamId)] !== false;
+        });
+
+        if (filtered.length === 0) {
+            localStorage.removeItem(key);
+        } else {
+            localStorage.setItem(key, JSON.stringify(filtered));
+        }
+    });
+}
+
+async function checkTeamStillExists(teamId) {
+    try {
+        const response = await fetch(`/api/team/${teamId}`);
+        if (!response.ok) {
+            return false;
+        }
+        const data = await response.json();
+        if (!data || data.success === false || !data.team) {
+            return false;
+        }
+        return data.team.status !== 'deleted';
+    } catch (error) {
+        console.warn('检查队伍状态失败，暂不清理以避免误删:', teamId, error);
+        return true;
+    }
+}
+
+function extractTeamIdFromSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+        return null;
+    }
+    if (snapshot.teamId) {
+        return snapshot.teamId;
+    }
+    if (snapshot.team && (snapshot.team.id || snapshot.team.teamId)) {
+        return snapshot.team.id || snapshot.team.teamId;
+    }
+    return null;
+}
+
+$(document).ready(function() {
+    // 检查登录状态
+    if (!checkLoginStatus()) {
+        return;
+    }
+    
+    // 加载汇总数据
+    loadSummaryData();
+});
+
+function checkLoginStatus() {
+    const isLoggedIn = {{ (True if is_logged_in else False) | tojson }};
+    if (!isLoggedIn) {
+        showMessage('请先登录后再访问此页面', 'warning');
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 2000);
+        return false;
+    }
+    return true;
+}
+
+async function loadSummaryData() {
+    await cleanupDeletedSubmittedSnapshots();
+    // 获取当前赛事信息
+    const currentEvent = getSelectedEvent();
+    if (!currentEvent || !currentEvent.id) {
+        console.log('未选择赛事，无法加载数据');
+        return;
+    }
+    const eventId = currentEvent.id;
+
+    try {
+        const resp = await fetch(`/api/events/${eventId}`, { credentials: 'include' });
+        const data = await resp.json().catch(() => null);
+        if (resp.ok && data && data.success && data.event) {
+            const evt = data.event;
+            const fees = {
+                individual_fee: parseFloat(evt.individual_fee || 0) || 0,
+                pair_practice_fee: parseFloat(evt.pair_practice_fee || 0) || 0,
+                team_competition_fee: parseFloat(evt.team_competition_fee || 0) || 0
+            };
+            const eventFees = JSON.parse(localStorage.getItem('eventFees') || '{}');
+            eventFees[eventId] = fees;
+            localStorage.setItem('eventFees', JSON.stringify(eventFees));
+        }
+    } catch (e) {
+        console.warn('从后端同步赛事费用失败，仍使用本地缓存:', e);
+    }
+    
+    // 检查是否是管理员查看模式（从URL参数获取）
+    const urlParams = new URLSearchParams(window.location.search);
+    const adminView = urlParams.get('admin_view') === 'true';
+    const storedTeamKey = `selectedTeamId_${eventId}`;
+    const specifiedTeamId = urlParams.get('team_id') || sessionStorage.getItem(storedTeamKey);
+
+    if (!adminView && !specifiedTeamId) {
+        try {
+            const resp = await fetch(`/api/events/${eventId}/my-teams`, { credentials: 'include' });
+            const data = await resp.json().catch(() => null);
+            if (resp.ok && data && data.success !== false && Array.isArray(data.teams)) {
+                const teams = data.teams;
+                if (teams.length === 1 && teams[0] && teams[0].id) {
+                    const params = new URLSearchParams(urlParams.toString());
+                    params.set('team_id', String(teams[0].id));
+                    window.location.search = params.toString();
+                    return;
+                }
+                if (teams.length > 1) {
+                    const options = teams
+                        .filter(t => t && t.id)
+                        .map(t => `${t.id}: ${t.name || t.teamName || ''}`)
+                        .join('\n');
+                    const picked = prompt(`检测到当前赛事下存在多支队伍，请输入要查看/提交的队伍ID：\n${options}`);
+                    if (picked) {
+                        const params = new URLSearchParams(urlParams.toString());
+                        params.set('team_id', String(picked).trim());
+                        window.location.search = params.toString();
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('获取我的队伍列表失败:', e);
+        }
+    }
+    
+    // 1. 加载队伍数据（以云端 teams 表为主，仅用本地 createdTeams_* 合并提交状态）
+    let currentEventTeam = null;
+    let isTeamLeader = false;
+    window.currentEventTeam = null;  // 设置为全局变量以便跳转时使用
+
+    // 仍然调用 ParticipantDataset.loadDataset 仅用于在“云端完全没有队伍记录”时做降级展示，
+    // 不再让其中的字段覆盖云端 teams 资料
+    let dataset = { team: null, participants: [] };
+    try {
+        dataset = ParticipantDataset.loadDataset({
+            eventId,
+            teamId: specifiedTeamId || null,
+            includePending: adminView,
+            preferSnapshot: true
+        }) || dataset;
+    } catch (e) {
+        console.warn('加载本地队伍快照失败，将直接使用云端队伍信息：', e);
+    }
+
+    let backendTeamState = await fetchBackendSubmissionState({
+        eventId,
+        teamId: specifiedTeamId || (dataset.team && dataset.team.id),
+        forceTeamEndpoint: adminView || !!specifiedTeamId
+    });
+
+    if (!backendTeamState && !adminView) {
+        backendTeamState = await fetchBackendSubmissionState({
+            eventId,
+            teamId: dataset.team && dataset.team.id ? dataset.team.id : null,
+            forceTeamEndpoint: false
+        });
+    }
+
+    if (backendTeamState) {
+        // 以云端 teams 表为主，仅合并本地 createdTeams_* 中的提交状态字段
+        currentEventTeam = mergeSubmissionStateFromCreatedTeams(backendTeamState, eventId);
+        summaryData.team = currentEventTeam;
+        window.currentEventTeam = currentEventTeam;
+        syncCreatedTeamCache(currentEventTeam);
+        if (!adminView) {
+            const currentUserId = sessionStorage.getItem('user_id') || sessionStorage.getItem('userId');
+            if (currentUserId && currentEventTeam.createdBy) {
+                isTeamLeader = String(currentEventTeam.createdBy) === String(currentUserId);
+            }
+        }
+    } else if (dataset.team) {
+        // 云端完全没有队伍记录时，才退回使用本地队伍快照作展示（老数据兼容场景）
+        currentEventTeam = mergeSubmissionStateFromCreatedTeams(dataset.team, eventId);
+        summaryData.team = currentEventTeam;
+        window.currentEventTeam = currentEventTeam;
+        isTeamLeader = !!(currentEventTeam && currentEventTeam.isCreated !== false && !adminView);
+    }
+
+    if (window.currentEventTeam && window.currentEventTeam.id) {
+        sessionStorage.setItem(storedTeamKey, String(window.currentEventTeam.id));
+    }
+
+    window.isTeamLeader = isTeamLeader;
+
+    // 2. 补充加载完整队伍资料（地址、邮箱、简介等），然后从云端加载队伍成员（选手 + 随行人员）
+    summaryData.staff = [];
+    summaryData.players = [];
+    summaryData.duilianTeams = [];
+    summaryData.groupTeams = [];
+
+    if (summaryData.team && summaryData.team.id) {
+        // 2.1 通过 /api/team/<team_id> 获取完整队伍信息，补充地址/邮箱/简介等字段
+        try {
+            const teamDetailsResp = await fetch(`/api/team/${summaryData.team.id}`);
+            const teamDetailsData = await teamDetailsResp.json().catch(() => null);
+            if (teamDetailsResp.ok && teamDetailsData && teamDetailsData.success !== false && teamDetailsData.team) {
+                const details = teamDetailsData.team;
+                // 仅在 summaryData.team 对应字段为空时才使用详情中的值，避免覆盖提交状态等前端字段
+                summaryData.team.name = summaryData.team.name || details.name;
+                summaryData.team.teamName = summaryData.team.teamName || details.name;
+                summaryData.team.eventName = summaryData.team.eventName || details.event_name;
+                summaryData.team.teamType = summaryData.team.teamType || details.type;
+                summaryData.team.teamAddress = summaryData.team.teamAddress || details.address;
+                summaryData.team.teamDescription = summaryData.team.teamDescription || details.description;
+                summaryData.team.leaderName = summaryData.team.leaderName || details.leader_name;
+                summaryData.team.leaderPhone = summaryData.team.leaderPhone || details.leader_phone;
+                summaryData.team.leaderEmail = summaryData.team.leaderEmail || details.leader_email;
+            }
+        } catch (e) {
+            console.warn('加载队伍详情失败（地址/邮箱/简介可能为空）:', e);
+        }
+
+        // 2.2 加载队伍成员
+        await loadTeamMembersFromBackend(summaryData.team.id, eventId);
+    }
+
+    window.isTeamLeader = isTeamLeader;
+
+    // 4. 加载文档数据（从localStorage获取）
+    const documents = JSON.parse(localStorage.getItem('uploadedDocuments') || '[]');
+    summaryData.documents = documents.filter(doc => 
+        String(doc.eventId) === String(eventId)
+    );
+    
+    updateSummaryDisplay();
+    
+    // 根据用户角色显示/隐藏按钮
+    updateUIByRole();
+    
+    // 检查并恢复提交状态
+    checkSubmissionStatus();
+    
+    // 立即加载队伍表单数据（无延迟）
+    loadTeamFormData();
+}
+
+// 根据用户角色更新UI
+function updateUIByRole() {
+    // 检查是否是管理员查看模式
+    const urlParams = new URLSearchParams(window.location.search);
+    const adminView = urlParams.get('admin_view');
+    
+    if (adminView === 'true') {
+        // 管理员查看模式：隐藏所有操作按钮，显示管理员提示
+        $('#leaderActionsContainer').addClass('d-none');
+        $('#memberTipContainer').addClass('d-none');
+        $('#noTeamTipContainer').addClass('d-none');
+        $('#adminViewTipContainer').removeClass('d-none');
+        $('#editTeamBtn').hide();
+        $('#leaveTeamBtn').hide();
+        console.log('管理员查看模式，显示管理员提示');
+        return; // 提前返回，不执行后续逻辑
+    }
+    
+    // 隐藏管理员提示（非管理员查看模式）
+    $('#adminViewTipContainer').addClass('d-none');
+    
+    // 检查是否有队伍数据
+    if (!summaryData.team) {
+        // 未加入队伍：隐藏所有操作按钮，显示未加入队伍的提示
+        $('#leaderActionsContainer').addClass('d-none');
+        $('#memberTipContainer').addClass('d-none');
+        $('#noTeamTipContainer').removeClass('d-none');
+        $('#editTeamBtn').hide();
+        $('#leaveTeamBtn').hide();
+        console.log('当前用户未加入队伍，显示未加入提示');
+    } else if (window.isTeamLeader) {
+        // 领队：显示操作按钮，隐藏提示
+        $('#leaderActionsContainer').removeClass('d-none');
+        $('#memberTipContainer').addClass('d-none');
+        $('#noTeamTipContainer').addClass('d-none');
+        $('#leaderTipAlert').removeClass('d-none').css('display', 'block'); // 显示领队操作提示框并强制保持显示
+        $('#editTeamBtn').show(); // 显示修改资料按钮
+        $('#leaveTeamBtn').hide(); // 隐藏退出队伍按钮
+        console.log('当前用户是领队，显示提交按钮和修改资料按钮');
+        
+        // 防止提示框被自动隐藏 - 添加监听器
+        setTimeout(function() {
+            $('#leaderTipAlert').removeClass('d-none').css('display', 'block');
+        }, 100);
+        
+        // 定期检查并保持显示
+        if (!window.leaderTipKeepAlive) {
+            window.leaderTipKeepAlive = setInterval(function() {
+                if (window.isTeamLeader && $('#leaderTipAlert').length > 0) {
+                    $('#leaderTipAlert').removeClass('d-none').css('display', 'block');
+                }
+            }, 1000);
+        }
+    } else {
+        // 队员：隐藏操作按钮，显示队员提示
+        $('#leaderActionsContainer').addClass('d-none');
+        $('#memberTipContainer').removeClass('d-none');
+        $('#noTeamTipContainer').addClass('d-none');
+        $('#editTeamBtn').hide(); // 隐藏修改资料按钮
+        $('#leaveTeamBtn').removeClass('d-none').show(); // 显示退出队伍按钮
+        console.log('当前用户是队员，隐藏提交按钮和修改资料按钮，显示退出队伍按钮');
+    }
+}
+
+// 检查队伍的提交状态
+function checkSubmissionStatus() {
+    if (summaryData.team && summaryData.team.submittedForReview === true) {
+        console.log('检测到队伍已提交审核，恢复已提交状态');
+        
+        // 修改提交按钮为已提交状态
+        $('#submitBtn').prop('disabled', true)
+            .html('<i class="fas fa-check me-2"></i>已提交')
+            .removeClass('btn-primary')
+            .addClass('btn-secondary');
+        
+        // 显示重新提交按钮
+        $('#resubmitBtn').removeClass('d-none');
+        
+        // 更新提示框文本为“重新提交”相关
+        updateLeaderTipForResubmit();
+        
+        // 更新状态显示
+        $('#statusIcon').html('<i class="fas fa-paper-plane fa-2x text-info"></i>');
+        $('#statusTitle').text('资料已提交');
+        $('#statusDescription').text('资料已提交审核，请耐心等待审核结果');
+    }
+}
+
+// 从身份证号提取性别
+function extractGenderFromIdCard(idCard) {
+    if (!idCard || idCard.length < 17) {
+        return '';
+    }
+    
+    // 18位身份证号的第17位数字表示性别，奇数为男，偶数为女
+    const genderDigit = parseInt(idCard.charAt(16));
+    if (isNaN(genderDigit)) {
+        return '';
+    }
+    
+    return genderDigit % 2 === 1 ? 'male' : 'female';
+}
+
+// 从身份证号计算年龄
+function calculateAgeFromIdCard(idCard) {
+    if (!idCard || idCard.length < 14) {
+        return '';
+    }
+    
+    let birthYear, birthMonth, birthDay;
+    
+    if (idCard.length === 18) {
+        // 18位身份证
+        birthYear = parseInt(idCard.substring(6, 10));
+        birthMonth = parseInt(idCard.substring(10, 12));
+        birthDay = parseInt(idCard.substring(12, 14));
+    } else if (idCard.length === 15) {
+        // 15位身份证（老式）
+        birthYear = 1900 + parseInt(idCard.substring(6, 8));
+        birthMonth = parseInt(idCard.substring(8, 10));
+        birthDay = parseInt(idCard.substring(10, 12));
+    } else {
+        return '';
+    }
+    
+    if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) {
+        return '';
+    }
+    
+    const today = new Date();
+    const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
+    
+    let age = today.getFullYear() - birthYear;
+    
+    // 如果今年的生日还没过，年龄减1
+    if (today.getMonth() < birthMonth - 1 || 
+        (today.getMonth() === birthMonth - 1 && today.getDate() < birthDay)) {
+        age--;
+    }
+    
+    return age >= 0 && age <= 150 ? age : '';
+}
+
+// 跳转到管理参赛选手页面（我是队员-加入队伍页面）
+function goToPlayerManagement() {
+    console.log('跳转到加入队伍页面');
+    
+    // 获取当前赛事信息
+    const currentEvent = getSelectedEvent();
+    
+    if (!currentEvent || !currentEvent.id) {
+        showMessage('未选择赛事，请先选择赛事', 'warning');
+        return;
+    }
+    
+    console.log('当前赛事:', currentEvent);
+    
+    // 保存赛事信息到sessionStorage，供event_selection页面使用
+    sessionStorage.setItem('selectedEventId', currentEvent.id);
+    sessionStorage.setItem('selectedEventName', currentEvent.name);
+    
+    // 跳转到 event_selection 页面，带上参数直接进入"加入队伍"页面
+    // source=team: 表示来源是队伍管理
+    // event_id: 指定赛事ID
+    // auto_role=player: 自动选择"我是队员"角色，跳过角色选择步骤
+    const eventId = currentEvent.id;
+    const eventName = encodeURIComponent(currentEvent.name);
+    
+    window.location.href = `/event_selection?source=team&event_id=${eventId}&auto_role=player`;
+}
+
+// 跳转到编辑队伍资料页面
+function goToEditTeamProfile() {
+    console.log('跳转到编辑队伍资料页面');
+    
+    // 获取当前赛事信息
+    const currentEvent = getSelectedEvent();
+    
+    if (!currentEvent || !currentEvent.id) {
+        showMessage('未选择赛事，请先选择赛事', 'warning');
+        return;
+    }
+    
+    console.log('当前赛事:', currentEvent);
+    
+    // 保存赛事信息到sessionStorage
+    sessionStorage.setItem('selectedEventId', currentEvent.id);
+    sessionStorage.setItem('selectedEventName', currentEvent.name);
+    
+    // 跳转到 event_selection 页面，进入领队模式（编辑队伍资料）
+    const eventId = currentEvent.id;
+    const eventName = encodeURIComponent(currentEvent.name);
+    
+    // 使用 source=team 和 event_id 参数，会自动选择赛事并显示角色选择
+    // 然后用户可以选择"我是领队"进入编辑队伍资料页面
+    window.location.href = `/event_selection?source=team&event_id=${eventId}&auto_role=leader`;
+}
+
+function updateSummaryDisplay() {
+    // 更新统计数据（使用实际数据）
+    const teamCount = summaryData.team ? 1 : 0;
+    $('#teamCount').text(teamCount);
+    $('#staffCount').text(summaryData.staff.length);
+    $('#playerCount').text(summaryData.players.length);
+    $('#documentCount').text(summaryData.documents.length);
+    
+    // 更新队伍统计信息
+    if (summaryData.team) {
+        updateTeamStatistics();
+    }
+}
+
+
+function uploadDocument() {
+    const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
+    uploadModal.show();
+    
+    // 初始化拖拽上传功能
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const dropZoneText = document.getElementById('dropZoneText');
+    
+    // 点击区域触发文件选择
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    // 拖拽事件处理
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // 添加拖拽悬停效果
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight() {
+        dropZone.classList.add('border-primary');
+        dropZone.classList.add('bg-info-subtle');
+        dropZoneText.textContent = '释放文件开始上传';
+    }
+    
+    function unhighlight() {
+        dropZone.classList.remove('border-primary');
+        dropZone.classList.remove('bg-info-subtle');
+        dropZoneText.textContent = '拖拽文件到此处，或点击选择文件';
+    }
+    
+    // 处理文件拖拽放置
+    dropZone.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        
+        if (files.length > 0) {
+            fileInput.files = files;
+            // 自动填充第一个文件信息
+            if (files.length === 1) {
+                const file = files[0];
+                // 可以根据文件类型自动选择文件类型下拉框
+                const fileExtension = file.name.split('.').pop().toLowerCase();
+            }
+        }
+    }
+    
+    // 文件选择后自动更新提示
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            dropZoneText.textContent = `已选择 ${this.files.length} 个文件`;
+            dropZone.classList.add('border-success');
+            dropZone.classList.add('bg-success-subtle');
+        }
+    });
+}
+
+function saveUpload() {
+    const form = $('#uploadForm')[0];
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const fileInput = $('#fileInput')[0];
+    
+    if (fileInput.files.length === 0) {
+        showMessage('请选择要上传的文件', 'error');
+        return;
+    }
+    
+    // 支持多文件上传
+    let uploadedCount = 0;
+    for (let i = 0; i < fileInput.files.length; i++) {
+        const file = fileInput.files[i];
+        
+        // 检查文件大小 (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showMessage(`文件 ${file.name} 大小超过10MB，已跳过`, 'error');
+            continue;
+        }
+        
+        const docData = {
+            name: file.name,
+            type: $('#fileType').val(),
+            size: file.size,
+            uploadTime: new Date().toISOString()
+        };
+        
+        summaryData.documents.push(docData);
+        uploadedCount++;
+    }
+    
+    if (uploadedCount > 0) {
+        updateSummaryDisplay();
+        $('#uploadModal').modal('hide');
+        $('#uploadForm')[0].reset();
+        showMessage(`成功上传 ${uploadedCount} 个文件！`, 'success');
+    } else {
+        showMessage('未成功上传任何文件', 'error');
+    }
+}
+
+function removeDocument(fileName) {
+    if (!confirm('确定要删除这个文件吗？')) {
+        return;
+    }
+    
+    const index = summaryData.documents.findIndex(doc => doc.name === fileName);
+    if (index !== -1) {
+        summaryData.documents.splice(index, 1);
+        updateSummaryDisplay();
+        showMessage('文件删除成功！', 'success');
+    }
+}
+
+// 现代化提交审核弹窗
+function submitAllData() {
+    // 显示自定义模态框
+    $('#submitConfirmationModal').modal('show');
+}
+
+// 确认提交
+function confirmSubmission() {
+    // 隐藏模态框
+    $('#submitConfirmationModal').modal('hide');
+    
+    // 显示提交状态
+    $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>提交中...');
+    
+    // 提交必须以后端落库成功为准
+    setTimeout(() => {
+        if (!summaryData.team || !summaryData.team.id) {
+            showMessage('提交失败：未找到队伍信息', 'error');
+            $('#submitBtn').prop('disabled', false).html('<i class="fas fa-paper-plane me-2"></i>提交信息');
+            return;
+        }
+
+        const teamId = summaryData.team.id;
+        const teamName = summaryData.team.teamName || '队伍';
+        const eventName = summaryData.team.eventName || '赛事';
+        const eventId = summaryData.team.eventId;
+        const isFirstSubmit = !summaryData.team.submittedForReview;
+
+        const uniquePlayers = new Set();
+        const players = summaryData.players || [];
+        players.forEach(player => {
+            const idCard = (player.idCard || '').trim();
+            const phone = (player.phone || '').trim();
+            if (idCard) {
+                uniquePlayers.add(`id_${idCard}`);
+            } else if (phone) {
+                uniquePlayers.add(`phone_${phone}`);
+            }
+        });
+        const participantCount = uniquePlayers.size;
+        updateEventParticipantCount(eventId, teamId, participantCount);
+
+        const memberIds = (summaryData.players || [])
+            .filter(player => player.userId)
+            .map(player => player.userId);
+
+        const req = sendTeamSubmitNotification(teamId, teamName, eventName, memberIds, isFirstSubmit);
+        req.done((response) => {
+            const submittedAt = (response && response.submitted_at) ? response.submitted_at : new Date().toISOString();
+
+            summaryData.team.submittedForReview = true;
+            summaryData.team.submittedAt = submittedAt;
+
+            // 保存提交快照（供管理端查看/本地展示用）
+            const submittedSnapshot = {
+                team: JSON.parse(JSON.stringify(summaryData.team || {})),
+                players: JSON.parse(JSON.stringify(summaryData.players || [])),
+                staff: JSON.parse(JSON.stringify(summaryData.staff || [])),
+                duilianTeams: JSON.parse(JSON.stringify(summaryData.duilianTeams || [])),
+                groupTeams: JSON.parse(JSON.stringify(summaryData.groupTeams || [])),
+                submittedAt: submittedAt,
+                teamId: teamId
+            };
+            if (!submittedSnapshot.team || typeof submittedSnapshot.team !== 'object') {
+                submittedSnapshot.team = {};
+            }
+            submittedSnapshot.team.submittedForReview = true;
+            submittedSnapshot.team.submittedAt = submittedAt;
+
+            const submittedKey = `submittedTeamData_${eventId}`;
+            let submittedTeams = JSON.parse(localStorage.getItem(submittedKey) || '[]');
+            const existingIndex = submittedTeams.findIndex(t => t.teamId === teamId);
+            if (existingIndex >= 0) {
+                submittedTeams[existingIndex] = submittedSnapshot;
+            } else {
+                submittedTeams.push(submittedSnapshot);
+            }
+            localStorage.setItem(submittedKey, JSON.stringify(submittedTeams));
+
+            syncCreatedTeamCache({
+                id: teamId,
+                eventId: eventId,
+                teamName: teamName,
+                submittedForReview: true,
+                submittedAt: submittedAt
+            });
+
+            showMessage('提交成功', 'success');
+            $('#submitBtn').prop('disabled', true)
+                .html('<i class="fas fa-check me-2"></i>已提交')
+                .removeClass('btn-primary')
+                .addClass('btn-secondary');
+            $('#resubmitBtn').removeClass('d-none');
+            updateLeaderTipForResubmit();
+            $('#statusIcon').html('<i class="fas fa-paper-plane fa-2x text-info"></i>');
+            $('#statusTitle').text('资料已提交');
+            $('#statusDescription').text('资料已提交审核，请耐心等待审核结果');
+        });
+        req.fail((xhr) => {
+            const msg = (xhr && xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '提交失败，请稍后重试';
+            showMessage(msg, 'error');
+            $('#submitBtn').prop('disabled', false).html('<i class="fas fa-paper-plane me-2"></i>提交信息');
+        });
+    }, 2000);
+}
+
+// 发送队伍上报通知给所有队员
+function sendTeamSubmitNotification(teamId, teamName, eventName, memberIds, isFirstSubmit) {
+    const creatorUsername = '{{ session.get("username") }}';
+    
+    return $.ajax({
+        url: '/api/team/submit-info',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            team_id: teamId,
+            team_name: teamName,
+            event_name: eventName,
+            member_ids: memberIds,
+            is_first_submit: isFirstSubmit,
+            creator_username: creatorUsername  // 添加创建者用户名用于权限验证
+        }),
+        success: function(response) {
+            console.log('队伍上报通知发送成功:', response);
+        },
+        error: function(xhr) {
+            console.error('队伍上报通知发送失败:', xhr);
+        }
+    });
+}
+
+// 重新提交
+function resubmitData() {
+    // 显示重新提交确认模态框
+    $('#resubmitConfirmationModal').modal('show');
+}
+
+// 确认重新提交
+function confirmResubmit() {
+    // 关闭模态框
+    $('#resubmitConfirmationModal').modal('hide');
+    
+    // 显示重新提交状态
+    $('#resubmitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>提交中...');
+    
+    setTimeout(() => {
+        if (!summaryData.team || !summaryData.team.id) {
+            showMessage('重新提交失败：未找到队伍信息', 'error');
+            $('#resubmitBtn').prop('disabled', false).html('<i class="fas fa-sync-alt me-2"></i>重新提交');
+            return;
+        }
+
+        const teamId = summaryData.team.id;
+        const teamName = summaryData.team.teamName || '队伍';
+        const eventName = summaryData.team.eventName || '赛事';
+        const eventId = summaryData.team.eventId;
+
+        const uniquePlayers = new Set();
+        const players = summaryData.players || [];
+        players.forEach(player => {
+            const idCard = (player.idCard || '').trim();
+            const phone = (player.phone || '').trim();
+            if (idCard) {
+                uniquePlayers.add(`id_${idCard}`);
+            } else if (phone) {
+                uniquePlayers.add(`phone_${phone}`);
+            }
+        });
+        const participantCount = uniquePlayers.size;
+        updateEventParticipantCount(eventId, teamId, participantCount);
+
+        const memberIds = (summaryData.players || [])
+            .filter(player => player.userId)
+            .map(player => player.userId);
+
+        const req = sendTeamSubmitNotification(teamId, teamName, eventName, memberIds, false);
+        req.done((response) => {
+            const submittedAt = (response && response.submitted_at) ? response.submitted_at : new Date().toISOString();
+            summaryData.team.submittedForReview = true;
+            summaryData.team.submittedAt = submittedAt;
+
+            const submittedSnapshot = {
+                team: JSON.parse(JSON.stringify(summaryData.team || {})),
+                players: JSON.parse(JSON.stringify(summaryData.players || [])),
+                staff: JSON.parse(JSON.stringify(summaryData.staff || [])),
+                duilianTeams: JSON.parse(JSON.stringify(summaryData.duilianTeams || [])),
+                groupTeams: JSON.parse(JSON.stringify(summaryData.groupTeams || [])),
+                submittedAt: submittedAt,
+                teamId: teamId
+            };
+            if (!submittedSnapshot.team || typeof submittedSnapshot.team !== 'object') {
+                submittedSnapshot.team = {};
+            }
+            submittedSnapshot.team.submittedForReview = true;
+            submittedSnapshot.team.submittedAt = submittedAt;
+
+            const submittedKey = `submittedTeamData_${eventId}`;
+            let submittedTeams = JSON.parse(localStorage.getItem(submittedKey) || '[]');
+            const existingIndex = submittedTeams.findIndex(t => t.teamId === teamId);
+            if (existingIndex >= 0) {
+                submittedTeams[existingIndex] = submittedSnapshot;
+            } else {
+                submittedTeams.push(submittedSnapshot);
+            }
+            localStorage.setItem(submittedKey, JSON.stringify(submittedTeams));
+
+            syncCreatedTeamCache({
+                id: teamId,
+                eventId: eventId,
+                teamName: teamName,
+                submittedForReview: true,
+                submittedAt: submittedAt
+            });
+
+            showMessage('资料已重新提交成功！新数据已覆盖之前的提交内容。', 'success');
+            $('#resubmitBtn').prop('disabled', false).html('<i class="fas fa-sync-alt me-2"></i>重新提交');
+            $('#statusIcon').html('<i class="fas fa-paper-plane fa-2x text-info"></i>');
+            $('#statusTitle').text('资料已提交');
+            $('#statusDescription').text('资料已重新提交审核，新数据已更新');
+        });
+        req.fail((xhr) => {
+            const msg = (xhr && xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : '重新提交失败，请稍后重试';
+            showMessage(msg, 'error');
+            $('#resubmitBtn').prop('disabled', false).html('<i class="fas fa-sync-alt me-2"></i>重新提交');
+        });
+    }, 2000);
+}
+
+
+// 工具函数
+  function getPositionText(position) {
+    const positionMap = {
+      'player': '参赛选手',
+      'head_coach': '主教练',
+      'coach': '教练',
+      'manager': '领队',
+      'doctor': '医务人员',
+      'medical': '医务人员',
+      'staff': '随行人员',
+      'other': '其他'
+    };
+    return positionMap[position] || position;
+  }
+  
+  // 显示消息提示函数 - 使用全局的showCenterMessage
+  function showMessage(message, type = 'info') {
+    // 调用base.html中定义的全局弹窗函数
+    if (typeof showCenterMessage === 'function') {
+      showCenterMessage(message, type);
+    } else {
+      // 降级方案：如果全局函数不可用，使用简单的alert
+      alert(message);
+    }
+  }
+  
+
+    
+    // 全局变量存储随行人员数据
+    let staffData = [];
+    
+    // 显示随行人员信息模态框
+    function showStaffModal() {
+        // 模拟当前队伍的随行人员数据
+        // 实际应用中应通过API获取真实数据
+        staffData = [
+            {
+                name: '张教练',
+                position: 'head_coach',
+                phone: '13800138003',
+                idCard: '110101198501013456'
+            },
+            {
+                name: '李领队',
+                position: 'manager',
+                phone: '13800138004',
+                idCard: '110101198601014567'
+            },
+            {
+                name: '王医生',
+                position: 'doctor',
+                phone: '13800138008',
+                idCard: '110101198701018901'
+            }
+        ];
+        
+        // 渲染随行人员表格
+        renderStaffTable();
+        
+        // 显示模态框 (Bootstrap 5 syntax)
+        const staffModal = new bootstrap.Modal(document.getElementById('staffModal'));
+        staffModal.show();
+    }
+    
+    // 渲染随行人员表格
+    function renderStaffTable() {
+        // 更新staffCount显示
+        document.getElementById('staffCount').textContent = staffData.length;
+        
+        // 清空表格内容
+        const tableBody = document.getElementById('staffTableBody');
+        tableBody.innerHTML = '';
+        
+        // 填充表格数据
+        staffData.forEach((staff, index) => {
+            const positionText = getPositionText(staff.position);
+            
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${staff.name}</td>
+                <td>${positionText}</td>
+                <td>${staff.phone}</td>
+                <td>${maskIdCard(staff.idCard)}</td>
+                <td>${extractGenderFromIdCard(staff.idCard)}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="deleteStaff(${index})">
+                        <i class="fas fa-trash me-1"></i>删除
+                    </button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+    
+    // 删除随行人员
+    function deleteStaff(index) {
+        if (confirm(`确定要删除 ${staffData[index].name} 吗？`)) {
+            staffData.splice(index, 1);
+            renderStaffTable();
+            showMessage('随行人员已删除', 'success');
+        }
+    }
+
+function getEventText(event) {
+    const events = {
+        'changquan': '长拳',
+        'taijiquan': '太极拳',
+        'nanquan': '南拳',
+        'jianshu': '剑术'
+    };
+    return events[event] || event;
+}
+
+function getFileTypeText(type) {
+    const types = {
+        'certificate': '资质证书',
+        'license': '执照许可',
+        'insurance': '保险证明',
+        'medical': '体检报告',
+        'other': '其他文件'
+    };
+    return types[type] || type;
+}
+
+// 页面加载时初始化和检查赛事信息
+$(document).ready(function() {
+    // 立即滚动到页面顶部
+    window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'instant'
+    });
+    
+    // 先设置默认赛事（用于演示）
+    const defaultEvent = {
+        id: '123',
+        name: '123'
+    };
+    
+    // 如果没有保存的赛事信息，使用默认赛事
+    if (!getSelectedEvent()) {
+        setSelectedEvent(defaultEvent);
+    }
+    
+    // 检查URL参数
+    checkEventFromUrl();
+    
+    // 更新赛事信息显示
+    updateEventInfoDisplay();
+    
+    // 根据用户身份更新队伍资料提示
+    updateTeamFormHint();
+    
+    // 加载其他数据
+    loadSummaryData();
+    
+    // 确保在所有内容加载完成后仍然保持在顶部
+    setTimeout(function() {
+        window.scrollTo({
+            top: 0,
+            left: 0,
+            behavior: 'instant'
+        });
+    }, 100);
+});
+
+// 监听页面显示事件，确保返回时滚动到顶部并重新加载数据
+$(window).on('pageshow', function(event) {
+    // 如果URL中包含source参数，说明是从其他页面返回
+    const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('source');
+    
+    if (source === 'player_list' || source === 'staff_list' || source === 'event_registration') {
+        window.scrollTo({
+            top: 0,
+            left: 0,
+            behavior: 'instant'
+        });
+        
+        // 重新加载数据以更新统计信息
+        console.log(`从 ${source} 页面返回，重新加载数据...`);
+        loadSummaryData();
+    }
+});
+
+// 监听页面可见性变化，当页面重新可见时更新数据
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        console.log('页面重新可见，刷新统计数据...');
+        // 重新计算费用统计（快速更新）
+        if (summaryData.team) {
+            calculateTeamFees();
+        }
+    }
+});
+
+// 更新赛事资料的提示文本
+function updateTeamFormHint() {
+    const hintElement = $('#teamFormHint');
+    if (isTeamLeader) {
+        hintElement.html('<i class="fas fa-edit me-1"></i>可编辑 · 您是领队，可以管理队伍信息');
+        hintElement.removeClass('text-muted').addClass('text-primary');
+    } else {
+        hintElement.html('<i class="fas fa-lock me-1"></i>只读模式 · 选择项目类型后可查看相关队伍信息');
+        hintElement.removeClass('text-primary').addClass('text-muted');
+    }
+}
+
+// 检查URL中的赛事参数
+function checkEventFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    
+    if (eventId && eventName) {
+        // 保存赛事信息到sessionStorage
+        setSelectedEvent({
+            id: eventId,
+            name: decodeURIComponent(eventName)
+        });
+        
+        // 更新页面显示
+        updateEventInfoDisplay();
+        
+        // 可以在这里添加加载相关数据的逻辑
+        // loadEventData(eventId);
+    } else {
+        // 尝试从sessionStorage获取之前选择的赛事
+        const savedEvent = getSelectedEvent();
+        if (savedEvent) {
+            updateEventInfoDisplay();
+        }
+    }
+}
+
+// 更新赛事信息显示 - 移除所有动画效果
+function updateEventInfoDisplay() {
+    const event = getSelectedEvent();
+    const $eventInfo = $('#selectedEventInfo');
+    
+    if (event && event.name) {
+        $('#currentEventName').text(event.name);
+        // 直接设置CSS属性，确保立即显示，无任何动画
+        $eventInfo.css({
+            'display': 'flex',
+            'opacity': '1',
+            'visibility': 'visible',
+            'transition': 'none',
+            'animation': 'none'
+        });
+    } else {
+        // 直接隐藏，无动画
+        $eventInfo.css({
+            'display': 'none',
+            'opacity': '0',
+            'visibility': 'hidden'
+        });
+    }
+}
+
+// 获取当前选择的赛事
+function getSelectedEvent() {
+    const eventStr = sessionStorage.getItem('selectedEventForSummary');
+    return eventStr ? JSON.parse(eventStr) : null;
+}
+
+// 设置当前选择的赛事
+function setSelectedEvent(event) {
+    sessionStorage.setItem('selectedEventForSummary', JSON.stringify(event));
+}
+
+// 确保赛事信息始终可见
+function ensureEventInfoVisible() {
+    const event = getSelectedEvent();
+    const $eventInfo = $('#selectedEventInfo');
+    
+    if (event && event.name) {
+        // 直接设置CSS属性，确保立即显示，无任何动画
+        $eventInfo.css({
+            'display': 'flex',
+            'opacity': '1',
+            'visibility': 'visible',
+            'transition': 'none',
+            'animation': 'none'
+        });
+    } else {
+        // 直接隐藏，无动画
+        $eventInfo.css({
+            'display': 'none',
+            'opacity': '0',
+            'visibility': 'hidden'
+        });
+    }
+}
+
+// 显示选择赛事的提示
+function showEventSelectionPrompt() {
+    // 只有在没有选择赛事时才显示提示
+    if (!getSelectedEvent()) {
+        Swal.fire({
+            title: '请选择赛事',
+            text: '请先选择要处理的赛事',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: '去选择',
+            cancelButtonText: '稍后选择',
+            allowOutsideClick: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // 跳转到赛事选择页面
+                window.location.href = '{{ url_for("event_selection") }}?source=summary';
+            }
+        });
+    }
+}
+
+// 显示赛事选择对话框
+function showEventSelection() {
+    // 跳转到赛事选择页面
+    window.location.href = '{{ url_for("event_selection") }}?source=summary';
+}
+
+// 选择赛事（用于资料汇总）
+function selectEventForSummary() {
+    window.location.href = '{{ url_for("event_selection") }}?source=summary';
+}
+
+// 返回首页
+function goToHome() {
+    window.location.href = '/';
+}
+
+// 导出队伍信息表格
+function exportTeamInfo() {
+    if (!summaryData.team) {
+        showMessage('暂无队伍信息可导出', 'warning');
+        return;
+    }
+    
+    try {
+        // 准备导出数据
+        const team = summaryData.team;
+        const players = summaryData.players || [];
+        const staff = summaryData.staff || [];
+        
+        // 创建CSV内容
+        let csvContent = '\uFEFF'; // UTF-8 BOM，确保Excel正确识别中文
+        
+        // 队伍基本信息
+        csvContent += '队伍基本信息\n';
+        csvContent += `队伍名称,${team.teamName || ''}\n`;
+        csvContent += `队伍类型,${getTeamTypeText(team.teamType)}\n`;
+        csvContent += `领队姓名,${team.leaderName || ''}\n`;
+        csvContent += `联系电话,${team.leaderPhone || ''}\n`;
+        csvContent += `邮箱地址,${team.leaderEmail || ''}\n`;
+        csvContent += `提交状态,${team.submittedForReview ? '已提交' : '未提交'}\n`;
+        
+        if (team.submittedAt) {
+            const submitTime = new Date(team.submittedAt);
+            const formattedTime = submitTime.toLocaleString('zh-CN');
+            csvContent += `提交时间,${formattedTime}\n`;
+        }
+        
+        csvContent += `队伍地址,${team.teamAddress || ''}\n`;
+        csvContent += `队伍简介,${team.teamDescription || ''}\n`;
+        csvContent += '\n';
+        
+        // 队伍统计信息
+        csvContent += '队伍统计信息\n';
+        csvContent += `队伍总人数,${$('#teamTotalCount').val()}\n`;
+        csvContent += `参赛人数,${$('#teamAthleteCount').val()}\n`;
+        csvContent += `医务人员人数,${$('#teamMedicalCount').val()}\n`;
+        csvContent += `教练人数,${$('#teamCoachCount').val()}\n`;
+        csvContent += `随行人员人数,${$('#teamStaffCount').val()}\n`;
+        csvContent += '\n';
+        
+        // 费用统计
+        csvContent += '费用统计\n';
+        csvContent += `合计报名费用,${$('#teamTotalFee').val()}\n`;
+        csvContent += `单人赛费用,${$('#teamIndividualFee').val()}\n`;
+        csvContent += `对练费用,${$('#teamPairPracticeFee').val()}\n`;
+        csvContent += `团体赛费用,${$('#teamCompetitionFee').val()}\n`;
+        csvContent += `其他费用,${$('#teamOtherFee').val()}\n`;
+        csvContent += '\n';
+        
+        // 参赛选手列表
+        if (players.length > 0) {
+            csvContent += '参赛选手列表\n';
+            csvContent += '姓名,身份证号,联系电话,性别,年龄,参赛项目\n';
+            
+            players.forEach(player => {
+                const events = (player.selectedEvents || []).join('、') || '-';
+                csvContent += `${player.name || ''},${player.idCard || ''},${player.phone || ''},${player.gender || ''},${player.age || ''},${events}\n`;
+            });
+            csvContent += '\n';
+        }
+        
+        // 随行人员列表
+        if (staff.length > 0) {
+            csvContent += '随行人员列表\n';
+            csvContent += '姓名,身份证号,联系电话,角色\n';
+            
+            staff.forEach(s => {
+                const role = s.role === 'coach' ? '教练' : s.role === 'medical' ? '医务人员' : '随行人员';
+                csvContent += `${s.name || ''},${s.idCard || ''},${s.phone || ''},${role}\n`;
+            });
+        }
+        
+        // 创建Blob并下载
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        const fileName = `${team.teamName || '队伍'}_信息表_${new Date().getTime()}.csv`;
+        link.setAttribute('href', url);
+        link.setAttribute('download', fileName);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showMessage('队伍信息表格导出成功！', 'success');
+        console.log('已导出队伍信息表格:', fileName);
+        
+    } catch (error) {
+        console.error('导出失败:', error);
+        showMessage('导出失败：' + error.message, 'error');
+    }
+}
+
+// 获取队伍类型的中文名称
+function getTeamTypeText(type) {
+    const typeMap = {
+        'school': '学校队伍',
+        'club': '俱乐部',
+        'professional': '专业队',
+        'individual': '个人组队'
+    };
+    return typeMap[type] || type || '';
+}
+
+// 更换赛事
+function changeEvent() {
+    // 显示更换赛事模态框或直接跳转到赛事选择页面
+    const currentEvent = getSelectedEvent();
+    
+    // 直接跳转到赛事选择页面，而不是使用模态框确认，简化用户操作
+    confirmChangeEvent();
+}
+
+// 显示更换赛事的确认模态框
+function showChangeEventModal() {
+    const currentEvent = getSelectedEvent();
+    const currentEventName = currentEvent ? currentEvent.name : '未选择';
+    
+    // 使用简单的确认对话框，避免依赖SweetAlert可能导致的问题
+    if (confirm(`当前赛事: ${currentEventName}\n\n确定要更换赛事吗？`)) {
+        confirmChangeEvent();
+    }
+}
+
+// 确认更换赛事
+function confirmChangeEvent() {
+    // 清除当前选择的赛事
+    sessionStorage.removeItem('selectedEventForSummary');
+    
+    // 跳转到赛事选择页面
+    window.location.href = '{{ url_for("event_selection") }}?source=summary';
+}
+
+// 跳转到参赛选手列表页面
+function goToPlayerList() {
+    const currentEvent = getSelectedEvent();
+    if (currentEvent && currentEvent.id) {
+        let url = `/player_list?event_id=${currentEvent.id}&event_name=${encodeURIComponent(currentEvent.name)}&source=summary`;
+        // 添加队伍ID参数
+        if (window.currentEventTeam && window.currentEventTeam.id) {
+            url += `&team_id=${window.currentEventTeam.id}`;
+        }
+        // 保留 admin_view 参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const adminView = urlParams.get('admin_view');
+        if (adminView === 'true') {
+            url += `&admin_view=true`;
+        }
+        window.location.href = url;
+    } else {
+        showMessage('未选择赛事，无法查看参赛选手信息', 'warning');
+    }
+}
+
+// 跳转到随行人员列表页面
+function goToStaffList() {
+    const currentEvent = getSelectedEvent();
+    if (currentEvent && currentEvent.id) {
+        let url = `/staff_list?event_id=${currentEvent.id}&event_name=${encodeURIComponent(currentEvent.name)}&source=summary`;
+        // 添加队伍ID参数
+        if (window.currentEventTeam && window.currentEventTeam.id) {
+            url += `&team_id=${window.currentEventTeam.id}`;
+        }
+        // 保留 admin_view 参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const adminView = urlParams.get('admin_view');
+        if (adminView === 'true') {
+            url += `&admin_view=true`;
+        }
+        window.location.href = url;
+    } else {
+        showMessage('未选择赛事，无法查看随行人员信息', 'warning');
+    }
+}
+
+// 显示项目选择模态框
+function showEventSelectionModal() {
+    // 检查用户是否是领队
+    if (!window.isTeamLeader) {
+        // 不是领队，显示错误提示
+        showMessage('您不是此队伍的领队，如有需要，请联系领队报名', 'error');
+        return;
+    }
+    
+    // 是领队，显示项目选择模态框 (Bootstrap 5 syntax)
+    const eventSelectionModal = new bootstrap.Modal(document.getElementById('eventSelectionModal'));
+    eventSelectionModal.show();
+}
+
+// 选择赛事类型
+function selectEventType(eventType) {
+    // 关闭模态框
+    const eventSelectionModal = bootstrap.Modal.getInstance(document.getElementById('eventSelectionModal'));
+    eventSelectionModal.hide();
+    
+    // 获取当前赛事信息
+    const currentEvent = getSelectedEvent();
+    if (!currentEvent || !currentEvent.id) {
+        showMessage('未选择赛事，无法进行报名', 'warning');
+        return;
+    }
+    
+    // 根据选择的类型跳转到不同的报名页面
+    let eventTypeParam = '';
+    if (eventType === '对练赛事') {
+        eventTypeParam = 'pair_practice';
+    } else if (eventType === '组队赛事') {
+        eventTypeParam = 'team_competition';
+    }
+    
+    // 跳转到项目报名页面
+    const params = new URLSearchParams();
+    params.set('event_id', currentEvent.id);
+    params.set('event_name', currentEvent.name);
+    params.set('event_type', eventTypeParam);
+    if (window.currentEventTeam && window.currentEventTeam.id) {
+        params.set('team_id', window.currentEventTeam.id);
+    }
+    window.location.href = `/event_registration?${params.toString()}`;
+}
+
+// 显示队伍信息模态框
+function showTeamsModal() {
+    // 检查当前用户是否为领队
+    if (isTeamLeader) {
+        // 如果是领队，则跳转到编辑页面
+        goToEditTeamProfile();
+    } else {
+        // 如果不是领队，则显示只读的队伍信息模态框
+        showTeamInfoReadOnly();
+    }
+}
+
+// 显示只读的队伍信息模态框
+function showTeamInfoReadOnly() {
+    // 使用实际的队伍数据
+    const teams = [];
+    
+    if (summaryData.team) {
+        teams.push({
+            name: summaryData.team.teamName || summaryData.team.name || '未命名队伍',
+            leader: summaryData.team.leaderName || '未设置',
+            memberCount: summaryData.players.length + summaryData.staff.length,
+            type: summaryData.team.teamType || '',
+            phone: summaryData.team.leaderPhone || ''
+        });
+    }
+    
+    // 更新teamCount显示
+    $('#teamCount').text(teams.length);
+    
+    // 清空表格内容
+    $('#teamsTableBody').empty();
+    
+    if (teams.length === 0) {
+        $('#teamsTableBody').append(`
+            <tr>
+                <td colspan="4" class="text-center text-muted">暂无队伍信息</td>
+            </tr>
+        `);
+    } else {
+        // 填充表格数据
+        teams.forEach((team, index) => {
+            const row = `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${team.name}</td>
+                    <td>${team.leader}</td>
+                    <td>${team.memberCount}</td>
+                </tr>
+            `;
+            $('#teamsTableBody').append(row);
+        });
+    }
+    
+    // 显示模态框 (Bootstrap 5 syntax)
+    const teamsModal = new bootstrap.Modal(document.getElementById('teamsModal'));
+    teamsModal.show();
+}
+
+// 全局变量，存储当前登录用户是否为领队（由后端模板传入）
+let isTeamLeader = {{ (True if is_team_leader else False) | tojson }};
+
+// 显示队伍人员信息模态框
+function showTeamMembersModal() {
+    console.log('显示队伍人员信息模态框');
+    renderTeamMembersTable();
+    const teamMembersModal = new bootstrap.Modal(document.getElementById('teamMembersModal'));
+    teamMembersModal.show();
+}
+
+// 渲染队伍人员信息表格（选手 + 随行）
+function renderTeamMembersTable() {
+    const players = summaryData.players || [];
+    const staff = summaryData.staff || [];
+    const members = [];
+
+    // 组装选手数据
+    players.forEach(p => {
+        members.push({
+            id: p.player_id,
+            type: 'player',
+            name: p.name,
+            position: 'player',
+            events: (p.competition_event || '').split('、').filter(e => e),
+            phone: p.phone,
+            idCard: p.idCard || p.id_card || p.registration_number || '',
+            gender: p.gender,
+            status: p.status
+        });
+    });
+
+    // 组装随行人员数据
+    staff.forEach(s => {
+        members.push({
+            id: s.staff_id,
+            type: 'staff',
+            name: s.name,
+            position: s.position || 'staff',
+            events: [],
+            phone: s.phone,
+            idCard: s.idCard || s.id_card || '',
+            gender: s.gender,
+            status: s.status
+        });
+    });
+
+    // 更新参赛选手人数显示（只统计选手）
+    const playerCount = players.length;
+    $('#playerCount').text(playerCount);
+
+    // 清空表格内容
+    const tableBody = document.getElementById('teamMembersTableBody');
+    tableBody.innerHTML = '';
+
+    if (members.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="8" class="text-center text-muted">暂无队伍成员信息</td>';
+        tableBody.appendChild(row);
+        return;
+    }
+
+    members.forEach((member, index) => {
+        const positionText = getPositionText(member.position, member.type);
+        const eventsText = member.events && member.events.length > 0
+            ? member.events.join('、')
+            : (member.type === 'player' ? '未设置' : '—');
+
+        let actionButtons = '';
+        if (isTeamLeader) {
+            const deleteLabel = member.type === 'player' ? '删除选手' : '删除随行';
+            actionButtons = `
+                <button class="btn btn-sm btn-danger" onclick="deleteTeamMember('${member.type}', ${member.id}, '${member.name.replace(/'/g, "\\'")}')">
+                    <i class="fas fa-trash me-1"></i>${deleteLabel}
+                </button>
+            `;
+        }
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${member.name}</td>
+            <td>${positionText}</td>
+            <td>${eventsText}</td>
+            <td>${member.phone || '-'}</td>
+            <td>${maskIdCard(member.idCard || '')}</td>
+            <td>${extractGenderFromIdCard(member.idCard || '')}</td>
+            <td>${actionButtons}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+// 根据角色返回职位文本
+function getPositionText(position, type) {
+    if (type === 'staff') {
+        return position || '随行人员';
+    }
+    return '参赛选手';
+}
+
+// 删除队伍成员（选手或随行）
+function deleteTeamMember(memberType, memberId, memberName) {
+    if (!summaryData.team || !summaryData.team.id) {
+        showMessage('未找到当前队伍信息', 'error');
+        return;
+    }
+
+    const confirmText = memberType === 'player'
+        ? `确定要删除参赛选手「${memberName}」吗？删除后将无法恢复。`
+        : `确定要删除随行人员「${memberName}」吗？删除后将无法恢复。`;
+
+    if (!confirm(confirmText)) {
+        return;
+    }
+
+    const teamId = summaryData.team.id;
+    let url = '';
+
+    if (memberType === 'player') {
+        url = `/api/team/${teamId}/players/${memberId}`;
+    } else {
+        url = `/api/team/${teamId}/staff/${memberId}`;
+    }
+
+    $.ajax({
+        url: url,
+        method: 'DELETE',
+        success: function(res) {
+            if (res && res.success) {
+                showMessage('删除成功', 'success');
+                // 重新加载汇总数据
+                loadSummaryData();
+            } else {
+                showMessage(res && res.message ? res.message : '删除失败', 'error');
+            }
+        },
+        error: function(xhr) {
+            console.error('删除队伍成员失败:', xhr);
+            if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                showMessage(xhr.responseJSON.message, 'error');
+            } else {
+                showMessage('删除失败，请稍后重试', 'error');
+            }
+        }
+    });
+}
+
+// 从身份证号提取性别（用于展示）
+function extractGenderFromIdCard(idCard) {
+    if (!idCard || idCard.length < 17) {
+        return '-';
+    }
+    const genderDigit = parseInt(idCard.charAt(16));
+    if (isNaN(genderDigit)) {
+        return '-';
+    }
+    return genderDigit % 2 === 1 ? '男' : '女';
+}
+
+// 身份证号掩码函数
+function maskIdCard(idCard) {
+    if (!idCard || idCard.length < 8) return idCard;
+    const start = idCard.substring(0, 4);
+    const end = idCard.substring(idCard.length - 4);
+    const middle = '*'.repeat(idCard.length - 8);
+    return start + middle + end;
+}
+
+function normalizeRecordPartner(record) {
+    if (!record) return '';
+    return (record.pairPartner || record.pair_partner_name || record.pairPartnerName || '').trim();
+}
+
+function mergeSubmissionStateFromCreatedTeams(team, currentEventId) {
+    if (!team || !team.id) return team;
+    const normalizedTeamId = String(team.id);
+    const normalizedEventId = currentEventId ? String(currentEventId) : null;
+    const assignState = (source) => {
+        if (!source) {
+            return false;
+        }
+        let touched = false;
+        const hasSubmittedFlag = (source.submittedForReview !== undefined || source.submitted_for_review !== undefined);
+        if (hasSubmittedFlag) {
+            const incoming = (source.submittedForReview === true || source.submitted_for_review === true);
+            // 不允许把已提交状态降级为未提交（避免不同缓存源/不同队伍提交时互相覆盖）
+            if (incoming || team.submittedForReview !== true) {
+                team.submittedForReview = incoming;
+                touched = true;
+            }
+        }
+
+        const incomingSubmittedAt = source.submittedAt || source.submitted_at;
+        if (incomingSubmittedAt) {
+            team.submittedAt = incomingSubmittedAt;
+            touched = true;
+        }
+        return touched;
+    };
+    const possibleUsers = new Set([
+        sessionStorage.getItem('user_name'),
+        sessionStorage.getItem('username'),
+        sessionStorage.getItem('real_name'),
+        sessionStorage.getItem('userId'),
+        sessionStorage.getItem('user_id')
+    ].filter(Boolean));
+    const keysToInspect = new Set();
+    possibleUsers.forEach(user => keysToInspect.add(`createdTeams_${user}`));
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('createdTeams_')) {
+            keysToInspect.add(key);
+        }
+    }
+    for (const key of keysToInspect) {
+        try {
+            const list = JSON.parse(localStorage.getItem(key) || '[]');
+            if (!Array.isArray(list) || !list.length) continue;
+            const matched = list.find(item => {
+                if (!item) return false;
+                const sameTeam = String(item.id || item.teamId || item.team_id) === normalizedTeamId;
+                const sameEvent = normalizedEventId ? String(item.eventId || item.event_id) === normalizedEventId : true;
+                return sameTeam && sameEvent;
+            });
+            if (matched && assignState(matched)) {
+                return team;
+            }
+        } catch (error) {
+            console.warn('解析 createdTeams 数据失败:', key, error);
+        }
+    }
+    if (team.submittedForReview) {
+        return team;
+    }
+    const eventForSnapshot = normalizedEventId || (team.eventId ? String(team.eventId) : null);
+    if (eventForSnapshot) {
+        const snapshotKey = `submittedTeamData_${eventForSnapshot}`;
+        try {
+            const snapshots = JSON.parse(localStorage.getItem(snapshotKey) || '[]');
+            if (Array.isArray(snapshots) && snapshots.length) {
+                const snapshot = snapshots.find(item => {
+                    if (!item) return false;
+                    const snapshotTeamId = item.teamId ||
+                        (item.team && (item.team.id || item.team.teamId));
+                    return String(snapshotTeamId || '') === normalizedTeamId;
+                });
+                if (snapshot) {
+                    if (assignState(snapshot.team)) {
+                        return team;
+                    }
+                    if (!team.submittedForReview && snapshot.submittedAt) {
+                        team.submittedForReview = true;
+                        team.submittedAt = snapshot.submittedAt;
+                        return team;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('解析 submittedTeamData 缓存失败:', snapshotKey, error);
+        }
+    }
+    return team;
+}
+
+async function fetchBackendSubmissionState({ eventId, teamId, forceTeamEndpoint = false }) {
+    try {
+        if (!eventId && !teamId) return null;
+        let endpoint = '';
+        if ((forceTeamEndpoint || !eventId) && teamId) {
+            endpoint = `/api/team/${teamId}`;
+        } else if (eventId) {
+            endpoint = `/api/events/${eventId}/my-team`;
+        } else {
+            return null;
+        }
+        const response = await fetch(endpoint, {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        if (!response.ok) {
+            console.warn('获取后端队伍状态失败:', endpoint, response.status);
+            return null;
+        }
+        const data = await response.json();
+        const payload = data.team || data;
+        if (!payload || data.success === false) {
+            return null;
+        }
+        return {
+            id: String(payload.id || payload.team_id),
+            teamName: payload.teamName || payload.team_name || payload.name,
+            eventId: payload.event_id || payload.eventId || eventId,
+            submittedForReview: payload.submitted_for_review ?? payload.submittedForReview ?? false,
+            submittedAt: payload.submitted_at || payload.submittedAt || null,
+            createdBy: payload.created_by || payload.createdBy || null,
+            leaderName: payload.leader_name || payload.leaderName,
+            leaderPhone: payload.leader_phone || payload.leaderPhone,
+            teamType: payload.team_type || payload.teamType || payload.type
+        };
+    } catch (error) {
+        console.warn('fetchBackendSubmissionState 调用失败:', error);
+        return null;
+    }
+}
+
+function syncCreatedTeamCache(team) {
+    if (!team || !team.id) {
+        return;
+    }
+    const possibleUsers = [
+        sessionStorage.getItem('user_name'),
+        sessionStorage.getItem('username'),
+        sessionStorage.getItem('real_name')
+    ].filter(Boolean);
+    if (!possibleUsers.length) return;
+    possibleUsers.forEach(user => {
+        const key = `createdTeams_${user}`;
+        const list = JSON.parse(localStorage.getItem(key) || '[]');
+        const normalizedEventId = team.eventId || team.event_id;
+        const idx = list.findIndex(item => {
+            if (!item) return false;
+            const sameTeam = String(item.id || item.teamId) === String(team.id);
+            if (!sameTeam) return false;
+            if (!normalizedEventId) return true;
+            return String(item.eventId || item.event_id || '') === String(normalizedEventId);
+        });
+        const normalized = {
+            ...(idx >= 0 ? list[idx] : {}),
+            id: team.id,
+            teamId: team.id,
+            eventId: team.eventId || team.event_id,
+            event_id: team.eventId || team.event_id,
+            teamName: team.teamName || team.name || (idx >= 0 ? list[idx].teamName : ''),
+            submittedForReview: (team.submittedForReview === true || team.submitted_for_review === true)
+                ? true
+                : (idx >= 0 ? !!list[idx].submittedForReview : false),
+            submitted_for_review: (team.submittedForReview === true || team.submitted_for_review === true)
+                ? true
+                : (idx >= 0 ? !!list[idx].submitted_for_review : false),
+            submittedAt: team.submittedAt || team.submitted_at || null,
+            submitted_at: team.submittedAt || team.submitted_at || null,
+            leaderName: team.leaderName || team.leader_name || (idx >= 0 ? list[idx].leaderName : ''),
+            leaderPhone: team.leaderPhone || team.leader_phone || (idx >= 0 ? list[idx].leaderPhone : '')
+        };
+        if (idx >= 0) {
+            list[idx] = { ...list[idx], ...normalized };
+        } else {
+            list.push(normalized);
+        }
+        localStorage.setItem(key, JSON.stringify(list));
+    });
+}
+
+function getEventText(event) {
+    const events = {
+        'long_fist': '长拳',
+        'southern_fist': '南拳',
+        'taichi': '太极拳',
+        'sword': '剑术',
+        'broadsword': '刀术',
+        'spear': '枪术',
+        'staff': '棍术'
+    };
+    return events[event] || event;
+}
+
+function getFileTypeText(type) {
+    const types = {
+        'id_card': '身份证',
+        'certificate': '证书',
+        'photo': '照片',
+        'other': '其他'
+    };
+    return types[type] || type;
+}
+
+// ========== 队伍表单相关函数 ==========
+
+// 加载队伍表单数据（只读展示）
+function loadTeamFormData() {
+    // 如果有队伍数据，填充表单
+    if (summaryData.team) {
+        $('#teamName').val(summaryData.team.teamName || '');
+        $('#teamType').val(summaryData.team.teamType || '');
+        $('#teamAddress').val(summaryData.team.teamAddress || '');
+        $('#teamDescription').val(summaryData.team.teamDescription || '');
+        $('#leaderName').val(summaryData.team.leaderName || '');
+        $('#leaderPosition').val('领队');
+        $('#leaderPhone').val(summaryData.team.leaderPhone || '');
+        $('#leaderEmail').val(summaryData.team.leaderEmail || '');
+        
+        // 显示队伍类型的中文名称
+        const teamTypeMap = {
+            'school': '学校队伍',
+            'club': '俱乐部',
+            'professional': '专业队',
+            'individual': '个人组队'
+        };
+        const teamTypeText = teamTypeMap[summaryData.team.teamType] || summaryData.team.teamType || '';
+        $('#teamTypeDisplay').val(teamTypeText);
+        
+        // 更新提交状态和提交时间
+        if (summaryData.team.submittedForReview) {
+            $('#teamSubmitStatus').val('✓ 已提交').css({
+                'background-color': '#d1e7dd',
+                'color': '#0f5132',
+                'font-weight': 'bold',
+                'border': '2px solid #198754'
+            });
+            
+            if (summaryData.team.submittedAt) {
+                const submitTime = new Date(summaryData.team.submittedAt);
+                const formattedTime = submitTime.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                $('#teamSubmitTime').val(formattedTime);
+            }
+        } else {
+            $('#teamSubmitStatus').val('⚠ 未提交').css({
+                'background-color': '#fff3cd',
+                'color': '#856404',
+                'font-weight': 'bold',
+                'border': '2px solid #ffc107'
+            });
+            $('#teamSubmitTime').val('-');
+        }
+        
+        // 计算并更新队伍统计信息
+        updateTeamStatistics();
+        
+        console.log('已加载队伍信息到表单（只读模式）');
+    }
+}
+
+// 更新领队提示框为"重新提交"相关文本
+function updateLeaderTipForResubmit() {
+    const tipAlert = $('#leaderTipAlert');
+    if (tipAlert.length > 0 && !tipAlert.hasClass('d-none')) {
+        // 只更新内容，不改变显示状态
+        tipAlert.html(`
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle fa-2x me-3" style="color: #dc3545;"></i>
+                <div>
+                    <h6 class="mb-1 fw-bold" style="color: #721c24;">队伍已提交信息！</h6>
+                    <p class="mb-0" style="color: #721c24;">
+                        修改后点击<strong style="color: #dc3545; font-size: 1.1rem;">"重新提交"</strong>更新资料。
+                    </p>
+                </div>
+            </div>
+        `);
+        // 确保样式保持一致
+        tipAlert.css({
+            'background-color': '#f8d7da',
+            'border': '1px solid #dc3545',
+            'border-left': '4px solid #dc3545',
+            'color': '#721c24',
+            'display': 'block' // 强制保持显示
+        });
+    }
+}
+
+// 计算并更新队伍统计信息
+function updateTeamStatistics() {
+    // 获取参赛选手列表
+    const players = summaryData.players || [];
+    // 获取随行人员列表
+    const staff = summaryData.staff || [];
+    
+    // 1. 计算参赛人数（使用身份证号或手机号去重，防止重复计数）
+    console.log('=== 开始计算参赛人数 ===');
+    console.log('参赛选手列表:', players.map(p => ({ 姓名: p.name, 身份证: p.idCard, 手机号: p.phone, source: p.source })));
+    console.log('随行人员列表:', staff.map(s => ({ 姓名: s.name, 身份证: s.idCard, 手机号: s.phone, 职务: s.position })));
+    
+    // 使用去重逻辑统计参赛人数，避免重复计数
+    const uniquePlayers = new Set();
+    players.forEach(player => {
+        const idCard = (player.idCard || '').trim();
+        const phone = (player.phone || '').trim();
+        
+        if (idCard) {
+            uniquePlayers.add(`id_${idCard}`);
+        } else if (phone) {
+            uniquePlayers.add(`phone_${phone}`);
+        }
+    });
+    
+    const athleteCount = uniquePlayers.size;
+    
+    console.log('参赛人数（去重后）:', athleteCount);
+    console.log('======================')
+    
+    // 2. 计算医务人员人数（随行人员中职务为医务人员的）
+    // 职务字段可能是中文"医务人员"或英文"medical"
+    const medicalCount = staff.filter(s => {
+        const pos = s.position || '';
+        return pos === '医务人员' || pos === 'medical';
+    }).length;
+    
+    // 3. 计算教练人数（随行人员中职务为教练的）
+    // 职务字段可能是中文"教练"或英文"coach"
+    const coachCount = staff.filter(s => {
+        const pos = s.position || '';
+        return pos === '教练' || pos === 'coach';
+    }).length;
+    
+    // 3.5 计算随行人员人数（随行人员中职务为随行人员的）
+    // 职务字段可能是中文"随行人员"或英文"staff"
+    const staffCount = staff.filter(s => {
+        const pos = s.position || '';
+        return pos === '随行人员' || pos === 'staff';
+    }).length;
+    
+    // 4. 计算队伍总人数（去重统计：参赛选手 + 随行人员，使用身份证号或手机号去重，不包含领队）
+    const uniquePeople = new Set();
+    
+    // 添加参赛选手（优先使用身份证号，否则使用手机号）
+    players.forEach(player => {
+        const idCard = (player.idCard || '').trim();
+        const phone = (player.phone || '').trim();
+        
+        if (idCard) {
+            uniquePeople.add(`id_${idCard}`);
+        } else if (phone) {
+            uniquePeople.add(`phone_${phone}`);
+        }
+    });
+    
+    // 添加随行人员（优先使用身份证号，否则使用手机号）
+    staff.forEach(member => {
+        const idCard = (member.idCard || '').trim();
+        const phone = (member.phone || '').trim();
+        
+        if (idCard) {
+            uniquePeople.add(`id_${idCard}`);
+        } else if (phone) {
+            uniquePeople.add(`phone_${phone}`);
+        }
+    });
+    
+    const totalCount = uniquePeople.size;
+    
+    // 更新UI显示
+    $('#teamTotalCount').val(totalCount);
+    $('#teamAthleteCount').val(athleteCount);
+    $('#teamMedicalCount').val(medicalCount);
+    $('#teamCoachCount').val(coachCount);
+    $('#teamStaffCount').val(staffCount);
+    
+    console.log('队伍统计信息已更新:', {
+        总人数: totalCount,
+        参赛人数: athleteCount,
+        医务人员: medicalCount,
+        教练: coachCount,
+        随行人员: staffCount,
+        参赛选手详情: players.map(p => ({ 姓名: p.name, 手机号: p.phone, 身份证: p.idCard })),
+        随行人员详情: staff.map(s => ({ 姓名: s.name, 手机号: s.phone, 职务: s.position, 身份证: s.idCard })),
+        '去重后的人员标识集合': Array.from(uniquePeople)
+    });
+    
+    // 计算费用统计
+    calculateTeamFees();
+}
+
+/**
+ * 从localStorage获取赛事费用数据
+ * @param {number} eventId - 赛事ID
+ * @returns {object} 费用数据对象
+ */
+function getEventFees(eventId) {
+    try {
+        const eventFees = JSON.parse(localStorage.getItem('eventFees') || '{}');
+        return eventFees[eventId] || {
+            individual_fee: 0,
+            pair_practice_fee: 0,
+            team_competition_fee: 0
+        };
+    } catch (error) {
+        console.error('读取赛事费用失败:', error);
+        return {
+            individual_fee: 0,
+            pair_practice_fee: 0,
+            team_competition_fee: 0
+        };
+    }
+}
+
+// 计算队伍费用统计
+async function calculateTeamFees() {
+    const currentEvent = getSelectedEvent();
+    const eventId = summaryData.team?.eventId || (currentEvent && currentEvent.id);
+
+    if (!eventId || !summaryData.team) {
+        console.warn('缺少赛事或队伍数据，无法计算费用');
+        applyTeamFeesToUI({ individualFee: 0, pairPracticeFee: 0, teamCompetitionFee: 0, otherFee: 0, totalFee: 0 }, 'empty');
+        return;
+    }
+
+    // 兼容多种字段命名：teamName / name / team_name
+    let teamName = summaryData.team.teamName || summaryData.team.name || summaryData.team.team_name;
+    const teamId = summaryData.team.id || summaryData.team.teamId;
+    if (!teamName) {
+        // 如果后端队伍名称为空，则使用队伍ID构造一个稳定的占位名称，保证费用可以按同一键值读写
+        teamName = teamId ? `team_${teamId}` : 'team_unknown';
+        console.warn('当前队伍缺少名称，使用占位名称用于费用统计与同步:', teamName);
+    }
+
+    // 优先走后端权威计算：entries 统计 * events 单价
+    if (teamId) {
+        try {
+            const computed = await $.getJSON(`/api/participants/team-fees?event_id=${encodeURIComponent(eventId)}&team_id=${encodeURIComponent(teamId)}`);
+            if (computed && computed.success && computed.team_fee) {
+                const tf = computed.team_fee;
+                const normalized = {
+                    individualFee: parseFloat(tf.individual_fee || 0),
+                    pairPracticeFee: parseFloat(tf.pair_fee || 0),
+                    teamCompetitionFee: parseFloat(tf.team_fee || 0),
+                    otherFee: parseFloat(tf.other_fee || 0),
+                    totalFee: parseFloat(tf.total_fee || 0)
+                };
+                applyTeamFeesToUI(normalized, 'api');
+                try {
+                    await $.ajax({
+                        url: '/api/participants/team-fees',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            event_id: eventId,
+                            team_name: teamName,
+                            fees: normalized
+                        })
+                    });
+                } catch (syncError) {
+                    console.warn('同步队伍费用到云端失败（entries 计算）:', syncError);
+                }
+                return;
+            }
+        } catch (e) {
+            console.warn('调用 entries 计算费用失败，回退旧逻辑:', e);
+        }
+    }
+
+    try {
+        console.log('开始从 /api/participants/team-fees 获取队伍费用统计，eventId =', eventId, 'teamName =', teamName);
+        const response = await $.getJSON(`/api/participants/team-fees?event_id=${encodeURIComponent(eventId)}`);
+
+        if (response && response.success && Array.isArray(response.team_fees) && response.team_fees.length > 0) {
+            const teamFee = response.team_fees.find(t => t.team_name === teamName);
+            if (teamFee) {
+                const normalized = {
+                    individualFee: parseFloat(teamFee.individual_fee || 0),
+                    pairPracticeFee: parseFloat(teamFee.pair_fee || 0),
+                    teamCompetitionFee: parseFloat(teamFee.team_fee || 0),
+                    otherFee: parseFloat(teamFee.other_fee || 0),
+                    totalFee: parseFloat(teamFee.total_fee || 0)
+                };
+
+                const isAllZero = (normalized.individualFee === 0 && normalized.pairPracticeFee === 0 && normalized.teamCompetitionFee === 0 && normalized.otherFee === 0 && normalized.totalFee === 0);
+                if (!isAllZero) {
+                    // 使用后端返回的数据更新 UI，并尝试同步到云端费用表
+                    applyTeamFeesToUI(normalized, 'api');
+                    try {
+                        await $.ajax({
+                            url: '/api/participants/team-fees',
+                            method: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({
+                                event_id: eventId,
+                                team_name: teamName,
+                                fees: normalized
+                            })
+                        });
+                    } catch (syncError) {
+                        console.warn('同步队伍费用到云端失败（API 来源）:', syncError);
+                    }
+                    return;
+                }
+
+                console.warn('队伍费用API返回了全0记录，将按赛事费用重新计算并覆盖', { eventId, teamName, normalized });
+            }
+            console.warn('未在API返回的队伍费用中找到当前队伍，改用本地数据', {
+                teamName,
+                availableTeams: response.team_fees.map(t => t.team_name)
+            });
+        } else {
+            console.warn('队伍费用API未返回任何数据，改用本地数据', response);
+        }
+    } catch (error) {
+        console.error('调用队伍费用API失败:', error);
+    }
+
+    // API无有效数据，按本地（赛事单价 + 报名人数）计算
+    const localFeeInfo = computeLocalTeamFees(eventId, teamName);
+    applyTeamFeesToUI(localFeeInfo, 'local');
+    try {
+        await $.ajax({
+            url: '/api/participants/team-fees',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                event_id: eventId,
+                team_name: teamName,
+                fees: localFeeInfo
+            })
+        });
+    } catch (syncError) {
+        console.warn('同步队伍费用到云端失败（本地计算）:', syncError);
+    }
+}
+
+function applyTeamFeesToUI(feeInfo, source = 'local') {
+    const individualFee = parseFloat(feeInfo.individualFee || 0);
+    const pairPracticeFee = parseFloat(feeInfo.pairPracticeFee || 0);
+    const teamCompetitionFee = parseFloat(feeInfo.teamCompetitionFee || 0);
+    const otherFee = parseFloat(feeInfo.otherFee || 0);
+    const totalFee = parseFloat(feeInfo.totalFee || (individualFee + pairPracticeFee + teamCompetitionFee + otherFee));
+
+    $('#teamIndividualFee').val(`¥${individualFee.toFixed(2)}`);
+    $('#teamPairPracticeFee').val(`¥${pairPracticeFee.toFixed(2)}`);
+    $('#teamCompetitionFee').val(`¥${teamCompetitionFee.toFixed(2)}`);
+    $('#teamOtherFee').val(`¥${otherFee.toFixed(2)}`);
+    $('#teamTotalFee').val(`¥${totalFee.toFixed(2)}`);
+
+    console.log(`费用统计已更新（来源：${source === 'api' ? '后端API' : source === 'local' ? '本地实时计算' : '空' }）`, {
+        individualFee,
+        pairPracticeFee,
+        teamCompetitionFee,
+        otherFee,
+        totalFee
+    });
+}
+
+function computeLocalTeamFees(eventId, teamName) {
+    if (!Array.isArray(summaryData.players) || summaryData.players.length === 0) {
+        return { individualFee: 0, pairPracticeFee: 0, teamCompetitionFee: 0, otherFee: 0, totalFee: 0 };
+    }
+
+    const fees = getEventFees(eventId);
+    const individualUnit = parseFloat(fees.individual_fee || 0) || 0;
+    const pairUnit = parseFloat(fees.pair_practice_fee || 0) || 0;
+    const teamUnit = parseFloat(fees.team_competition_fee || 0) || 0;
+
+    const targetTeamId = summaryData.team?.id;
+    const playersOfTeam = summaryData.players.filter(player => {
+        const playerTeamId = player.teamId || player.team_id;
+        const playerTeamName = player.teamName || player.team_name;
+        if (targetTeamId) {
+            return !playerTeamId || String(playerTeamId) === String(targetTeamId);
+        }
+        return playerTeamName === teamName || !playerTeamName;
+    });
+
+    let individualProjects = 0;
+    let pairProjects = 0;
+    let hasTeamCompetition = false;
+
+    playersOfTeam.forEach(player => {
+        individualProjects += countIndividualProjects(player);
+        pairProjects += countPairProjects(player);
+        if (!hasTeamCompetition) {
+            hasTeamCompetition = Boolean(player.teamRegistered || player.team_registered ||
+                (player.competition_event && player.competition_event.includes('团体赛')));
+        }
+    });
+
+    const pairGroups = Math.floor(pairProjects / 2);
+    const individualFee = individualProjects * individualUnit;
+    const pairPracticeFee = pairGroups * pairUnit;
+    const teamCompetitionFee = hasTeamCompetition ? teamUnit : 0;
+    const totalFee = individualFee + pairPracticeFee + teamCompetitionFee;
+
+    return {
+        individualFee,
+        pairPracticeFee,
+        teamCompetitionFee,
+        otherFee: 0,
+        totalFee
+    };
+}
+
+function countIndividualProjects(player) {
+    if (!player) {
+        return 0;
+    }
+    if (Array.isArray(player.selectedEvents) && player.selectedEvents.length > 0) {
+        return player.selectedEvents.filter(Boolean).length;
+    }
+    const competitionText = player.competition_event || player.competitionEvent || '';
+    if (!competitionText) {
+        return player.singleRegistered ? 1 : 0;
+    }
+    const segments = competitionText.split('、')
+        .map(item => item.trim())
+        .filter(item => item && !item.includes('对练') && !item.includes('团体赛'));
+    if (segments.length > 0) {
+        return segments.length;
+    }
+    return player.singleRegistered ? 1 : 0;
+}
+
+function countPairProjects(player) {
+    if (!player) {
+        return 0;
+    }
+    const competitionText = player.competition_event || player.competitionEvent || '';
+    // 识别所有对练类 token：
+    // 1) 形如 "XXX对练（对手）" 的形式
+    // 2) 形如 "徒手...（对手）" 或 "器械...（对手）" 的形式
+    const pairTokenRegex = /(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)/g;
+    const matches = competitionText.match(pairTokenRegex);
+    if (matches && matches.length > 0) {
+        return matches.length;
+    }
+    return player.pairRegistered ? 1 : 0;
+}
+
+// 显示编辑队伍资料模态框
+function showEditTeamModal() {
+    console.log('显示编辑队伍资料模态框');
+    
+    // 检查是否有队伍数据
+    if (!summaryData.team) {
+        showMessage('未找到队伍信息', 'error');
+        return;
+    }
+    
+    // 填充模态框表单数据
+    $('#editTeamName').val(summaryData.team.teamName || '');
+    $('#editTeamType').val(summaryData.team.teamType || '');
+    $('#editLeaderName').val(summaryData.team.leaderName || '');
+    $('#editLeaderPosition').val('领队');
+    $('#editLeaderPhone').val(summaryData.team.leaderPhone || '');
+    $('#editLeaderEmail').val(summaryData.team.leaderEmail || '');
+    $('#editTeamAddress').val(summaryData.team.teamAddress || '');
+    $('#editTeamDescription').val(summaryData.team.teamDescription || '');
+    
+    // 显示模态框
+    const editModal = new bootstrap.Modal(document.getElementById('editTeamModal'));
+    editModal.show();
+}
+
+// 保存队伍资料编辑
+function saveTeamEdit() {
+    console.log('保存队伍资料编辑');
+    
+    // 获取表单数据
+    const teamName = $('#editTeamName').val().trim();
+    const teamType = $('#editTeamType').val();
+    const leaderName = $('#editLeaderName').val().trim();
+    const leaderPhone = $('#editLeaderPhone').val().trim();
+    const leaderEmail = $('#editLeaderEmail').val().trim();
+    const teamAddress = $('#editTeamAddress').val().trim();
+    const teamDescription = $('#editTeamDescription').val().trim();
+    
+    // 验证必填字段
+    if (!teamName) {
+        showMessage('请输入队伍名称', 'error');
+        return;
+    }
+    
+    if (!teamType) {
+        showMessage('请选择队伍类型', 'error');
+        return;
+    }
+    
+    if (!leaderName) {
+        showMessage('请输入领队姓名', 'error');
+        return;
+    }
+    
+    if (!leaderPhone) {
+        showMessage('请输入联系电话', 'error');
+        return;
+    }
+    
+    // 验证手机号格式
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(leaderPhone)) {
+        showMessage('请输入正确的手机号格式', 'error');
+        return;
+    }
+    
+    // 验证邮箱格式（如果填写了）
+    if (leaderEmail && leaderEmail.length > 0) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(leaderEmail)) {
+            showMessage('请输入正确的邮箱格式', 'error');
+            return;
+        }
+    }
+    
+    // 更新队伍数据
+    const updatedTeamData = {
+        ...summaryData.team,
+        teamName: teamName,
+        teamType: teamType,
+        leaderName: leaderName,
+        leaderPosition: '领队',
+        leaderPhone: leaderPhone,
+        leaderEmail: leaderEmail,
+        teamAddress: teamAddress,
+        teamDescription: teamDescription,
+        isLeader: true, // 强制设置为领队（能修改资料的必然是领队，同时修复旧数据）
+        updatedAt: new Date().toISOString()
+    };
+    
+    console.log('更新后的队伍数据（已自动设置isLeader为true）:', updatedTeamData);
+    
+    // 获取当前用户
+    const currentUser = '{{ current_user }}';
+    const currentEventId = summaryData.team.eventId;
+    
+    // 更新 localStorage 中的队伍数据
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    const allTeams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    
+    // 找到当前队伍并更新
+    const teamIndex = allTeams.findIndex(team => 
+        team.id === summaryData.team.id || 
+        (String(team.eventId) === String(currentEventId) && team.isCreated === true)
+    );
+    
+    if (teamIndex !== -1) {
+        // 保持原有的重要字段，更新表单数据
+        allTeams[teamIndex] = {
+            ...allTeams[teamIndex],
+            ...updatedTeamData,
+            id: allTeams[teamIndex].id, // 保持原ID
+            isCreated: true, // 确保保持已创建状态
+            isLeader: true, // 强制设置为领队
+            createdAt: allTeams[teamIndex].createdAt, // 保持创建时间
+            createdBy: allTeams[teamIndex].createdBy, // 保持创建者
+            createdByDisplay: allTeams[teamIndex].createdByDisplay // 保持创建者显示名
+        };
+        localStorage.setItem(userTeamsKey, JSON.stringify(allTeams));
+        console.log('已更新 localStorage 中的队伍数据（已设置isLeader为true）');
+    }
+    
+    // 同步更新草稿数据（如果存在）
+    const userDraftsKey = `teamDrafts_${currentUser}`;
+    const drafts = JSON.parse(localStorage.getItem(userDraftsKey) || '[]');
+    const draftIndex = drafts.findIndex(draft => String(draft.eventId) === String(currentEventId));
+    
+    if (draftIndex !== -1) {
+        // 更新草稿数据
+        drafts[draftIndex] = {
+            ...drafts[draftIndex],
+            teamName: teamName,
+            teamType: teamType,
+            leaderName: leaderName,
+            leaderPosition: '领队',
+            leaderPhone: leaderPhone,
+            leaderEmail: leaderEmail,
+            teamAddress: teamAddress,
+            teamDescription: teamDescription,
+            updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem(userDraftsKey, JSON.stringify(drafts));
+        console.log('已同步更新草稿数据');
+    }
+    
+    // 更新当前页面的队伍数据
+    summaryData.team = updatedTeamData;
+    window.currentEventTeam = updatedTeamData;  // 同步更新全局变量
+    
+    // 更新页面显示
+    loadTeamFormData();
+    
+    // 关闭模态框
+    const editModal = bootstrap.Modal.getInstance(document.getElementById('editTeamModal'));
+    editModal.hide();
+    
+    // 显示成功消息
+    showMessage('队伍资料更新成功！', 'success');
+}
+
+// 更新赛事参赛人数统计
+function updateEventParticipantCount(eventId, teamId, participantCount) {
+    if (!eventId || !teamId) {
+        console.error('updateEventParticipantCount: eventId 或 teamId 为空');
+        return;
+    }
+    
+    // 从 localStorage 获取该赛事的参赛人数记录
+    const storageKey = `eventParticipants_${eventId}`;
+    let eventParticipants = {};
+    
+    try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+            eventParticipants = JSON.parse(stored);
+        }
+    } catch (e) {
+        console.error('解析赛事参赛人数数据失败:', e);
+        eventParticipants = {};
+    }
+    
+    // 更新或添加该队伍的参赛人数
+    eventParticipants[teamId] = {
+        count: participantCount,
+        updatedAt: new Date().toISOString()
+    };
+    
+    // 保存回 localStorage
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(eventParticipants));
+        console.log(`已更新赛事 ${eventId} 的参赛人数统计: 队伍 ${teamId} = ${participantCount} 人`);
+    } catch (e) {
+        console.error('保存赛事参赛人数数据失败:', e);
+    }
+}
+
+// 获取赛事的总参赛人数
+function getEventTotalParticipants(eventId) {
+    if (!eventId) {
+        return 0;
+    }
+    
+    const storageKey = `eventParticipants_${eventId}`;
+    let total = 0;
+    
+    try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+            const eventParticipants = JSON.parse(stored);
+            // 累加所有队伍的参赛人数
+            for (const teamId in eventParticipants) {
+                if (eventParticipants.hasOwnProperty(teamId)) {
+                    total += eventParticipants[teamId].count || 0;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('获取赛事参赛人数失败:', e);
+    }
+    
+    return total;
+}
+
+// 显示退出队伍确认模态框
+function showLeaveTeamModal() {
+    console.log('显示退出队伍确认模态框');
+    const modal = $('#leaveTeamConfirmModal');
+    if (modal.length === 0) {
+        console.error('找不到退出队伍确认模态框');
+        if (confirm('确定要退出当前队伍吗？')) {
+            performLeaveTeam();
+        }
+        return;
+    }
+    modal.addClass('show');
+    $('body').addClass('modal-open').css('overflow', 'hidden');
+}
+
+// 关闭退出队伍模态框
+function closeLeaveTeamModal() {
+    const modal = $('#leaveTeamConfirmModal');
+    modal.removeClass('show');
+    $('body').removeClass('modal-open').css('overflow', '');
+}
+
+// 执行退出队伍操作
+function performLeaveTeam() {
+    console.log('执行退出队伍操作');
+    
+    // 关闭模态框
+    closeLeaveTeamModal();
+    
+    const currentUser = '{{ current_user }}';
+    const eventId = sessionStorage.getItem('selectedEventId') || currentEvent.id;
+    const currentUserId = {{ (session.get('user_id') or 0) | tojson }};
+    
+    console.log('当前用户:', currentUser);
+    console.log('当前用户ID:', currentUserId);
+    console.log('当前赛事ID:', eventId);
+    
+    if (!currentUser || !eventId) {
+        showCenterMessage('获取用户或赛事信息失败', 'error');
+        return;
+    }
+    
+    if (!currentEventTeam || !currentEventTeam.id) {
+        showCenterMessage('未找到当前队伍信息', 'error');
+        return;
+    }
+    
+    let deletedCount = 0;
+    
+    // 1. 从 teamApplications 中删除该用户的所有申请记录（作为参赛选手）
+    let applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const beforeAppCount = applications.length;
+    
+    applications = applications.filter(app => {
+        // 删除条件：是当前用户 且 是当前赛事 且 是当前队伍
+        const shouldDelete = (
+            (app.userId === currentUser || String(app.userId) === String(currentUserId)) &&
+            String(app.eventId) === String(eventId) &&
+            String(app.teamId) === String(currentEventTeam.id)
+        );
+        
+        if (shouldDelete) {
+            console.log('删除申请记录:', app);
+            deletedCount++;
+        }
+        
+        return !shouldDelete;
+    });
+    
+    if (beforeAppCount !== applications.length) {
+        localStorage.setItem('teamApplications', JSON.stringify(applications));
+        console.log(`已从 teamApplications 中删除 ${beforeAppCount - applications.length} 条记录`);
+    }
+    
+    // 2. 从 playerList 中删除该用户的记录（直接添加的参赛选手）
+    let playerList = JSON.parse(localStorage.getItem('playerList') || '[]');
+    const beforePlayerCount = playerList.length;
+    
+    playerList = playerList.filter(player => {
+        // 删除条件：是当前用户 且 是当前队伍
+        const shouldDelete = (
+            (player.userId === currentUser || String(player.userId) === String(currentUserId)) &&
+            String(player.teamId) === String(currentEventTeam.id)
+        );
+        
+        if (shouldDelete) {
+            console.log('删除参赛选手记录:', player);
+            deletedCount++;
+        }
+        
+        return !shouldDelete;
+    });
+    
+    if (beforePlayerCount !== playerList.length) {
+        localStorage.setItem('playerList', JSON.stringify(playerList));
+        console.log(`已从 playerList 中删除 ${beforePlayerCount - playerList.length} 条记录`);
+    }
+    
+    // 3. 从 staffList 中删除该用户的记录（随行人员）
+    let staffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+    const beforeStaffCount = staffList.length;
+    
+    staffList = staffList.filter(staff => {
+        // 删除条件：是当前用户 且 是当前队伍
+        const shouldDelete = (
+            (staff.userId === currentUser || String(staff.userId) === String(currentUserId)) &&
+            String(staff.teamId) === String(currentEventTeam.id)
+        );
+        
+        if (shouldDelete) {
+            console.log('删除随行人员记录:', staff);
+            deletedCount++;
+        }
+        
+        return !shouldDelete;
+    });
+    
+    if (beforeStaffCount !== staffList.length) {
+        localStorage.setItem('staffList', JSON.stringify(staffList));
+        console.log(`已从 staffList 中删除 ${beforeStaffCount - staffList.length} 条记录`);
+    }
+    
+    // 4. 从 createdTeams 中删除该用户作为队员的关联
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    let userTeams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    const beforeTeamCount = userTeams.length;
+    
+    userTeams = userTeams.filter(team => {
+        return !(String(team.id) === String(currentEventTeam.id) && team.isLeader !== true);
+    });
+    
+    if (beforeTeamCount !== userTeams.length) {
+        localStorage.setItem(userTeamsKey, JSON.stringify(userTeams));
+        console.log(`已从用户队伍列表中删除队伍关联`);
+    }
+    
+    console.log(`总共删除了 ${deletedCount} 条记录`);
+    
+    if (deletedCount > 0) {
+        showCenterMessage('已成功退出队伍', 'success');
+    } else {
+        showCenterMessage('未找到需要删除的记录', 'warning');
+    }
+    
+    // 延迟跳转到赛事选择页面
+    setTimeout(function() {
+        window.location.href = `/event_selection`;
+    }, 1500);
+}
+
+// 绑定退出队伍模态框的事件
+$(document).ready(function() {
+    // 关闭按钮
+    $('#closeLeaveTeamModal').on('click', function() {
+        closeLeaveTeamModal();
+    });
+    
+    // 取消按钮
+    $('#cancelLeaveTeamBtn').on('click', function() {
+        closeLeaveTeamModal();
+    });
+    
+    // 确认退出按钮
+    $('#confirmLeaveTeamBtn').on('click', function() {
+        performLeaveTeam();
+    });
+    
+    // 点击模态框外部关闭
+    $('#leaveTeamConfirmModal').on('click', function(e) {
+        if (e.target === this) {
+            closeLeaveTeamModal();
+        }
+    });
+});
+</script>
+{% endblock %}

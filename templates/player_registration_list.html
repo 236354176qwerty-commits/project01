@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+
+{% block title %}队员报名人员列表 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <div class="row g-0">
+        <div class="col-12">
+            <div class="page-header-card mx-3">
+                <div class="page-header-content">
+                    <div>
+                        <h2 class="page-title">
+                            <i class="fas fa-users me-2"></i>队员报名人员列表
+                        </h2>
+                        <p class="page-description mb-3">
+                            查看当前赛事已登记的参赛人员，可通过右上角按钮继续添加
+                        </p>
+                        <div id="selectedEventInfo" class="mt-2 d-flex align-items-center gap-3 justify-content-between">
+                            <div class="d-flex align-items-center gap-3">
+                                <button class="btn btn-primary step-nav-btn" onclick="goBackToPreviousPage()">
+                                    <i class="fas fa-arrow-left me-2"></i>上一步
+                                </button>
+                                <div class="current-event-box" id="currentEventBox">
+                                    <i class="fas fa-trophy me-2"></i>
+                                    <strong>当前赛事：</strong><span id="currentEventName">-</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary step-nav-btn" onclick="goToParticipantOverview()">
+                                下一步<i class="fas fa-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mx-3">
+                <div class="card-header d-flex justify-content-between align-items-center" style="background-color: #fff; border-bottom: 2px solid #e9ecef;">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>人员列表
+                    </h5>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="add-player-hint">点击添加人员来添加队伍的队员<i class="fas fa-arrow-right ms-2"></i></span>
+                        <a href="javascript:void(0)" class="btn btn-primary action-button" id="addPlayerRegistrationBtn">
+                            <i class="fas fa-plus me-2"></i>添加人员
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索队员（姓名/队伍/电话等）" onkeyup="filterPlayers()">
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle" id="playerRegistrationTable">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th>姓名</th>
+                                    <th>性别</th>
+                                    <th>年龄</th>
+                                    <th>职务</th>
+                                    <th>所属队伍</th>
+                                    <th>身份证号</th>
+                                    <th>联系电话</th>
+                                    <th class="text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="playerRegistrationTableBody">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">数据加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="modal fade" id="deletePlayerModal" tabindex="-1" aria-labelledby="deletePlayerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deletePlayerModalLabel"><i class="fas fa-exclamation-circle text-danger me-2"></i>删除人员</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                确定要删除 <strong id="deletePlayerName">该人员</strong> 的报名记录吗？此操作不可撤销。
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmDeletePlayerBtn">
+                    <i class="fas fa-trash-alt me-1"></i>确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+}
+.page-header-content {
+    padding: 1.75rem 2rem;
+}
+.current-event-box {
+    display: inline-flex;
+    align-items: center;
+    background-color: #cff4fc;
+    border: 1px solid #9eeaf9;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    color: #055160;
+}
+.add-player-hint {
+    font-size: 1.05rem;
+    color: #c41e3a;
+    font-weight: 600;
+}
+
+.add-player-hint i {
+    color: #c41e3a;
+}
+#addPlayerRegistrationBtn {
+    padding: 0.7rem 1.8rem;
+    font-size: 1rem;
+    border-radius: 0.6rem;
+}
+.step-nav-btn {
+    padding: 0.85rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 0.75rem;
+}
+.step-nav-btn i {
+    font-size: 1.05rem;
+}
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+.page-title i {
+    color: #28a745;
+}
+.table thead th, .table tbody td {
+    text-align: center;
+    vertical-align: middle;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/participant_dataset.js') }}"></script>
+<script>
+let playerRegistrations = [];
+let currentEventTeam = null;
+let pendingDeletePlayer = null;
+let deletePlayerModal = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+
+    if (!eventId || !eventName) {
+        showMessage('请先选择赛事', 'warning');
+        setTimeout(() => {
+            window.location.href = '/event_selection?source=player_registration';
+        }, 1500);
+        return;
+    }
+
+    const decodedName = decodeURIComponent(eventName);
+    document.getElementById('currentEventName').textContent = decodedName;
+    sessionStorage.setItem('selectedEventId', eventId);
+    sessionStorage.setItem('selectedEventName', decodedName);
+
+    const modalElement = document.getElementById('deletePlayerModal');
+    if (modalElement && window.bootstrap) {
+        deletePlayerModal = new bootstrap.Modal(modalElement, { backdrop: false });
+        const confirmBtn = document.getElementById('confirmDeletePlayerBtn');
+        confirmBtn.addEventListener('click', handleDeletePlayerConfirm);
+    }
+
+    loadPlayerRegistrations(eventId, decodedName);
+});
+
+async function loadPlayerRegistrations(eventId, eventName) {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const teamIdFromUrl = urlParams.get('team_id');
+        const currentUser = sessionStorage.getItem('user_name') || sessionStorage.getItem('username') || '';
+
+        const allTeams = collectAllTeams();
+        currentEventTeam = determineCurrentTeam(eventId, teamIdFromUrl, currentUser, allTeams);
+
+        const targetTeamId = currentEventTeam?.id || teamIdFromUrl;
+        if (!targetTeamId) {
+            console.warn('未能确定当前队伍ID，无法加载队员列表');
+            showMessage('未找到当前队伍，请先在上一页面创建或选择队伍', 'warning');
+            renderEmptyTable();
+            updateAddButton(eventId, eventName);
+            return;
+        }
+
+        const [playersResp, staffResp] = await Promise.all([
+            fetch(`/api/team/${targetTeamId}/players`),
+            fetch(`/api/team/${targetTeamId}/staff`)
+        ]);
+
+        const playersData = await playersResp.json().catch(() => null);
+        const staffData = await staffResp.json().catch(() => null);
+
+        if (!playersResp.ok || !playersData || playersData.success === false) {
+            console.warn('获取队伍选手信息失败：', playersData && playersData.message, 'HTTP 状态：', playersResp.status);
+        }
+
+        if (!staffResp.ok || !staffData || staffData.success === false) {
+            console.warn('获取队伍随行人员信息失败：', staffData && staffData.message, 'HTTP 状态：', staffResp.status);
+        }
+
+        const teamName = currentEventTeam?.teamName || currentEventTeam?.name || '';
+
+        const backendPlayers = (playersData && playersData.players ? playersData.players : []).map(p => ({
+            id: p.player_id,
+            source: 'player',
+            uniqueKey: `player_${p.player_id}`,
+            name: p.name,
+            gender: normalizeGender(p.gender),
+            age: p.age,
+            position: '参赛人员',
+            teamName: teamName,
+            idCard: p.id_card || p.registration_number,
+            phone: p.phone,
+            eventId: p.event_id,
+            teamId: p.team_id,
+            submittedAt: p.created_at || ''
+        }));
+
+        const backendStaff = (staffData && staffData.staff ? staffData.staff : []).map(s => ({
+            id: s.staff_id,
+            source: 'staff',
+            uniqueKey: `staff_${s.staff_id}`,
+            name: s.name,
+            gender: normalizeGender(s.gender),
+            age: s.age,
+            position: normalizePosition(s.position),
+            teamName: teamName,
+            idCard: s.id_card,
+            phone: s.phone,
+            eventId: s.event_id,
+            teamId: s.team_id,
+            submittedAt: s.created_at || ''
+        }));
+
+        playerRegistrations = backendPlayers
+            .concat(backendStaff)
+            .sort(compareByRolePriority);
+
+        renderPlayerTable();
+        updateAddButton(eventId, eventName);
+    } catch (error) {
+        console.error('加载队员报名数据失败:', error);
+        showMessage('加载数据失败，请刷新页面重试', 'error');
+        renderEmptyTable();
+    }
+}
+
+function collectAllTeams() {
+    const result = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('createdTeams_')) {
+            try {
+                const teams = JSON.parse(localStorage.getItem(key) || '[]');
+                teams.filter(team => team && team.id).forEach(team => result.push(team));
+            } catch (err) {
+                console.warn('解析队伍数据失败:', key, err);
+            }
+        }
+    }
+    return result;
+}
+
+function determineCurrentTeam(eventId, teamIdFromUrl, currentUser, allTeams) {
+    if (teamIdFromUrl) {
+        const target = allTeams.find(team => String(team.id) === String(teamIdFromUrl));
+        if (target) {
+            return target;
+        }
+    }
+
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    const userTeams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    const leaderTeam = userTeams.find(team => String(team.eventId) === String(eventId) && team.isCreated === true);
+    if (leaderTeam) {
+        return leaderTeam;
+    }
+
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const currentUserId = sessionStorage.getItem('user_id') || sessionStorage.getItem('userId') || '';
+    const playerApplication = applications.find(app =>
+        String(app.eventId) === String(eventId) &&
+        app.status === 'approved' &&
+        (app.userId === currentUser || String(app.userId) === String(currentUserId)) &&
+        app.teamId
+    );
+    if (playerApplication) {
+        return { id: playerApplication.teamId, teamName: playerApplication.teamName };
+    }
+    return null;
+}
+
+function matchTeam(teamId) {
+    if (!currentEventTeam || !currentEventTeam.id) return true;
+    return String(teamId) === String(currentEventTeam.id);
+}
+
+function normalizeDatasetPlayer(record) {
+    const idCard = record.idCard || record.id_card || record.registration_number || '-';
+    const name = record.name || record.real_name || '-';
+    const uniqueKey = record.uniqueKey || buildPlayerKey(name, idCard);
+    const rawPosition = record.position || record.roleType;
+    return {
+        id: record.id || record.player_id,
+        name,
+        gender: normalizeGender(record.gender),
+        age: record.age || calculateAgeFromIdCard(idCard) || '-',
+        position: normalizePosition(rawPosition),
+        teamName: record.teamName || record.team_name || (currentEventTeam ? currentEventTeam.teamName : '-') || '-',
+        idCard,
+        phone: record.phone || '-',
+        uniqueKey,
+        eventId: record.eventId,
+        teamId: record.teamId
+    };
+}
+
+function normalizeGender(value) {
+    if (!value) return '-';
+    if (['男', 'male', 'M'].includes(value)) return '男';
+    if (['女', 'female', 'F'].includes(value)) return '女';
+    return value;
+}
+
+const POSITION_LABELS = {
+    player: '参赛人员',
+    coach: '教练',
+    medical: '医务人员',
+    staff: '随行人员'
+};
+
+const ROLE_PRIORITY = {
+    '参赛人员': 0,
+    '教练': 1,
+    '医务人员': 2,
+    '随行人员': 3
+};
+
+function normalizePosition(position) {
+    if (!position) {
+        return '参赛人员';
+    }
+    const key = String(position).toLowerCase();
+    if (POSITION_LABELS[key]) {
+        return POSITION_LABELS[key];
+    }
+    return position;
+}
+
+function renderPlayerTable() {
+    const tbody = document.getElementById('playerRegistrationTableBody');
+    tbody.innerHTML = '';
+
+    if (!playerRegistrations.length) {
+        renderEmptyTable();
+        return;
+    }
+
+    playerRegistrations.forEach((player, index) => {
+        const row = document.createElement('tr');
+        const maskedId = maskIdCard(player.idCard);
+        const actionButtons = `
+            <div class="d-flex justify-content-center gap-2">
+                <button class="btn btn-sm btn-danger" onclick="confirmDeletePlayer('${player.uniqueKey || player.id}')" style="padding: 0.4rem 0.8rem;">
+                    <i class="fas fa-trash" style="color: white; font-size: 1.1em;"></i>
+                </button>
+            </div>
+        `;
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${player.name}</td>
+            <td>${player.gender || '-'}</td>
+            <td>${player.age || '-'}</td>
+            <td>${player.position}</td>
+            <td>${player.teamName || '-'}</td>
+            <td>${maskedId}</td>
+            <td>${player.phone || '-'}</td>
+            <td>${actionButtons}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function renderEmptyTable() {
+    const tbody = document.getElementById('playerRegistrationTableBody');
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">暂无队员报名数据</td></tr>';
+}
+
+function compareByRolePriority(a, b) {
+    const priority = role => {
+        const normalized = normalizePosition(role);
+        return ROLE_PRIORITY.hasOwnProperty(normalized) ? ROLE_PRIORITY[normalized] : 99;
+    };
+    const diff = priority(a.position) - priority(b.position);
+    if (diff !== 0) {
+        return diff;
+    }
+    return (a.submittedAt || '').localeCompare(b.submittedAt || '');
+}
+
+function buildPlayerKey(name, idCard) {
+    const safeName = (name || '').trim();
+    const safeId = (idCard || '').trim();
+    return safeId && safeName ? `${safeId}_${safeName}` : `${safeName}_${safeId}_${Date.now()}`;
+}
+
+function buildLocalPlayerKey(name, idCard) {
+    const safeName = (name || '').trim();
+    const safeId = (idCard || '').trim().toUpperCase();
+    if (safeId && safeName) return `${safeId}_${safeName}`;
+    if (safeId) return safeId;
+    if (safeName) return safeName;
+    return '';
+}
+
+function confirmDeletePlayer(uniqueKey) {
+    const target = playerRegistrations.find(p => (p.uniqueKey || p.id) === uniqueKey);
+    if (!target) {
+        showMessage('未找到该人员信息', 'error');
+        return;
+    }
+
+    pendingDeletePlayer = target;
+    const nameSpan = document.getElementById('deletePlayerName');
+    if (nameSpan) {
+        nameSpan.textContent = target.name || '-';
+    }
+
+    if (deletePlayerModal) {
+        deletePlayerModal.show();
+    } else {
+        // 回退方案：使用原生confirm
+        if (confirm(`确定要删除【${target.name}】的报名记录吗？`)) {
+            deletePlayerRecord(target);
+        }
+    }
+}
+
+function handleDeletePlayerConfirm() {
+    if (!pendingDeletePlayer) {
+        return;
+    }
+    deletePlayerRecord(pendingDeletePlayer);
+    pendingDeletePlayer = null;
+    if (deletePlayerModal) {
+        deletePlayerModal.hide();
+    }
+}
+
+function deletePlayerRecord(player) {
+    const teamId = player.teamId || (currentEventTeam && currentEventTeam.id);
+    if (!teamId) {
+        showMessage('未找到队伍信息，无法删除人员', 'error');
+        return;
+    }
+
+    const isStaff = player.source === 'staff';
+    const url = isStaff
+        ? `/api/team/${teamId}/staff/${player.id}`
+        : `/api/team/${teamId}/players/${player.id}`;
+
+    fetch(url, { method: 'DELETE' })
+        .then(res => res.json().catch(() => null).then(data => ({ res, data })))
+        .then(({ res, data }) => {
+            if (!res.ok || !data || data.success === false) {
+                console.error('删除人员失败:', data && data.message, 'HTTP 状态：', res.status);
+                showMessage(data && data.message ? data.message : '删除人员失败，请稍后重试', 'error');
+                return;
+            }
+
+            playerRegistrations = playerRegistrations
+                .filter(p => (p.uniqueKey || p.id) !== (player.uniqueKey || player.id))
+                .sort(compareByRolePriority);
+            renderPlayerTable();
+            const currentEventId = sessionStorage.getItem('selectedEventId') || player.eventId;
+            updateAddButton(currentEventId, sessionStorage.getItem('selectedEventName') || '');
+            showMessage('人员已删除', 'success');
+        })
+        .catch(err => {
+            console.error('调用删除人员接口异常:', err);
+            showMessage('删除人员时发生异常，请稍后重试', 'error');
+        });
+}
+
+function removeFromParticipantCaches(eventId, cacheKeyValue) {
+    if (!eventId) return;
+    const cacheKey = `participantList_${eventId}`;
+    const keyValue = cacheKeyValue || '';
+    try {
+        const removeFromList = (list) => {
+            if (!Array.isArray(list) || !list.length) return list;
+            return list.filter(item => {
+                const key = buildLocalPlayerKey(
+                    item.name || item.real_name,
+                    item.idCard || item.id_card || item.registration_number
+                );
+                return key !== keyValue;
+            });
+        };
+
+        const cacheRaw = localStorage.getItem(cacheKey);
+        if (cacheRaw) {
+            const cacheList = removeFromList(JSON.parse(cacheRaw || '[]'));
+            localStorage.setItem(cacheKey, JSON.stringify(cacheList));
+        }
+
+        const latestRaw = localStorage.getItem('participantList_latest');
+        if (latestRaw) {
+            const latest = JSON.parse(latestRaw);
+            if (latest && String(latest.eventId) === String(eventId) && Array.isArray(latest.data)) {
+                latest.data = removeFromList(latest.data);
+                localStorage.setItem('participantList_latest', JSON.stringify(latest));
+            }
+        }
+    } catch (error) {
+        console.warn('清理 participantList 缓存失败:', error);
+    }
+}
+
+function updateAddButton(eventId, eventName) {
+    const btn = document.getElementById('addPlayerRegistrationBtn');
+    if (!btn) return;
+    const targetTeamId = currentEventTeam?.id;
+    const eventParams = `event_id=${eventId}&event_name=${encodeURIComponent(eventName)}`;
+    const teamParam = targetTeamId ? `&team_id=${targetTeamId}` : '';
+    const teamNameParam = currentEventTeam?.teamName ? `&team_name=${encodeURIComponent(currentEventTeam.teamName)}` : '';
+    btn.href = `/add_staff?${eventParams}${teamParam}${teamNameParam}&mode=player_registration`;
+}
+
+function filterPlayers() {
+    const keyword = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#playerRegistrationTableBody tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(keyword) ? '' : 'none';
+    });
+}
+
+function maskIdCard(idCard) {
+    if (!idCard || idCard.length < 8) return idCard || '-';
+    return `${idCard.substring(0, 6)}****${idCard.substring(idCard.length - 4)}`;
+}
+
+function calculateAgeFromIdCard(idCard) {
+    if (!idCard || idCard.length < 14) return '';
+    const year = parseInt(idCard.substring(6, 10));
+    const month = parseInt(idCard.substring(10, 12)) - 1;
+    const day = parseInt(idCard.substring(12, 14));
+    const birth = new Date(year, month, day);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age >= 0 && age <= 120 ? age : '';
+}
+
+function goBackToPreviousPage() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let eventId = urlParams.get('event_id') || sessionStorage.getItem('selectedEventId');
+    let eventName = urlParams.get('event_name') || sessionStorage.getItem('selectedEventName');
+
+    if (!eventId) {
+        showMessage('请先选择赛事', 'warning');
+        setTimeout(() => {
+            window.location.href = '/event_selection?source=player_registration';
+        }, 800);
+        return;
+    }
+
+    if (eventName) {
+        eventName = decodeURIComponent(eventName);
+    }
+
+    const params = new URLSearchParams();
+    params.set('event_id', eventId);
+    if (eventName) {
+        params.set('event_name', eventName);
+    }
+    params.set('source', 'team');
+
+    window.location.href = `/event_selection?${params.toString()}`;
+}
+
+function changeEvent() {
+    window.location.href = '/event_selection?source=player_registration';
+}
+
+// 从队员报名人员列表进入“参赛人员列表”
+function goToParticipantOverview() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let eventId = urlParams.get('event_id') || sessionStorage.getItem('selectedEventId');
+    let eventName = urlParams.get('event_name') || sessionStorage.getItem('selectedEventName');
+
+    if (!eventId) {
+        showMessage('请先选择赛事', 'warning');
+        setTimeout(() => {
+            window.location.href = '/event_selection?source=player_registration';
+        }, 800);
+        return;
+    }
+
+    if (eventName) {
+        eventName = decodeURIComponent(eventName);
+    }
+
+    const params = new URLSearchParams();
+    params.set('event_id', eventId);
+    if (eventName) {
+        params.set('event_name', eventName);
+    }
+
+    window.location.href = `/participant_overview?${params.toString()}`;
+}
+</script>
+{% endblock %}

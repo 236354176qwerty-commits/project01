@@ -1,0 +1,1252 @@
+{% extends "base.html" %}
+
+{% block title %}人员登记 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0" style="background: transparent; min-height: 100vh; padding: 1rem 0;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10 col-xl-10">
+                <!-- 添加人员表单容器 -->
+                <div class="add-staff-container">
+                    <!-- 页面头部 - 统一优雅设计 -->
+                    <div class="add-staff-header" style="background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,249,250,1) 100%); border-radius: 15px 15px 0 0; position: relative; overflow: hidden; border: 1px solid rgba(0,0,0,0.08); border-bottom: none;">
+                        <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #28a745 100%); background-size: 200% 100%; animation: shimmer 3s ease-in-out infinite;"></div>
+                        <div class="d-flex justify-content-between align-items-center" style="padding-top: 0.5rem;">
+                            <div>
+                                <h2 class="mb-1 fw-bold" style="color: #2c3e50;">
+                                    <i class="fas fa-user-plus me-2" style="color: #28a745;"></i>人员登记
+                                </h2>
+                                <p class="mb-0" style="color: #6c757d; padding-left: 2rem;">
+                                    填写人员信息并选择加入的队伍
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+<style>
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+}
+</style>
+
+                    <!-- 赛事信息显示 -->
+                    <div id="eventInfo" class="alert alert-info mb-2" style="padding: 0.75rem 1rem;">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-trophy me-2"></i>
+                            <div class="flex-grow-1">
+                                <strong>当前赛事：</strong>
+                                <span id="currentEventName"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 申请状态显示区域 -->
+                    <div id="applicationStatusArea" style="display: none; padding: 0 1.5rem;"></div>
+
+                    <!-- 添加人员表单 -->
+                    <form id="addStaffForm" class="add-staff-form">
+
+
+                        <!-- 基本信息 -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="enhanced-form-group">
+                                    <label for="staffName" class="form-label">
+                                        <i class="fas fa-user me-2"></i>姓名 *
+                                    </label>
+                                    <input type="text" class="form-control" id="staffName" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="enhanced-form-group">
+                                    <label for="staffPosition" class="form-label">
+                                        <i class="fas fa-briefcase me-2"></i>职务 *
+                                    </label>
+                                    <select class="form-select" id="staffPosition" required data-mode="{{ request.args.get('mode', 'staff') }}">
+                                        <option value="">请选择职务</option>
+                                        <option value="player">参赛人员</option>
+                                        <option value="coach">教练</option>
+                                        <option value="medical">医务人员</option>
+                                        <option value="staff">随行人员</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="enhanced-form-group">
+                                    <label for="staffPhone" class="form-label">
+                                        <i class="fas fa-phone me-2"></i>联系电话 *
+                                    </label>
+                                    <input type="tel" class="form-control" id="staffPhone" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="enhanced-form-group">
+                                    <label for="staffIdCard" class="form-label">
+                                        <i class="fas fa-id-card me-2"></i>身份证号 *
+                                    </label>
+                                    <input type="text" class="form-control" id="staffIdCard" required>
+                                    <div class="form-text">请输入18位有效身份证号</div>
+                                </div>
+                            </div>
+                        </div>
+
+
+
+
+
+                        <!-- 按钮组 -->
+                        <div class="d-flex justify-content-between mt-3">
+                            <button type="button" class="add-staff-btn btn-danger" onclick="goBack()">
+                                <i class="fas fa-arrow-left me-2"></i>返回
+                            </button>
+                            <button type="submit" class="add-staff-btn btn-success text-white">
+                                <i class="fas fa-paper-plane me-2"></i>提交信息
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 添加人员页面样式 */
+.add-staff-container {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+/* 按钮样式 */
+.add-staff-btn {
+    color: white !important;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.add-staff-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    color: white;
+    padding: 1.25rem 1.5rem;
+    margin: -1px -1px 0 -1px;
+}
+
+/* 覆盖标题和描述文字颜色为黑色 */
+.add-staff-header h2.text-dark,
+.add-staff-header p.text-dark {
+    color: #000000 !important;
+    text-shadow: none !important;
+}
+
+.add-staff-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 0.25rem;
+}
+
+.add-staff-form {
+    padding: 1.25rem 1.5rem;
+}
+
+.enhanced-form-group {
+    margin-bottom: 1rem;
+}
+
+.enhanced-form-group .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.3rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+}
+
+.enhanced-form-group .form-label i {
+    color: #28a745;
+    width: 20px;
+}
+
+.enhanced-form-group .form-control,
+.enhanced-form-group .form-select {
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.enhanced-form-group .form-control:focus,
+.enhanced-form-group .form-select:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+.enhanced-form-group .form-control:hover,
+.enhanced-form-group .form-select:hover {
+    border-color: #20c997;
+}
+
+.add-staff-btn {
+    border-radius: 25px;
+    padding: 0.6rem 1.75rem;
+    font-weight: 600;
+    min-width: 120px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.add-staff-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.add-staff-btn.btn-primary {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+}
+
+.add-staff-btn.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+}
+
+.add-staff-btn.btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    border: none;
+}
+
+/* 光泽动画效果 */
+.add-staff-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+}
+
+.add-staff-btn:hover::before {
+    left: 100%;
+}
+
+/* 确保赛事信息始终显示 */
+#eventInfo {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* 减小表单提示文字的间距 */
+.enhanced-form-group .form-text {
+    margin-top: 0.2rem;
+    font-size: 0.85rem;
+}
+
+/* 减小行间距 */
+.add-staff-form .row {
+    margin-bottom: 0;
+}
+
+/* 申请状态样式 */
+#applicationStatusArea .alert {
+    border-radius: 15px;
+    margin-bottom: 1.5rem;
+    animation: fadeInDown 0.5s ease-in-out;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .add-staff-form {
+        padding: 1rem;
+    }
+    
+    .add-staff-btn {
+        width: 100%;
+        max-width: 200px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentEventId = null;
+let currentUserApplication = null;  // 当前用户的申请状态
+
+let isEditMode = false;
+let editStaffId = null;
+
+$(document).ready(function() {
+    if (!checkLoginStatus()) {
+        return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    const editId = urlParams.get('edit_id');
+    const mode = urlParams.get('mode') || 'staff';
+    window.addStaffMode = mode;
+    window.isPlayerRegistrationMode = mode === 'player_registration';
+    const redirectSource = window.isPlayerRegistrationMode ? 'player_registration' : 'staff';
+    window.addStaffTeamId = urlParams.get('team_id') || null;
+    window.addStaffTeamName = urlParams.get('team_name') || null;
+
+    if (eventId && eventName) {
+        currentEventId = eventId;
+        window.currentEventName = eventName;
+
+        sessionStorage.setItem('currentEvent', JSON.stringify({
+            id: eventId,
+            name: eventName
+        }));
+
+        updateEventInfo(eventName);
+        $('#eventInfo').css('display', 'block').show();
+
+        if (!window.isPlayerRegistrationMode) {
+            checkUserApplicationStatus(eventId);
+        } else {
+            hideApplicationStatus();
+            enableApplicationForm();
+        }
+
+        if (editId) {
+            isEditMode = true;
+            editStaffId = editId;
+            loadStaffForEdit(editId);
+            $('h2').html('<i class="fas fa-user-edit me-2"></i>编辑人员');
+            $('p').text('修改人员信息');
+            $('.add-staff-btn.btn-success').html('<i class="fas fa-paper-plane me-2"></i>重新提交');
+        }
+    } else {
+        const savedEvent = sessionStorage.getItem('currentEvent');
+        if (savedEvent) {
+            try {
+                const event = JSON.parse(savedEvent);
+                window.location.href = `/add_staff?event_id=${event.id}&event_name=${encodeURIComponent(event.name)}&mode=${redirectSource}`;
+                return;
+            } catch (e) {
+                console.error('解析保存的赛事信息失败:', e);
+            }
+        }
+
+        window.location.href = `/event_selection?source=${redirectSource}`;
+    }
+    
+    // 监听表单提交事件
+    $('#addStaffForm').on('submit', function(e) {
+        e.preventDefault();
+        // 保存表单数据到sessionStorage
+        saveFormDataToSession();
+        submitStaffInfo();
+    });
+});
+
+function checkLoginStatus() {
+    const isLoggedIn = {{ (session.get('logged_in') and True or False) | tojson }};
+    if (!isLoggedIn) {
+        window.location.href = '/login';
+        return false;
+    }
+    return true;
+}
+
+// **新增：检查用户申请状态**
+function checkUserApplicationStatus(eventId) {
+    console.log('=== 开始检查用户申请状态 ===');
+    console.log('赛事ID:', eventId);
+    
+    // 获取当前登录用户
+    const currentUser = {{ current_user | tojson }};
+    const currentUserId = {{ session.get('user_id') | tojson }};
+    console.log('当前用户:', currentUser, '用户ID:', currentUserId);
+    
+    if (!currentUser) {
+        console.error('无法获取当前用户信息');
+        return;
+    }
+    
+    // 获取所有申请
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    console.log('所有申请记录数量:', applications.length);
+    
+    // 查找当前用户在当前赛事的随队人员申请或记录
+    const userApplication = applications.find(app => {
+        const eventIdMatch = String(app.eventId) === String(eventId);
+        // 检查type='staff'（申请流程）或role='staff'（直接添加流程）
+        const isStaffType = app.type === 'staff' || app.role === 'staff';
+        // 检查用户匹配
+        const userMatch = app.submittedBy === currentUser || 
+                         String(app.userId) === String(currentUserId) ||
+                         app.userId === currentUser;
+        const statusMatch = app.status === 'pending' || app.status === 'approved';
+        
+        console.log(`检查记录 ${app.id}:`, {
+            eventIdMatch,
+            isStaffType,
+            userMatch,
+            statusMatch,
+            eventId: app.eventId,
+            type: app.type,
+            role: app.role,
+            submittedBy: app.submittedBy,
+            userId: app.userId,
+            status: app.status
+        });
+        
+        return eventIdMatch && isStaffType && userMatch && statusMatch;
+    });
+    
+    console.log('找到的用户申请/记录:', userApplication);
+    
+    if (userApplication) {
+        currentUserApplication = userApplication;
+        console.log('用户有申请/记录，状态:', userApplication.status);
+        
+        if (userApplication.status === 'pending') {
+            // 显示待审核状态
+            console.log('显示待审核状态');
+            showApplicationStatus(userApplication, 'pending');
+            disableApplicationForm();
+        } else if (userApplication.status === 'approved') {
+            // 显示已通过状态（已加入队伍）
+            console.log('显示已通过状态（已加入队伍）');
+            showApplicationStatus(userApplication, 'approved');
+            disableApplicationForm();
+        }
+    } else {
+        // 没有申请，启用表单
+        console.log('用户没有申请或申请已被拒绝，启用表单');
+        hideApplicationStatus();
+        enableApplicationForm();
+    }
+    
+    console.log('=== 申请状态检查完成 ===');
+}
+
+// **新增：显示申请状态**
+function showApplicationStatus(application, status) {
+    const statusArea = document.getElementById('applicationStatusArea');
+    if (!statusArea) {
+        console.error('申请状态显示区域不存在');
+        return;
+    }
+    
+    // 获取队伍名称
+    let teamName = application.teamName || '未知队伍';
+    
+    const appliedAt = application.submittedAt ? new Date(application.submittedAt).toLocaleString('zh-CN') : '未知时间';
+    const applicantName = application.applicantName || '';
+    const applicantPhone = application.applicantPhone || '';
+    const applicantIdCard = application.applicantIdCard || '';
+    const position = application.position || '';
+    
+    // 职务显示映射
+    const positionMap = {
+        'coach': '教练',
+        'medical': '医务人员',
+        'staff': '随队人员',
+        'player': '参赛人员'
+    };
+    const positionDisplay = positionMap[position] || position;
+    
+    let statusHtml = '';
+    
+    if (status === 'pending') {
+        statusHtml = `
+            <div class="alert alert-warning animate__animated animate__fadeIn" style="border-left: 4px solid #ffc107;">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="mb-1">
+                            <i class="fas fa-clock me-2"></i>申请审核中
+                        </h5>
+                        <small class="text-muted">您已提交申请，正在等待队伍"${teamName}"审核</small>
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="cancelApplication('${application.id}')" type="button" title="取消申请">
+                        <i class="fas fa-times me-1"></i>取消申请
+                    </button>
+                </div>
+                
+                <div class="card bg-light border-0 mt-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-info-circle me-1"></i>已提交的申请信息（只读）
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <strong>队伍名称：</strong>${teamName}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>申请时间：</strong>${appliedAt}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>姓名：</strong>${applicantName}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>职务：</strong>${positionDisplay}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>联系电话：</strong>${applicantPhone}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>身份证号：</strong>${applicantIdCard}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (status === 'approved') {
+        statusHtml = `
+            <div class="alert alert-success animate__animated animate__fadeIn" style="border-left: 4px solid #28a745;">
+                <div class="mb-3">
+                    <h5 class="mb-1">
+                        <i class="fas fa-check-circle me-2"></i>已加入队伍
+                    </h5>
+                    <small class="text-muted">您已成功加入"${teamName}"</small>
+                </div>
+                
+                <div class="card bg-light border-0 mt-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-id-card me-1"></i>您的随队人员信息
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <strong>队伍名称：</strong>${teamName}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>加入时间：</strong>${appliedAt}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>姓名：</strong>${applicantName}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>职务：</strong>${positionDisplay}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>联系电话：</strong>${applicantPhone}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>身份证号：</strong>${applicantIdCard}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    statusArea.innerHTML = statusHtml;
+    statusArea.style.display = 'block';
+    statusArea.style.opacity = '1';
+}
+
+// **新增：隐藏申请状态**
+function hideApplicationStatus() {
+    const statusArea = document.getElementById('applicationStatusArea');
+    if (statusArea) {
+        statusArea.style.display = 'none';
+    }
+}
+
+// **新增：禁用申请表单**
+function disableApplicationForm() {
+    const form = document.getElementById('addStaffForm');
+    if (!form) return;
+    
+    const inputs = form.querySelectorAll('input, select, button[type="submit"]');
+    inputs.forEach(input => {
+        input.disabled = true;
+    });
+    
+    form.style.opacity = '0.6';
+    form.style.pointerEvents = 'none';
+}
+
+// **新增：启用申请表单**
+function enableApplicationForm() {
+    const form = document.getElementById('addStaffForm');
+    if (!form) return;
+    
+    const inputs = form.querySelectorAll('input, select, button[type="submit"]');
+    inputs.forEach(input => {
+        input.disabled = false;
+    });
+    
+    form.style.opacity = '1';
+    form.style.pointerEvents = 'auto';
+}
+
+// **新增：取消申请**
+function cancelApplication(applicationId) {
+    console.log('取消申请:', applicationId);
+    
+    if (!confirm('确定要取消申请吗？取消后您可以重新填写信息或申请加入其他队伍。')) {
+        return;
+    }
+    
+    showMessage('正在取消申请...', 'info');
+    
+    // 从localStorage中删除申请记录
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const filteredApplications = applications.filter(app => app.id !== applicationId);
+    localStorage.setItem('teamApplications', JSON.stringify(filteredApplications));
+    
+    console.log('申请已取消，ID:', applicationId);
+    
+    // 重置当前申请状态
+    currentUserApplication = null;
+    
+    setTimeout(() => {
+        showMessage('申请已取消，您现在可以重新填写信息', 'success');
+        
+        // 隐藏状态区域
+        hideApplicationStatus();
+        
+        // 启用表单
+        enableApplicationForm();
+        
+        // 清空表单
+        document.getElementById('addStaffForm').reset();
+    }, 300);
+}
+
+// 获取当前用户
+function getCurrentUser() {
+    const serverUserName = {{ session.get('user_name', '') | tojson }};
+    const userName = serverUserName || sessionStorage.getItem('user_name') || sessionStorage.getItem('username');
+    return userName || null;
+}
+
+
+
+// 加载要编辑的人员信息
+function loadStaffForEdit(staffId) {
+    const storedStaffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+    const staff = storedStaffList.find(s => s.id === staffId);
+    
+    if (!staff) {
+        showMessage('未找到要编辑的人员信息', 'error');
+        setTimeout(() => {
+            goBack();
+        }, 2000);
+        return;
+    }
+    
+    // 填充表单数据
+    $('#staffName').val(staff.name || '');
+    $('#staffPosition').val(staff.position || '');
+    $('#staffPhone').val(staff.phone || '');
+    $('#staffIdCard').val(staff.idCard || '');
+        $('#staffGender').val(staff.gender || '');
+        $('#staffIdCard').val(staff.idCard || '');
+        $('#staffNotes').val(staff.notes || '');
+    }
+
+// 提交人员信息（提交到队长审核）
+function submitStaffInfo() {
+    if (!validateForm()) {
+        return;
+    }
+
+    const isPlayerMode = window.isPlayerRegistrationMode;
+    const chosenPosition = $('#staffPosition').val();
+    const staffData = {
+        name: $('#staffName').val().trim(),
+        position: chosenPosition,
+        phone: $('#staffPhone').val().trim(),
+        idCard: $('#staffIdCard').val().trim(),
+        status: isPlayerMode ? 'approved' : 'pending',
+        submittedAt: new Date().toISOString(),
+        type: isPlayerMode ? 'player' : 'staff'
+    };
+
+    // 由于移除了队伍选择，直接使用当前赛事信息
+    staffData.eventId = currentEventId;
+    if (window.isPlayerRegistrationMode) {
+        staffData.teamId = window.addStaffTeamId || null;
+        if (window.addStaffTeamName) {
+            staffData.teamName = window.addStaffTeamName;
+        } else {
+            staffData.teamName = '未分配队伍';
+        }
+    } else {
+        staffData.teamId = staffData.teamId || null;
+        staffData.teamName = staffData.teamName || '未分配队伍';
+    }
+    staffData.teamLeader = '未知';
+    staffData.gender = getGenderFromIdCard(staffData.idCard);
+    staffData.age = getAgeFromIdCard(staffData.idCard);
+    staffData.role = isPlayerMode ? chosenPosition || 'player' : staffData.position;
+
+    const currentUser = getCurrentUser();
+    staffData.submittedBy = currentUser;
+    staffData.userId = currentUser;
+
+    if (isPlayerMode) {
+        if (chosenPosition === 'player') {
+            const staffConflict = findStaffRoleConflict(staffData);
+            if (staffConflict) {
+                showMessage('该人员已在本赛事登记为随行人员，不能再次登记为参赛人员', 'error');
+                return;
+            }
+            if (hasDuplicatePlayerRegistration(staffData)) {
+                return;
+            }
+        } else if (chosenPosition === 'staff') {
+            const mainConflict = findMainRoleConflict(staffData);
+            if (mainConflict) {
+                showMessage('该人员已在本赛事登记为参赛人员/教练/医务人员，不能再次登记为随行人员', 'error');
+                return;
+            }
+            const staffConflict = findStaffRoleConflict(staffData);
+            if (staffConflict) {
+                showMessage('该人员已在本赛事登记为随行人员', 'error');
+                return;
+            }
+        } else if (chosenPosition === 'coach' || chosenPosition === 'medical') {
+            const staffConflict = findStaffRoleConflict(staffData);
+            if (staffConflict) {
+                showMessage('该人员已在本赛事登记为随行人员，不能同时登记为教练或医务人员', 'error');
+                return;
+            }
+        }
+
+        // 在队员报名模式下，直接将人员写入后端队伍成员表
+        const teamId = staffData.teamId;
+        if (!teamId) {
+            showMessage('未找到队伍信息，无法添加人员', 'error');
+            return;
+        }
+
+        const payload = {
+            event_id: staffData.eventId,
+            name: staffData.name,
+            gender: staffData.gender,
+            age: staffData.age,
+            phone: staffData.phone,
+            id_card: staffData.idCard
+        };
+
+        let url = '';
+        if (chosenPosition === 'player') {
+            // 参赛人员走 team_players 表
+            url = `/api/team/${teamId}/players`;
+        } else {
+            // 教练/医务人员/随行人员走 team_staff 表
+            payload.position = chosenPosition;
+            url = `/api/team/${teamId}/staff`;
+        }
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(res => res.json().catch(() => null).then(data => ({ res, data })))
+            .then(({ res, data }) => {
+                if (!res.ok || !data || data.success === false) {
+                    console.error('提交人员到云端失败:', data && data.message, 'HTTP 状态：', res.status);
+                    showMessage(data && data.message ? data.message : '提交人员信息失败，请稍后重试', 'error');
+                    return;
+                }
+
+                sessionStorage.setItem('successMessage', '人员登记成功');
+                showMessage('登记成功，正在返回列表', 'success');
+                setTimeout(() => {
+                    redirectToPlayerRegistrationList(staffData);
+                }, 600);
+            })
+            .catch(err => {
+                console.error('调用后端添加人员接口异常:', err);
+                showMessage('提交人员信息时发生异常，请稍后重试', 'error');
+            });
+
+        return;
+    }
+
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const staffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+
+    const teamStaff = applications.filter(app =>
+        String(app.eventId) === String(staffData.eventId) &&
+        app.teamId === staffData.teamId &&
+        app.status === 'approved' &&
+        app.type === 'staff'
+    );
+
+    const otherTeamStaff = applications.filter(app =>
+        String(app.eventId) === String(staffData.eventId) &&
+        app.teamId !== staffData.teamId &&
+        app.status === 'approved' &&
+        app.type === 'staff'
+    );
+
+    const directStaff = staffList.filter(staff =>
+        String(staff.eventId) === String(staffData.eventId) &&
+        staff.teamId === staffData.teamId
+    );
+
+    const otherTeamDirectStaff = staffList.filter(staff =>
+        String(staff.eventId) === String(staffData.eventId) &&
+        staff.teamId !== staffData.teamId
+    );
+
+    const pendingApplications = applications.filter(app =>
+        String(app.eventId) === String(staffData.eventId) &&
+        app.teamId === staffData.teamId &&
+        app.status === 'pending' &&
+        app.type === 'staff'
+    );
+
+    const duplicateIdInTeam = teamStaff.find(member =>
+        (member.idCard === staffData.idCard || member.applicantIdCard === staffData.idCard)
+    ) || directStaff.find(staff =>
+        staff.idCard === staffData.idCard
+    ) || pendingApplications.find(app =>
+        (app.idCard === staffData.idCard || app.applicantIdCard === staffData.idCard)
+    );
+
+    const duplicateIdInOtherTeams = otherTeamStaff.find(member =>
+        (member.idCard === staffData.idCard || member.applicantIdCard === staffData.idCard)
+    ) || otherTeamDirectStaff.find(staff =>
+        staff.idCard === staffData.idCard
+    );
+
+    const duplicatePhoneInTeam = teamStaff.find(member =>
+        member.phone === staffData.phone || member.applicantPhone === staffData.phone
+    ) || directStaff.find(staff =>
+        staff.phone === staffData.phone
+    ) || pendingApplications.find(app =>
+        app.phone === staffData.phone || app.applicantPhone === staffData.phone
+    );
+
+    const duplicatePhoneInOtherTeams = otherTeamStaff.find(member =>
+        member.phone === staffData.phone || member.applicantPhone === staffData.phone
+    ) || otherTeamDirectStaff.find(staff =>
+        staff.phone === staffData.phone
+    );
+
+    if (staffData.position === 'staff') {
+        if (duplicateIdInTeam || duplicateIdInOtherTeams) {
+            showMessage('该身份证号在本赛事中已被使用', 'error');
+            return;
+        }
+        if (duplicatePhoneInTeam || duplicatePhoneInOtherTeams) {
+            showMessage('该手机号在本赛事中已被使用', 'error');
+            return;
+        }
+        const mainConflict = findMainRoleConflict(staffData);
+        if (mainConflict) {
+            showMessage('该人员已在本赛事登记为参赛人员/教练/医务人员，不能再次登记为随行人员', 'error');
+            return;
+        }
+    } else {
+        const staffConflict = findStaffRoleConflict(staffData);
+        if (staffConflict) {
+            showMessage('该人员已在本赛事登记为随行人员，不能同时登记为参赛人员/教练/医务人员', 'error');
+            return;
+        }
+    }
+
+    console.log('验证通过，准备提交申请');
+
+    submitStaffApplication(staffData);
+
+    showMessage('申请已提交，等待审核', 'success');
+
+    setTimeout(() => {
+        checkUserApplicationStatus(currentEventId);
+        document.getElementById('addStaffForm').reset();
+    }, 500);
+}
+
+function hasDuplicatePlayerRegistration(staffData) {
+    try {
+        const teamId = staffData.teamId;
+        if (!teamId) {
+            return false;
+        }
+
+        // 使用同步 XHR 从后端获取当前队伍的参赛人员列表，避免依赖本地快照
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', `/api/team/${teamId}/players`, false);
+        xhr.send(null);
+        if (xhr.status !== 200) {
+            console.warn('检查参赛人员重复时获取队伍选手失败，HTTP 状态：', xhr.status);
+            return false;
+        }
+
+        const data = JSON.parse(xhr.responseText || '{}');
+        if (!data || data.success === false || !Array.isArray(data.players)) {
+            console.warn('检查参赛人员重复时解析返回数据失败：', data && data.message);
+            return false;
+        }
+
+        const duplicatePlayer = data.players.find(player =>
+            String(player.event_id) === String(staffData.eventId) &&
+            (
+                (player.id_card && player.id_card === staffData.idCard) ||
+                (player.registration_number && player.registration_number === staffData.idCard) ||
+                (player.phone && player.phone === staffData.phone)
+            )
+        );
+
+        if (duplicatePlayer) {
+            showMessage('该人员已在本赛事登记为参赛人员', 'error');
+            return true;
+        }
+    } catch (e) {
+        console.warn('检查参赛人员重复时发生异常，已忽略本次重复校验：', e);
+        return false;
+    }
+    return false;
+}
+
+function findMainRoleConflict(staffData) {
+    const eventId = staffData.eventId;
+    const idCard = staffData.idCard;
+    const phone = staffData.phone;
+    if (!eventId || (!idCard && !phone)) return null;
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const mainRoles = ['player', 'coach', 'medical'];
+    const appConflict = applications.find(app =>
+        String(app.eventId) === String(eventId) &&
+        mainRoles.includes(app.role || app.position || app.type) &&
+        ((app.applicantIdCard && app.applicantIdCard === idCard) ||
+         (app.idCard && app.idCard === idCard) ||
+         (app.applicantPhone && app.applicantPhone === phone) ||
+         (app.phone && app.phone === phone))
+    );
+    if (appConflict) return appConflict;
+    const playerList = JSON.parse(localStorage.getItem('playerList') || '[]');
+    const playerConflict = playerList.find(player =>
+        String(player.eventId) === String(eventId) &&
+        ((player.idCard && player.idCard === idCard) ||
+         (player.registration_number && player.registration_number === idCard) ||
+         (player.phone && player.phone === phone))
+    );
+    return playerConflict || null;
+}
+
+function findStaffRoleConflict(staffData) {
+    const eventId = staffData.eventId;
+    const idCard = staffData.idCard;
+    const phone = staffData.phone;
+    if (!eventId || (!idCard && !phone)) return null;
+    const staffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+    const staffConflict = staffList.find(staff =>
+        String(staff.eventId) === String(eventId) &&
+        staff.position === 'staff' &&
+        ((staff.idCard && staff.idCard === idCard) ||
+         (staff.phone && staff.phone === phone))
+    );
+    if (staffConflict) return staffConflict;
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const appConflict = applications.find(app =>
+        String(app.eventId) === String(eventId) &&
+        (app.position === 'staff' || app.role === 'staff' || app.type === 'staff') &&
+        ((app.applicantIdCard && app.applicantIdCard === idCard) ||
+         (app.idCard && app.idCard === idCard) ||
+         (app.applicantPhone && app.applicantPhone === phone) ||
+         (app.phone && app.phone === phone))
+    );
+    return appConflict || null;
+}
+
+function savePlayerRegistrationRecord(staffData) {
+    const playerList = JSON.parse(localStorage.getItem('playerList') || '[]');
+    const record = {
+        id: generatePlayerRecordId(),
+        name: staffData.name,
+        real_name: staffData.name,
+        gender: staffData.gender,
+        age: staffData.age,
+        phone: staffData.phone,
+        idCard: staffData.idCard,
+        registration_number: staffData.idCard,
+        eventId: staffData.eventId,
+        teamId: staffData.teamId,
+        teamName: staffData.teamName,
+        role: staffData.role || 'player',
+        type: staffData.type || 'player',
+        position: staffData.position || 'player',
+        source: 'staff_form',
+        status: 'registered',
+        createdAt: new Date().toISOString(),
+        submittedBy: staffData.submittedBy
+    };
+    playerList.push(record);
+    localStorage.setItem('playerList', JSON.stringify(playerList));
+    return record;
+}
+
+function generatePlayerRecordId() {
+    return 'player_reg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function redirectToPlayerRegistrationList(staffData) {
+    const eventId = staffData.eventId || sessionStorage.getItem('selectedEventId');
+    const eventName = window.currentEventName || sessionStorage.getItem('selectedEventName') || '';
+    const teamParam = staffData.teamId ? `&team_id=${staffData.teamId}` : '';
+    window.location.href = `/player_registration_list?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}${teamParam}`;
+}
+
+function getGenderFromIdCard(idCard) {
+    if (!idCard || idCard.length < 17) {
+        return '';
+    }
+    const genderCode = parseInt(idCard.charAt(16), 10);
+    if (isNaN(genderCode)) {
+        return '';
+    }
+    return genderCode % 2 === 0 ? '女' : '男';
+}
+
+function getAgeFromIdCard(idCard) {
+    if (!idCard || idCard.length < 14) {
+        return '';
+    }
+    const year = parseInt(idCard.substring(6, 10), 10);
+    const month = parseInt(idCard.substring(10, 12), 10) - 1;
+    const day = parseInt(idCard.substring(12, 14), 10);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        return '';
+    }
+    const birth = new Date(year, month, day);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age >= 0 && age <= 120 ? age : '';
+}
+
+// 提交随队人员申请到审核列表
+function submitStaffApplication(staffData, options = {}) {
+    // 获取现有的申请列表
+    let applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    
+    // 生成唯一申请ID
+    const applicationId = 'staff_app_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // 创建申请记录
+    const application = {
+        id: applicationId,
+        type: staffData.type || (window.addStaffMode === 'player_registration' ? 'player' : 'staff'),
+        role: staffData.role || staffData.position || staffData.type,
+        teamId: staffData.teamId,
+        teamName: staffData.teamName,
+        teamLeader: staffData.teamLeader,
+        eventId: staffData.eventId,
+        applicantName: staffData.name,
+        applicantPhone: staffData.phone,
+        applicantIdCard: staffData.idCard,
+        position: staffData.position,
+        status: options.forceApproved ? 'approved' : (staffData.status || 'pending'),
+        submittedBy: staffData.submittedBy,
+        userId: staffData.userId || staffData.submittedBy,
+        submittedAt: staffData.submittedAt,
+        gender: staffData.gender,
+        age: staffData.age,
+        staffData: staffData
+    };
+    if (options.forceApproved) {
+        application.approvedAt = new Date().toISOString();
+        application.approvedBy = staffData.submittedBy || getCurrentUser();
+        if (!options.skipPlayerListSave && application.role === 'player') {
+            savePlayerRegistrationRecord(staffData);
+        }
+    }
+    
+    // 添加到申请列表
+    applications.push(application);
+    
+    // 保存到localStorage
+    localStorage.setItem('teamApplications', JSON.stringify(applications));
+    
+    console.log('随队人员申请已提交:', application);
+}
+
+// 验证表单
+function validateForm() {
+    const requiredFields = [
+        { id: 'staffName', name: '姓名' },
+        { id: 'staffPosition', name: '职务' },
+        { id: 'staffPhone', name: '联系电话' },
+        { id: 'staffIdCard', name: '身份证号' }
+    ];
+    
+    for (let field of requiredFields) {
+        const value = $(`#${field.id}`).val().trim();
+        if (!value) {
+            showMessage(`请填写${field.name}`, 'error');
+            $(`#${field.id}`).focus();
+            return false;
+        }
+    }
+    
+    // 验证身份证号
+    const idCard = $('#staffIdCard').val().trim();
+    const idCardRegex = /^[1-9]\d{5}(18|19|20)\d{2}((0[1-9])|(1[0-2]))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$/;
+    if (!idCardRegex.test(idCard)) {
+        showMessage('请输入正确的身份证号格式', 'error');
+        $('#staffIdCard').focus();
+        return false;
+    }
+    
+    // 验证手机号
+    const phone = $('#staffPhone').val().trim();
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+        showMessage('请输入正确的手机号格式', 'error');
+        $('#staffPhone').focus();
+        return false;
+    }
+    
+    return true;
+}
+
+// 保存人员信息到localStorage
+function saveStaffToStorage(staffData) {
+    // 获取现有的人员列表
+    let staffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+    
+    // 生成唯一ID
+    staffData.id = 'staff_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // 添加到列表
+    staffList.push(staffData);
+    
+    // 保存回localStorage
+    localStorage.setItem('staffList', JSON.stringify(staffList));
+    
+    console.log('人员信息已保存:', staffData);
+}
+
+// 更新人员信息到localStorage
+function updateStaffInStorage(staffId, staffData) {
+    // 获取现有的人员列表
+    let staffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+    
+    // 找到要更新的人员
+    const index = staffList.findIndex(s => s.id === staffId);
+    if (index !== -1) {
+        // 保留原有的ID和创建时间
+        staffData.id = staffList[index].id;
+        staffData.addedAt = staffList[index].addedAt;
+        staffData.updatedAt = new Date().toISOString();
+        
+        // 更新人员信息
+        staffList[index] = staffData;
+        
+        // 保存回localStorage
+        localStorage.setItem('staffList', JSON.stringify(staffList));
+        
+        console.log('人员信息已更新:', staffData);
+    } else {
+        console.error('未找到要更新的人员:', staffId);
+    }
+}
+
+// 返回赛事选择页面
+function goBack() {
+    saveFormDataToSession();
+    if (window.isPlayerRegistrationMode) {
+        const eventId = currentEventId || sessionStorage.getItem('selectedEventId') || '';
+        const eventName = window.currentEventName || sessionStorage.getItem('selectedEventName') || '';
+        const teamParam = window.addStaffTeamId ? `&team_id=${window.addStaffTeamId}` : '';
+        if (eventId && eventName) {
+            window.location.href = `/player_registration_list?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}${teamParam}`;
+            return;
+        }
+        window.location.href = '/player_registration_list';
+    } else {
+        window.location.href = '/event_selection?source=staff';
+    }
+}
+
+// 切换赛事
+function changeEvent() {
+    saveFormDataToSession();
+    const source = window.addStaffMode === 'player_registration' ? 'player_registration' : 'staff';
+    window.location.href = `/event_selection?source=${source}`;
+}
+
+// 保存表单数据到sessionStorage
+function saveFormDataToSession() {
+    const formData = {
+        name: $('#staffName').val(),
+        position: $('#staffPosition').val(),
+        phone: $('#staffPhone').val(),
+        idCard: $('#staffIdCard').val()
+    };
+    sessionStorage.setItem('staffFormData', JSON.stringify(formData));
+}
+
+// 从sessionStorage恢复表单数据
+function restoreFormData() {
+    const savedData = sessionStorage.getItem('staffFormData');
+    if (savedData) {
+        try {
+            const formData = JSON.parse(savedData);
+            Object.keys(formData).forEach(key => {
+                $(`#${key}`).val(formData[key]);
+            });
+            // 恢复后清除保存的数据
+        sessionStorage.removeItem('staffFormData');
+        } catch (e) {
+            console.error('恢复表单数据失败:', e);
+        }
+    }
+}
+
+// 更新赛事信息显示
+function updateEventInfo(eventName) {
+    $('#currentEventName').text(eventName);
+    $('#eventInfo').show(); // 确保显示赛事信息区域
+}
+
+// 页面加载时恢复表单数据
+$(document).ready(function() {
+    // 其他初始化代码...
+    restoreFormData();
+});
+</script>
+{% endblock %}

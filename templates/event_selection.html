@@ -1,0 +1,5283 @@
+{% extends "base.html" %}
+
+{% block title %}选择要报名的赛事 - 武术赛事管理系统{% endblock %}
+
+{% block extra_css %}
+<!-- 立即执行的脚本：检测 auto_role 参数并隐藏不需要的页面 -->
+<script>
+(function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const autoRole = urlParams.get('auto_role');
+    
+    if (autoRole === 'player') {
+        // 立即添加 CSS 隐藏不需要的页面
+        const style = document.createElement('style');
+        style.textContent = `
+            #eventsListPage { display: none !important; }
+            #roleSelection { display: none !important; }
+        `;
+        document.head.appendChild(style);
+        console.log('检测到 auto_role=player，预先隐藏赛事列表和角色选择页面');
+    }
+})();
+</script>
+
+<style>
+/* 金色按钮样式 */
+.golden-btn {
+    background: linear-gradient(135deg, #f39c12, #e67e22) !important;
+    border: none !important;
+    color: white !important;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(243, 156, 18, 0.3);
+}
+
+.golden-btn:hover {
+    background: linear-gradient(135deg, #e67e22, #d35400) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(243, 156, 18, 0.4);
+    color: white !important;
+}
+
+.golden-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(243, 156, 18, 0.3);
+}
+
+.events-page {
+    min-height: 100vh;
+    background: transparent;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 3rem 1rem 1rem 1rem;
+}
+
+.events-container {
+    background: transparent;
+    border: none;
+    padding: 0;
+    width: 100%;
+    max-width: 1400px;
+    min-height: 60vh;
+    margin: 0 auto;
+}
+
+/* 角色选择页面的白框高度增加 */
+#roleSelection .events-container {
+    min-height: 70vh;
+}
+
+#roleSelection .events-list {
+    min-height: 55vh;
+    padding: 2rem 2rem 2rem 2rem;
+}
+
+.events-container .card-header {
+    background: linear-gradient(135deg, #0b5ed7) !important;
+    color: white;
+    border: none;
+    border-radius: 0;
+    padding: 1.5rem 2rem;
+    position: relative;
+    box-shadow: none;
+    margin-bottom: 0;
+}
+
+.events-container .card-header h4 {
+    margin: 0;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+.back-btn {
+    position: absolute;
+    left: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.9);
+    border: 2px solid rgba(255,255,255,1);
+    color: #4facfe;
+    border-radius: 25px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.view-all-btn {
+    position: absolute;
+    right: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.9);
+    border: 2px solid rgba(255,255,255,1);
+    color: #4facfe;
+    border-radius: 25px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-left: 0;
+}
+
+.back-btn:hover,
+.view-all-btn:hover {
+    background: white;
+    color: #4facfe;
+    transform: translateY(-50%) translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: white;
+}
+
+.events-list {
+    padding: 1rem 2rem 0.5rem 2rem;
+    background: white;
+    border-radius: 0;
+}
+
+.event-card {
+    border: none;
+    border-radius: 15px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+    position: relative;
+    background: white;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+
+.event-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+}
+
+.event-card:hover .card-body {
+    background: #f8f9fa;
+}
+
+.event-card .card-body {
+    padding: 2rem;
+    background: white;
+    transition: background 0.3s ease;
+}
+.event-title {
+    color: #2d3748;
+    font-weight: 700;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.event-badge {
+    background: #28a745;
+    color: white;
+    border-radius: 15px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.event-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    color: #4a5568;
+    white-space: nowrap;
+}
+.event-info i {
+    color: #4299e1;
+    width: 16px;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+}
+.event-info span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.event-deadline {
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    margin-top: 1rem;
+}
+
+.event-deadline i {
+    color: #e53e3e;
+}
+
+.event-deadline small {
+    color: #e53e3e;
+    font-weight: 500;
+}
+
+.confirm-btn {
+    background: linear-gradient(135deg, #0b5ed7);
+    border: none;
+    border-radius: 50px;
+    color: white;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    font-size: 1rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    margin: 1rem auto 0.5rem auto;
+    width: 100%;
+    max-width: 200px;
+    display: block;
+}
+
+.confirm-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.6s;
+}
+
+.confirm-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(79, 172, 254, 0.4);
+    color: white;
+}
+
+.confirm-btn:hover::before {
+    left: 100%;
+}
+
+.no-events {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.no-events i {
+    font-size: 4rem;
+    color: #cbd5e0;
+    margin-bottom: 1rem;
+}
+
+.no-events h5 {
+    color: #4a5568;
+    margin-bottom: 0.5rem;
+}
+
+.no-events p {
+    color: #718096;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.loading-spinner .spinner-border {
+    color: #4facfe;
+}
+
+/* 分页样式 */
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2rem;
+    padding: 1rem 0;
+    border-top: 1px solid #e9ecef;
+}
+
+.pagination-info {
+    color: #6c757d;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 1rem;
+}
+
+.pagination-controls .page-btn {
+    background: linear-gradient(135deg, #0b5ed7) !important;
+    border: none !important;
+    border-radius: 25px;
+    color: white !important;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-width: 100px;
+}
+
+.pagination-controls .page-btn:not(:disabled) {
+    background: linear-gradient(135deg, #0b5ed7) !important;
+    background-color: #0b5ed7 !important;
+    color: white !important;
+}
+
+.pagination-controls .page-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0a52c6) !important;
+    background-color: #0a52c6 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(11, 94, 215, 0.4);
+}
+
+.pagination-controls .page-btn:disabled {
+    background: #cbd5e0 !important;
+    background-color: #cbd5e0 !important;
+    color: #6c757d !important;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* 使用ID选择器确保最高优先级 */
+#nextBtn:not(:disabled), #prevBtn:not(:disabled) {
+    background: linear-gradient(135deg, #0b5ed7) !important;
+    background-color: #0b5ed7 !important;
+    color: white !important;
+}
+
+#nextBtn:disabled, #prevBtn:disabled {
+    background: #cbd5e0 !important;
+    background-color: #cbd5e0 !important;
+    color: #6c757d !important;
+}
+
+.page-btn i {
+    font-size: 0.8rem;
+}
+
+/* 角色选择页面样式 */
+.role-selection-container {
+    background: transparent;
+    border: none;
+    padding: 0;
+    width: 96vw;
+    max-width: 1400px;
+    min-height: 45vh;
+}
+
+.enhanced-role-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    min-height: 380px;
+}
+
+.enhanced-role-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--card-accent-color), var(--card-accent-light));
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.enhanced-role-card:hover {
+    transform: translateY(-15px);
+    box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+}
+
+.enhanced-role-card:hover::before {
+    transform: scaleX(1);
+}
+
+.leader-enhanced-card {
+    --card-accent-color: #fd7e14;
+    --card-accent-light: #ff922b;
+}
+
+.leader-enhanced-card:hover {
+    box-shadow: 0 25px 50px rgba(253, 126, 20, 0.3);
+}
+
+.member-enhanced-card {
+    --card-accent-color: #28a745;
+    --card-accent-light: #34ce57;
+}
+
+.member-enhanced-card:hover {
+    box-shadow: 0 25px 50px rgba(40, 167, 69, 0.3);
+}
+
+.role-icon-container {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.role-icon-bg {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.leader-enhanced-card .role-icon-bg {
+    background: linear-gradient(135deg, rgba(253, 126, 20, 0.1) 0%, rgba(255, 146, 43, 0.2) 100%);
+    border: 3px solid rgba(253, 126, 20, 0.3);
+}
+
+.member-enhanced-card .role-icon-bg {
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(52, 206, 87, 0.2) 100%);
+    border: 3px solid rgba(40, 167, 69, 0.3);
+}
+
+.enhanced-role-card:hover .role-icon-bg {
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.role-icon-bg i {
+    font-size: 3.5rem;
+    transition: all 0.3s ease;
+}
+
+.leader-enhanced-card .role-icon-bg i {
+    color: #fd7e14;
+}
+
+.member-enhanced-card .role-icon-bg i {
+    color: #28a745;
+}
+
+.enhanced-role-card:hover .role-icon-bg i {
+    /* 移除缩放效果，避免卡片变形 */
+    transform: none;
+}
+
+.role-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.leader-enhanced-card .role-title {
+    color: #fd7e14;
+}
+
+.member-enhanced-card .role-title {
+    color: #28a745;
+}
+
+.role-description {
+    color: #6c757d;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.enhanced-role-card:hover .role-description {
+    color: #495057;
+}
+
+.enhanced-role-card-body {
+    padding: 2rem 2rem 1.5rem 2rem;
+    text-align: center;
+    position: relative;
+    min-height: 240px;
+}
+
+.role-decoration {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    opacity: 0.1;
+    transition: all 0.3s ease;
+}
+
+.role-decoration-1 {
+    top: 20px;
+    right: 20px;
+    background: var(--card-accent-color);
+}
+
+.role-decoration-2 {
+    bottom: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background: var(--card-accent-light);
+}
+
+.enhanced-role-card:hover .role-decoration {
+    opacity: 0.2;
+}
+
+.role-selection-description {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.role-selection-description p {
+    color: #6c757d;
+    font-size: 1.1rem;
+    margin: 0;
+    line-height: 1.6;
+}
+
+/* 加入队伍页面样式 */
+.join-team-container {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    overflow: hidden;
+    max-width: 1100px;
+    width: 95%;
+    margin: 0 auto;
+}
+
+.join-team-header {
+    background: #0b5ed7 !important;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 20px 20px 0 0;
+    overflow: hidden;
+}
+
+.join-team-header .team-back-btn {
+    position: absolute;
+    left: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+}
+
+.join-team-header .team-back-btn i {
+    font-size: 0.9rem;
+    margin-right: 0.5rem;
+}
+
+.join-team-header .team-back-btn:hover {
+    background: #f8f9fa;
+    color: #4facfe;
+    transform: translateY(calc(-50% - 2px));
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: white;
+}
+
+.join-team-header h4 {
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+}
+
+.join-team-header i {
+    font-size: 1.5rem;
+    margin-right: 0.5rem;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+}
+
+.join-team-form {
+    padding: 2.5rem;
+}
+
+.enhanced-form-group {
+    margin-bottom: 1.5rem;
+    position: relative;
+}
+
+.enhanced-form-group .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.enhanced-form-group .form-label i {
+    margin-right: 0.5rem;
+    color: #4facfe;
+    width: 16px;
+}
+
+.enhanced-form-group .form-control,
+.enhanced-form-group .form-select {
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: #ffffff;
+    width: 60%;
+}
+
+.enhanced-form-group .form-control:focus,
+.enhanced-form-group .form-select:focus {
+    border-color: #4facfe;
+    box-shadow: 0 0 0 0.2rem rgba(79, 172, 254, 0.15);
+    background: #ffffff;
+}
+
+.enhanced-form-group .form-control:hover,
+.enhanced-form-group .form-select:hover {
+    border-color: #ced4da;
+}
+
+.join-team-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+}
+
+.join-team-btn {
+    padding: 0.8rem 2rem;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1rem;
+    border: none;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    min-width: 120px;
+}
+
+.join-team-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.join-team-btn:hover::before {
+    left: 100%;
+}
+
+.join-team-btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+}
+
+.join-team-btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+}
+
+.join-team-btn-primary {
+    background: linear-gradient(135deg, #0b5ed7);
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+}
+
+.join-team-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+}
+
+/* 队伍资料页面样式 */
+.team-profile-card {
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+.team-profile-header {
+    background: #0b5ed7 !important;
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 15px 15px 0 0;
+}
+
+/* 更强的选择器确保样式生效 */
+#teamProfileContent .team-profile-header {
+    background: #0b5ed7 !important;
+}
+
+.team-profile-card .team-profile-header {
+    background: #0b5ed7 !important;
+}
+
+.team-profile-header h4 {
+    color: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+    flex-grow: 1;
+    text-align: center;
+}
+
+.team-profile-header .header-spacer {
+	min-width: 140px;
+	width: auto;
+}
+
+.team-profile-body {
+    padding: 2rem 2.5rem 2.5rem 2.5rem;
+    background: #ffffff;
+}
+
+.form-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.section-title {
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+    position: relative;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, #4facfe, #00f2fe);
+    border-radius: 1px;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    color: #4a5568;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.form-control, .form-select {
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    background: rgba(255,255,255,0.9);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #4facfe;
+    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+    background: #ffffff;
+}
+
+/* 只读和禁用字段的样式 */
+.form-control[readonly],
+.form-select:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.team-back-btn {
+    background: #ffffff;
+    border: 2px solid rgba(255,255,255,1);
+    color: #4facfe;
+    border-radius: 25px;
+    padding: 0.8rem 1.8rem;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    min-width: 120px;
+}
+
+.team-back-btn:hover {
+    background: #f8f9fa;
+    color: #4facfe;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: white;
+}
+
+/* 加入队伍页面两列布局 */
+.join-team-content-wrapper {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+/* 左侧表单区域 */
+.join-team-form {
+    flex: 1;
+    min-width: 300px;
+}
+
+/* 右侧赛事项目分类框架 */
+.event-categories-container {
+    flex: 1;
+    min-width: 300px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.event-categories-header {
+    margin-bottom: 1.5rem;
+    text-align: center;
+    border-bottom: 2px solid #4facfe;
+    padding-bottom: 1rem;
+}
+
+.event-categories-header h5 {
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.category-subtitle {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* 分类项样式 */
+.event-categories-content {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.category-level-1 {
+    margin-bottom: 1rem;
+}
+
+.category-item {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.category-main {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    font-weight: 600;
+}
+
+.category-main:hover {
+    background: #4facfe;
+    color: white;
+    transform: translateX(4px);
+}
+
+.category-main h6 {
+    margin: 0;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.category-sub {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    margin-left: 1.5rem;
+    font-weight: 500;
+}
+
+.category-sub:hover {
+    background: #e3f2fd;
+    transform: translateX(4px);
+}
+
+.category-detail {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    margin-left: 3rem;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+}
+
+.category-detail:hover {
+    background: #f8f9fa;
+}
+
+.category-detail input[type="checkbox"] {
+    margin-right: 0.8rem;
+    width: 16px;
+    height: 16px;
+    accent-color: #4facfe;
+}
+
+.category-detail label {
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* 分类图标样式 */
+.category-icon {
+    margin-right: 0.8rem;
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+}
+
+.category-main.active .category-icon {
+    transform: rotate(180deg);
+}
+
+.category-sub.active .category-icon {
+    transform: rotate(90deg);
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+    .join-team-content-wrapper {
+        flex-direction: column;
+    }
+    
+    .event-categories-container {
+        margin-top: 1.5rem;
+    }
+}
+
+/* 滚动条样式 */
+.event-categories-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.event-categories-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.event-categories-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.event-categories-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 搜索高亮样式 */
+.search-highlight {
+    animation: searchPulse 0.5s ease-in-out;
+    background: linear-gradient(to right, #e3f2fd, transparent);
+    border-radius: 6px;
+    padding: 4px 8px !important;
+    margin: 2px 0;
+}
+
+@keyframes searchPulse {
+    0%, 100% { background: transparent; }
+    50% { background: #e3f2fd; }
+}
+
+.category-search-box .input-group {
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.category-search-box input:focus {
+    box-shadow: 0 0 0 3px rgba(93, 173, 226, 0.2);
+    border-color: #5DADE2;
+}
+
+#clearSearchBtn:hover {
+    color: #666 !important;
+    transform: translateY(-50%) scale(1.2);
+}
+
+/* 赛事详情模态框样式优化 - 从赛事大全页面复制 */
+#eventDetailModal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+#eventDetailModal .modal-body p {
+    word-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* 赛事描述区域特殊样式 */
+#eventDetailModal .modal-body .mt-3 {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+#eventDetailModal .modal-body .mt-3 p {
+    margin-bottom: 0;
+    max-height: none;
+}
+
+/* 滚动条样式优化 */
+#eventDetailModal .modal-body::-webkit-scrollbar,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar {
+    width: 8px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-track,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-thumb,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-thumb:hover,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 去掉所有模态框的背景遮罩 */
+.modal-backdrop {
+    display: none !important;
+}
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="eventsListPage" class="events-page">
+    <!-- 赛事容器 -->
+    <div class="card events-container">
+        <div class="card-header">
+            <button class="btn back-btn" onclick="goBack()">
+                <i class="fas fa-arrow-left me-1"></i>返回首页
+            </button>
+            <h4><i class="fas fa-trophy me-2"></i>选择要报名的赛事</h4>
+        </div>
+        
+        <div class="card-body events-list">
+                <!-- 赛事列表 -->
+                <div id="eventsList" class="row g-4">
+                    <!-- 赛事卡片将通过JavaScript动态加载 -->
+                </div>
+
+                <!-- 无赛事提示 -->
+                <div id="noEvents" class="no-events" style="display: none;">
+                    <i class="fas fa-calendar-times"></i>
+                    <h5>暂无可报名的赛事</h5>
+                    <p>请等待新的赛事发布或联系管理员</p>
+                </div>
+
+                <!-- 分页导航 -->
+                <div id="pagination" class="pagination-container" style="display: none;">
+                    <div class="pagination-info">
+                        <span id="pageInfo">第 1 页，共 1 页</span>
+                    </div>
+                    <div class="pagination-controls">
+                        <button id="prevBtn" class="page-btn" onclick="previousPage()" disabled>
+                            <i class="fas fa-chevron-left"></i> 上一页
+                        </button>
+                        <button id="nextBtn" class="page-btn" onclick="nextPage()" disabled>
+                            下一页 <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 确认选择按钮 - 已移除，现在直接在选择时确认 -->
+            </div>
+        </div>
+    </div>
+
+<!-- 角色选择页面 (默认隐藏) -->
+<div id="roleSelection" class="events-page" style="display: none;">
+    <div class="card events-container">
+        <div class="card-header">
+            <button class="btn back-btn" onclick="goBackToEventSelection()">
+                <i class="fas fa-arrow-left me-1"></i>上一步
+            </button>
+            <h4><i class="fas fa-user-check me-2"></i>请选择您的角色</h4>
+        </div>
+        
+        <div class="card-body events-list">
+            <div class="role-selection-description">
+                <p>请根据您的身份选择对应的操作，以便我们为您提供更精准的服务</p>
+            </div>
+            
+            <div class="row justify-content-center g-4">
+                <!-- 我是领队选项 -->
+                <div class="col-md-6 col-lg-5">
+                    <div class="enhanced-role-card leader-enhanced-card" onclick="showTeamLeaderForm()">
+                        <div class="role-decoration role-decoration-1"></div>
+                        <div class="role-decoration role-decoration-2"></div>
+                        <div class="enhanced-role-card-body">
+                            <div class="role-icon-container">
+                                <div class="role-icon-bg">
+                                    <i class="fas fa-user-tie"></i>
+                                </div>
+                            </div>
+                            <h3 class="role-title">我是领队</h3>
+                            <p class="role-description">负责创建和管理队伍，填写队伍的详细资料，并邀请队员加入</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 我是队员选项 -->
+                <div class="col-md-6 col-lg-5">
+                    <div class="enhanced-role-card member-enhanced-card" onclick="joinTeam()">
+                        <div class="role-decoration role-decoration-1"></div>
+                        <div class="role-decoration role-decoration-2"></div>
+                        <div class="enhanced-role-card-body">
+                            <div class="role-icon-container">
+                                <div class="role-icon-bg">
+                                    <i class="fas fa-user-friends"></i>
+                                </div>
+                            </div>
+                            <h3 class="role-title">我是队员</h3>
+                            <p class="role-description">加入一个已存在的队伍，查看队伍信息，并参与赛事报名</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- 加入队伍页面 (默认隐藏) -->
+    <div id="joinTeamContent" style="display: none;">
+        <div class="container">
+            <div class="join-team-container">
+                <div class="join-team-header">
+                    <button class="btn team-back-btn" onclick="goBackToRoleSelection()">
+                        <i class="fas fa-arrow-left me-2"></i>上一步
+                    </button>
+                    <h4><i class="fas fa-user-plus me-2"></i>加入队伍</h4>
+                </div>
+                <div class="join-team-content-wrapper">
+                    <!-- 左侧表单区域 -->
+                    <div class="join-team-form">
+                        <!-- 申请状态显示区域 -->
+                        <div id="applicationStatusArea" style="display: none;">
+                            <!-- 动态显示申请状态 -->
+                        </div>
+                        
+                        <form id="joinTeamForm">
+                            <div class="enhanced-form-group">
+                                <label for="teamSelect" class="form-label">
+                                    <i class="fas fa-users"></i>选择队伍
+                                </label>
+                                <select class="form-select" id="teamSelect" required>
+                                    <option value="">请选择要加入的队伍</option>
+                                    <!-- 动态加载当前赛事中的队伍 -->
+                                </select>
+                            </div>
+                            
+                            <div class="enhanced-form-group">
+                                <label for="memberName" class="form-label">
+                                    <i class="fas fa-user"></i>姓名
+                                </label>
+                                <input type="text" class="form-control" id="memberName" placeholder="请输入您的真实姓名" required>
+                            </div>
+                            
+                            <div class="enhanced-form-group">
+                                <label for="memberPhone" class="form-label">
+                                    <i class="fas fa-phone"></i>联系电话
+                                </label>
+                                <input type="tel" class="form-control" id="memberPhone" placeholder="请输入您的手机号码" required>
+                            </div>
+                            
+                            <div class="enhanced-form-group">
+                                <label for="memberIdCard" class="form-label">
+                                    <i class="fas fa-id-card"></i>身份证号
+                                </label>
+                                <input type="text" class="form-control" id="memberIdCard" placeholder="请输入您的身份证号" required>
+                            </div>
+                            
+                            <div class="join-team-buttons">
+                                <button type="button" class="join-team-btn join-team-btn-primary" id="submitJoinTeam">
+                                    <i class="fas fa-check me-2"></i>提交信息
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- 右侧赛事项目分类框架 -->
+                    <div class="event-categories-container">
+                        <div class="event-categories-header">
+                            <h5><i class="fas fa-list"></i>赛事项目分类</h5>
+                            <p class="category-subtitle">选择您感兴趣的参赛项目</p>
+                            
+                            <!-- 搜索框 -->
+                            <div class="category-search-box" style="margin-top: 15px;">
+                                <div class="input-group">
+                                    <span class="input-group-text" style="background: linear-gradient(135deg, #89CFF0 0%, #5DADE2 100%); color: white; border: none;">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="categorySearchInput" 
+                                           placeholder="搜索项目名称..."
+                                           style="border-left: none; border-radius: 0 8px 8px 0;"
+                                           onkeyup="searchCategories()">
+                                    <button class="btn btn-sm" 
+                                            id="clearSearchBtn" 
+                                            onclick="clearCategorySearch()"
+                                            style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: #999; z-index: 10;">
+                                        <i class="fas fa-times-circle"></i>
+                                    </button>
+                                </div>
+                                <div id="searchResultInfo" style="display: none; margin-top: 8px; padding: 8px; background: #e3f2fd; border-radius: 6px; font-size: 13px; color: #1976d2;">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    找到 <strong id="searchResultCount">0</strong> 个匹配项目
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="event-categories-content" id="teamEventCategories">
+                            <!-- 项目分类将通过API动态加载 -->
+                            <div class="text-center py-3">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">加载中...</span>
+                                </div>
+                                <p class="text-muted mt-2 small">正在加载项目分类...</p>
+                            </div>
+                            <!-- 原硬编码内容已移除（约600行），改为通过API动态加载 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 随队人员入口的角色选择页面（队员/随队人员）(默认隐藏) -->
+    <div id="staffRoleSelection" class="events-page" style="display: none;">
+        <div class="card events-container">
+            <div class="card-header">
+                <button class="btn back-btn" onclick="goBackFromStaffRole()">
+                    <i class="fas fa-arrow-left me-1"></i>上一步
+                </button>
+                <h4><i class="fas fa-user-check me-2"></i>请选择身份</h4>
+            </div>
+            <div class="card-body events-list">
+                <div class="role-selection-description">
+                    <p>请选择以继续：加入队伍作为队员，或登记成为随队人员</p>
+                </div>
+                <div class="row justify-content-center g-4">
+                    <div class="col-md-6 col-lg-5">
+                        <div class="enhanced-role-card member-enhanced-card" onclick="chooseStaffRole('player')">
+                            <div class="role-decoration role-decoration-1"></div>
+                            <div class="role-decoration role-decoration-2"></div>
+                            <div class="enhanced-role-card-body">
+                                <div class="role-icon-container">
+                                    <div class="role-icon-bg">
+                                        <i class="fas fa-user-friends"></i>
+                                    </div>
+                                </div>
+                                <h3 class="role-title">我是队员</h3>
+                                <p class="role-description">选择并加入一个队伍，填写个人资料</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-5">
+                        <div class="enhanced-role-card leader-enhanced-card" onclick="chooseStaffRole('staff')">
+                            <div class="role-decoration role-decoration-1"></div>
+                            <div class="role-decoration role-decoration-2"></div>
+                            <div class="enhanced-role-card-body">
+                                <div class="role-icon-container">
+                                    <div class="role-icon-bg">
+                                        <i class="fas fa-user-nurse"></i>
+                                    </div>
+                                </div>
+                                <h3 class="role-title">我是随队人员</h3>
+                                <p class="role-description">登记教练、医务或其他随队人员信息</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 队伍资料页面 (默认隐藏) -->
+    <div id="teamProfileContent" style="display: none;">
+        <div class="container" style="padding-top: 2rem; margin-top: 0;">
+            <div class="team-profile-card">
+                <div class="team-profile-header" style="background: #0b5ed7 !important;">
+                    <button class="btn team-back-btn" onclick="goBackToRoleSelection()">
+                        <i class="fas fa-arrow-left me-2"></i>上一步
+                    </button>
+                    <h4><i class="fas fa-people-group me-2"></i>队伍资料</h4>
+                    <div class="header-spacer d-flex justify-content-end">
+                        <button class="btn team-back-btn" onclick="goToPlayerRegistrationList()">
+                            <i class="fas fa-arrow-right me-2"></i>下一步
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="team-profile-body">
+                    <div class="team-profile-form-container">
+                        <form id="teamProfileForm">
+                            <!-- 队伍基本信息 -->
+                            <div class="form-section">
+                                <h5 class="section-title">
+                                    <i class="fas fa-info-circle me-2"></i>队伍基本信息
+                                </h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="teamName" class="form-label">队伍名称 *</label>
+                                            <input type="text" class="form-control" id="teamName">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="teamType" class="form-label">队伍类型 *</label>
+                                            <select class="form-select" id="teamType">
+                                                <option value="">请选择队伍类型</option>
+                                                <option value="school">学校队伍</option>
+                                                <option value="club">俱乐部</option>
+                                                <option value="professional">专业队</option>
+                                                <option value="individual">个人组队</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label for="teamAddress" class="form-label">队伍地址</label>
+                                            <textarea class="form-control" id="teamAddress" rows="2" placeholder="请输入详细地址"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label for="teamDescription" class="form-label">队伍简介</label>
+                                            <textarea class="form-control" id="teamDescription" rows="3" placeholder="请介绍队伍的历史、特色、成就等"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 领队信息 -->
+                            <div class="form-section">
+                                <h5 class="section-title">
+                                    <i class="fas fa-user-tie me-2"></i>领队信息
+                                </h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="leaderName" class="form-label">领队姓名 *</label>
+                                            <input type="text" class="form-control" id="leaderName">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="leaderPosition" class="form-label">职务 *</label>
+                                            <input type="text" class="form-control" id="leaderPosition" value="领队" readonly style="background-color: #e9ecef; cursor: not-allowed;">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="leaderPhone" class="form-label">联系电话 *</label>
+                                            <input type="tel" class="form-control" id="leaderPhone">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="leaderEmail" class="form-label">邮箱地址</label>
+                                            <input type="email" class="form-control" id="leaderEmail">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 按钮区域 -->
+                            <div class="mt-4">
+                                <div class="d-flex justify-content-center align-items-center flex-wrap position-relative">
+                                    <!-- 居中按钮组 -->
+                                    <div class="row g-3">
+                                        <div class="col-auto">
+                                            <!-- 保存草稿按钮 - 绿色 -->
+                                            <button type="button" id="saveTeamProfileBtn" class="btn btn-success btn-lg px-4" onclick="saveTeamProfile()">
+                                                <i class="fas fa-save me-2"></i>保存草稿
+                                            </button>
+                                        </div>
+                                        <div class="col-auto">
+                                            <!-- 创建/修改队伍按钮 - 根据状态变化文本和功能 -->
+                                            <button type="button" id="teamActionBtn" class="btn btn-lg px-4 golden-btn" onclick="handleTeamAction()">
+                                                <i class="fas fa-plus-circle me-2"></i>创建队伍
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 右侧删除按钮 - 绝对定位 -->
+                                    <div class="position-absolute end-0">
+                                        <!-- 删除队伍按钮 - 红色，在最右边，只在修改模式下显示 -->
+                                        <button type="button" id="deleteTeamBtn" class="btn btn-danger btn-lg px-4" onclick="deleteTeam()" style="display: none;">
+                                            <i class="fas fa-trash me-2"></i>删除队伍
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 赛事详情模态框 - 使用赛事大全的样式 -->
+<div class="modal fade" id="eventDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventDetailTitle">赛事详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="eventDetailContent">
+                <!-- 详情内容将通过JavaScript动态生成 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <div id="eventDetailActions">
+                    <!-- 操作按钮将根据权限动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- 引入项目分类公共JS -->
+<script src="{{ url_for('static', filename='js/competition-categories.js') }}"></script>
+<script src="{{ url_for('static', filename='js/event_fees.js') }}"></script>
+
+<script>
+let selectedEventId = null;
+let selectedEventName = '';
+let allEvents = []; // 存储所有赛事数据
+let currentPage = 1; // 当前页码
+let hasSyncedCreatedTeams = false;
+const eventsPerPage = 4; // 每页显示4个赛事
+
+$(document).ready(function() {
+    // 检查URL中是否有event_id参数
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const source = urlParams.get('source');
+    
+    if (eventId && source === 'team') {
+        console.log('检测到直接报名请求，赛事ID:', eventId);
+        // 直接设置selectedEventId
+        selectedEventId = eventId;
+        selectedEventName = '当前赛事'; // 临时名称，后续可以通过API获取真实名称
+        
+        // 存储到sessionStorage（兼容其它页面读取）
+        sessionStorage.setItem('selectedEventId', String(selectedEventId));
+        sessionStorage.setItem('selectedEventName', String(selectedEventName || ''));
+        sessionStorage.setItem('selectedEvent', JSON.stringify({
+            id: selectedEventId,
+            name: selectedEventName
+        }));
+        
+        // 立即隐藏赛事选择页面，防止闪烁
+        $('#eventsListPage').hide();
+        // 直接进入领队表单
+        showTeamLeaderForm();
+    } else if (eventId && source === 'staff') {
+        // 从第二步进入并且URL已带赛事，直接显示身份选择页
+        selectedEventId = eventId;
+        selectedEventName = '当前赛事';
+        sessionStorage.setItem('selectedEventId', String(selectedEventId));
+        sessionStorage.setItem('selectedEventName', String(selectedEventName || ''));
+        sessionStorage.setItem('selectedEvent', JSON.stringify({ id: selectedEventId, name: selectedEventName }));
+        $('#eventsListPage').hide();
+        $('#staffRoleSelection').show();
+    } else if (eventId) {
+        // 有eventId但没有source=team，也直接跳转到角色选择
+        console.log('检测到报名请求（无source），赛事ID:', eventId);
+        selectedEventId = eventId;
+        selectedEventName = '当前赛事';
+        
+        sessionStorage.setItem('selectedEventId', String(selectedEventId));
+        sessionStorage.setItem('selectedEventName', String(selectedEventName || ''));
+        sessionStorage.setItem('selectedEvent', JSON.stringify({
+            id: selectedEventId,
+            name: selectedEventName
+        }));
+        
+        $('#eventsListPage').hide();
+        // 未提供source，默认按“我是领队”进入队伍资料页面
+        showTeamLeaderForm();
+    } else {
+        // 正常加载赛事列表
+        loadEvents();
+    }
+});
+
+// 工具函数：安全读取 localStorage 数组
+function safeReadArrayFromStorage(key) {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.warn(`解析 ${key} 失败:`, error);
+        return [];
+    }
+}
+
+// 删除队伍后用于清理本地缓存
+function purgeLocalTeamData(teamId, eventId, teamName) {
+    if (!teamId && !teamName) return;
+    const stringTeamId = teamId !== undefined && teamId !== null ? String(teamId) : '';
+    const stringEventId = eventId !== undefined && eventId !== null ? String(eventId) : '';
+    const normalizedTeamName = (teamName || '').trim();
+
+    const keysSnapshot = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        keysSnapshot.push(localStorage.key(i));
+    }
+
+    keysSnapshot.forEach(key => {
+        if (!key) return;
+        if (key.startsWith('createdTeams_')) {
+            const list = safeReadArrayFromStorage(key).filter(team => {
+                const matchesId = stringTeamId && String(team.id || team.teamId || team.team_id || '') === stringTeamId;
+                const matchesEventName = stringEventId && normalizedTeamName &&
+                    String(team.eventId || team.event_id || '') === stringEventId &&
+                    (team.teamName || team.name || '').trim() === normalizedTeamName;
+                return !(matchesId || matchesEventName);
+            });
+            localStorage.setItem(key, JSON.stringify(list));
+        } else if (key.startsWith('teamDrafts_')) {
+            const drafts = safeReadArrayFromStorage(key).filter(draft => {
+                const matchesEventName = stringEventId && normalizedTeamName &&
+                    String(draft.eventId || '') === stringEventId &&
+                    (draft.teamName || draft.name || '').trim() === normalizedTeamName;
+                return !matchesEventName;
+            });
+            localStorage.setItem(key, JSON.stringify(drafts));
+        } else if (key.startsWith('submittedTeamData_')) {
+            const snapshots = safeReadArrayFromStorage(key).filter(snapshot => {
+                const teamInfo = snapshot.team || {};
+                const snapshotTeamId = teamInfo.id || teamInfo.teamId || snapshot.teamId;
+                const snapshotEventId = teamInfo.eventId || teamInfo.event_id || snapshot.eventId;
+                const snapshotTeamName = (teamInfo.teamName || teamInfo.name || snapshot.teamName || '').trim();
+                const matchesId = stringTeamId && String(snapshotTeamId || '') === stringTeamId;
+                const matchesEventName = stringEventId && normalizedTeamName &&
+                    String(snapshotEventId || '') === stringEventId && snapshotTeamName === normalizedTeamName;
+                return !(matchesId || matchesEventName);
+            });
+            localStorage.setItem(key, JSON.stringify(snapshots));
+        }
+    });
+
+    const matchesTargetTeam = (item) => {
+        if (!item || typeof item !== 'object') return false;
+        const candidateIds = [item.teamId, item.team_id, item.id];
+        const hasIdMatch = stringTeamId && candidateIds.some(val => String(val || '') === stringTeamId);
+        if (hasIdMatch) return true;
+
+        if (!stringEventId || !normalizedTeamName) return false;
+        const candidateEventId = item.eventId || item.event_id;
+        const candidateName = (item.teamName || item.team_name || item.name || '').trim();
+        return String(candidateEventId || '') === stringEventId && candidateName === normalizedTeamName;
+    };
+
+    const filterGlobalArray = (key, customMatcher) => {
+        const matcher = customMatcher || matchesTargetTeam;
+        const arr = safeReadArrayFromStorage(key).filter(item => !matcher(item));
+        if (arr.length === 0) {
+            localStorage.removeItem(key);
+        } else {
+            localStorage.setItem(key, JSON.stringify(arr));
+        }
+    };
+
+    filterGlobalArray('teamApplications');
+    filterGlobalArray('playerList');
+    filterGlobalArray('staffList');
+    filterGlobalArray('allUserTeams');
+}
+
+function loadEvents() {
+    // 显示加载状态
+    const container = $('#eventsList');
+    container.html(`
+        <div class="col-12">
+            <div class="loading-spinner">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p class="mt-2 text-muted">正在加载赛事列表...</p>
+            </div>
+        </div>
+    `);
+    
+    // 从真实API获取赛事数据
+    fetch('/api/events/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.events) {
+                // 转换API数据格式为前端需要的格式
+                const events = data.events.map(event => {
+                    // 计算报名截止时间提示
+                    let deadline = '报名进行中';
+                    if (event.registration_deadline) {
+                        const deadlineDate = new Date(event.registration_deadline);
+                        const now = new Date();
+                        const diffTime = deadlineDate - now;
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        
+                        if (diffDays > 0) {
+                            deadline = `距离报名截止还有 ${diffDays} 天`;
+                        } else if (diffDays === 0) {
+                            deadline = '今日截止报名';
+                        } else {
+                            deadline = '报名已截止';
+                        }
+                    }
+                    
+                    // 格式化日期
+                    let dateRange = '';
+                    if (event.start_date && event.end_date) {
+                        const startDate = new Date(event.start_date).toLocaleDateString('zh-CN');
+                        const endDate = new Date(event.end_date).toLocaleDateString('zh-CN');
+                        dateRange = `${startDate} - ${endDate}`;
+                    }
+                    
+                    return {
+                        id: event.event_id,
+                        name: event.name,
+                        location: event.location || '待定',
+                        date: dateRange,
+                        status: event.status,
+                        deadline: deadline,
+                        description: event.description || '',
+                        participant_count: event.participant_count || 0,
+                        max_participants: event.max_participants || 0,
+                        // 保留原始时间字段用于过滤和排序
+                        registration_start_time: event.registration_start_time,
+                        registration_deadline: event.registration_deadline
+                    };
+                });
+                
+                // 筛选可报名的赛事：非取消且报名未截止
+                const availableEvents = events.filter(event => {
+                    // 过滤掉已取消的赛事
+                    if (event.status === 'cancelled') {
+                        return false;
+                    }
+                    
+                    // 检查报名截止时间
+                    if (event.registration_deadline) {
+                        const deadlineDate = new Date(event.registration_deadline);
+                        const now = new Date();
+                        // 过滤掉报名已截止的赛事
+                        if (now > deadlineDate) {
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                });
+                
+                // 按报名状态排序：报名进行中 → 报名未开始
+                availableEvents.sort((a, b) => {
+                    const now = new Date();
+                    
+                    const getStatusPriority = (event) => {
+                        const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+                        const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+                        
+                        if (!regStart || !regEnd) return 1; // 未设置时间，视为可报名，优先显示
+                        
+                        if (now < regStart) return 2; // 报名未开始
+                        if (now > regEnd) return 3; // 报名已截止
+                        return 1; // 报名进行中
+                    };
+                    
+                    return getStatusPriority(a) - getStatusPriority(b);
+                });
+                
+                displayEvents(availableEvents);
+            } else {
+                console.error('获取赛事数据失败:', data);
+                showNoEventsMessage(`获取赛事列表失败：${data.message || '未知错误'}`);
+            }
+        })
+        .catch(error => {
+            console.error('加载赛事数据出错:', error);
+            showNoEventsMessage(`网络连接失败：${error.message}`);
+        });
+}
+
+// 显示无赛事消息
+function showNoEventsMessage(message = '暂无可报名的赛事') {
+    const container = $('#eventsList');
+    container.html(`
+        <div class="col-12">
+            <div class="no-events">
+                <i class="fas fa-calendar-times"></i>
+                <h5>${message}</h5>
+                <p>请等待新的赛事发布或联系管理员</p>
+                <button class="btn btn-primary mt-2 me-2" onclick="loadEvents()">
+                    <i class="fas fa-refresh me-1"></i>重新加载
+                </button>
+                <button class="btn btn-info mt-2" onclick="testAPI()">
+                    <i class="fas fa-bug me-1"></i>测试API
+                </button>
+            </div>
+        </div>
+    `);
+    $('#pagination').hide();
+}
+
+
+// 赛事状态文本转换函数
+function getEventStatusText(status) {
+    const statusMap = {
+        'draft': '报名进行中',
+        'published': '报名进行中',
+        'registration': '报名中',
+        'ongoing': '进行中',
+        'completed': '已结束',
+        'cancelled': '已取消'
+    };
+    return statusMap[status] || status;
+}
+
+function displayEvents(events) {
+    allEvents = events; // 存储所有赛事数据
+    
+    if (events.length === 0) {
+        $('#noEvents').show();
+        $('#pagination').hide();
+        return;
+    }
+    
+    // 显示当前页的赛事
+    displayCurrentPage();
+}
+
+function displayCurrentPage() {
+    const container = $('#eventsList');
+    container.empty();
+    
+    // 计算当前页应该显示的赛事
+    const startIndex = (currentPage - 1) * eventsPerPage;
+    const endIndex = startIndex + eventsPerPage;
+    const currentEvents = allEvents.slice(startIndex, endIndex);
+    
+    // 计算总页数
+    const totalPages = Math.ceil(allEvents.length / eventsPerPage);
+    
+    // 渲染当前页的赛事
+    currentEvents.forEach(event => {
+        const eventCard = `
+            <div class="col-12 col-md-6 col-lg-3">
+                <div class="card event-card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="event-title">${event.name}</h5>
+                            <span class="badge event-badge">${getEventStatusText(event.status)}</span>
+                        </div>
+                        <div class="event-info">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>${event.location}</span>
+                        </div>
+                        <div class="event-info">
+                            <i class="fas fa-calendar"></i>
+                            <span>${event.date}</span>
+                        </div>
+                        <div class="event-deadline mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-clock me-2"></i>
+                                <small>${event.deadline}</small>
+                            </div>
+                        </div>
+                        <div class="mt-auto pt-2 border-top">
+                            <button class="btn btn-sm btn-primary me-2" 
+                                    onclick="event.stopPropagation(); showEventDetail(${event.id})">
+                                <i class="fas fa-eye me-1"></i>查看详情
+                            </button>
+                            ${(event.status === 'completed' || event.status === 'cancelled' || event.deadline.includes('已截止')) ? 
+                                `<button class="btn btn-sm btn-secondary" disabled>
+                                    <i class="fas fa-ban me-1"></i>已截止
+                                </button>` : 
+                                `<button class="btn btn-sm btn-primary" 
+                                    onclick="event.stopPropagation(); selectEvent(${event.id}, '${event.name.replace(/'/g, "\\\\'")}')">
+                                    <i class="fas fa-check me-1"></i>选择
+                                </button>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.append(eventCard);
+    });
+    
+    // 更新分页信息和控件
+    updatePagination(totalPages);
+    
+    $('#eventsList').show();
+}
+
+function selectEvent(eventId, eventName) {
+    selectedEventId = eventId;
+    selectedEventName = eventName;
+    
+    // 移除之前的选中状态
+    $('.event-card').removeClass('selected').css({
+        'border': '2px solid transparent',
+        'box-shadow': '0 4px 6px rgba(0,0,0,0.1)'
+    });
+    
+    // 添加选中状态到当前点击的卡片
+    const clickedCard = $(`[data-event-id="${eventId}"]`).closest('.event-card');
+    clickedCard.addClass('selected').css({
+        'border': '2px solid #4facfe',
+        'box-shadow': '0 8px 25px rgba(79, 172, 254, 0.3)'
+    });
+    
+    // 立即触发确认操作，移除延迟
+    confirmSelection();
+}
+
+// 从首页“第一步”进入时，如果已经带有 event_id，直接切换到队伍资料
+function initFromHomepageIfNeeded() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventIdFromUrl = urlParams.get('event_id');
+        const eventNameFromUrl = urlParams.get('event_name');
+        const source = urlParams.get('source');
+
+        if (!eventIdFromUrl || source !== 'team') {
+            return;  // 没有 event_id 或来源不是 team，按原逻辑处理
+        }
+
+        // 初始化全局变量
+        selectedEventId = eventIdFromUrl;
+        if (eventNameFromUrl) {
+            selectedEventName = decodeURIComponent(eventNameFromUrl);
+        }
+
+        // 同步到 sessionStorage，方便首页和其它页面显示当前赛事
+        try {
+            sessionStorage.setItem('selectedEventId', String(selectedEventId));
+            if (selectedEventName) {
+                sessionStorage.setItem('selectedEventName', selectedEventName);
+            }
+            sessionStorage.setItem('selectedEvent', JSON.stringify({
+                id: selectedEventId,
+                name: selectedEventName || ''
+            }));
+        } catch (e) {
+            console.warn('初始化赛事上下文到 sessionStorage 失败:', e);
+        }
+
+        // 隐藏赛事列表和角色选择容器
+        const listPage = document.getElementById('eventsListPage');
+        if (listPage) {
+            listPage.style.display = 'none';
+        }
+        const roleSelection = document.getElementById('roleSelection');
+        if (roleSelection) {
+            roleSelection.style.display = 'none';
+        }
+
+        // 直接展示队伍资料
+        if (typeof showTeamLeaderForm === 'function') {
+            showTeamLeaderForm();
+        }
+    } catch (e) {
+        console.warn('initFromHomepageIfNeeded 执行失败:', e);
+    }
+}
+
+// 显示赛事详情 - 使用赛事大全的详情显示逻辑
+function showEventDetail(eventId) {
+    // 查找选中的赛事
+    const event = allEvents.find(e => e.id === eventId);
+    if (!event) return;
+    
+    // 需要从API获取完整的赛事信息
+    fetch(`/api/events/${eventId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.event) {
+                viewEventDetail(data.event);
+            } else {
+                // 如果API失败，使用本地数据显示简化版本
+                showSimpleEventDetail(event);
+            }
+        })
+        .catch(error => {
+            console.error('获取赛事详情失败:', error);
+            // 如果API失败，使用本地数据显示简化版本
+            showSimpleEventDetail(event);
+        });
+}
+
+// 使用赛事大全的详情显示函数
+function viewEventDetail(event) {
+    // 从localStorage获取费用数据并增强event对象
+    event = enhanceEventWithFees(event);
+    
+    $('#eventDetailTitle').text(event.name);
+    
+    const detailContent = `
+        <div class="row">
+            <div class="col-12">
+                <h6>基本信息</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td width="40%">赛事名称:</td><td>${event.name}</td></tr>
+                            <tr><td>比赛地点:</td><td>${event.location || '待定'}</td></tr>
+                            <tr><td>比赛开始时间:</td><td>${formatDateTime(event.start_date)}</td></tr>
+                            <tr><td>比赛结束时间:</td><td>${formatDateTime(event.end_date)}</td></tr>
+                            <tr><td>最大人数:</td><td>${event.max_participants || '不限'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td width="40%">报名开始时间:</td><td>${formatDateTime(event.registration_start_time) || '未设置'}</td></tr>
+                            <tr><td>报名截止时间:</td><td>${formatDateTime(event.registration_deadline) || '未设置'}</td></tr>
+                            <tr><td>联系电话:</td><td>${event.contact_phone || '未设置'}</td></tr>
+                            <tr><td>主办单位:</td><td>${event.organizer || '未设置'}</td></tr>
+                            <tr><td>承办单位:</td><td>${event.co_organizer || '未设置'}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                ${(event.individual_fee > 0 || event.pair_practice_fee > 0 || event.team_competition_fee > 0) ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>报名费用</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">个人赛报名费用</small>
+                                    <strong class="text-success">¥${(event.individual_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">对练报名费用</small>
+                                    <strong class="text-success">¥${(event.pair_practice_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">团体赛报名费用</small>
+                                    <strong class="text-success">¥${(event.team_competition_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <strong>报名状态:</strong> <span class="badge ${getRegistrationStatus(event).color}">${getRegistrationStatus(event).text}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>比赛状态:</strong> <span class="badge ${getEventStatus(event).color}">${getEventStatus(event).text}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ${event.description ? `
+            <div class="mt-3">
+                <h6>赛事描述</h6>
+                <p class="text-muted">${event.description}</p>
+            </div>
+        ` : ''}
+    `;
+    
+    $('#eventDetailContent').html(detailContent);
+    
+    // 生成操作按钮
+    let actions = '';
+    const regStatus = getRegistrationStatus(event);
+    if (regStatus.text === '报名进行中') {
+        actions += `<button class="btn btn-success me-2" onclick="selectEventFromDetail(${event.event_id}, '${event.name.replace(/'/g, "\\'")}')">
+            <i class="fas fa-user-plus me-1"></i>选择此赛事
+        </button>`;
+    }
+    
+    $('#eventDetailActions').html(actions);
+    $('#eventDetailModal').modal('show');
+}
+
+// 简化版赛事详情显示
+function showSimpleEventDetail(event) {
+    $('#eventDetailTitle').text(event.name);
+    
+    const detailContent = `
+        <div class="row">
+            <div class="col-12">
+                <h6>基本信息</h6>
+                <table class="table table-sm">
+                    <tr><td width="30%">赛事名称:</td><td>${event.name}</td></tr>
+                    <tr><td>比赛地点:</td><td>${event.location || '待定'}</td></tr>
+                    <tr><td>比赛时间:</td><td>${event.date || '待定'}</td></tr>
+                    <tr><td>报名状态:</td><td>${event.deadline || '未设置'}</td></tr>
+                </table>
+                ${event.description ? `
+                    <div class="mt-3">
+                        <h6>赛事描述</h6>
+                        <p class="text-muted">${event.description}</p>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    $('#eventDetailContent').html(detailContent);
+    
+    let actions = `<button class="btn btn-success me-2" onclick="selectEventFromDetail(${event.id}, '${event.name.replace(/'/g, "\\'")}')">
+        <i class="fas fa-user-plus me-1"></i>选择此赛事
+    </button>`;
+    
+    $('#eventDetailActions').html(actions);
+    $('#eventDetailModal').modal('show');
+}
+
+// 从详情页面选择赛事
+function selectEventFromDetail(eventId, eventName) {
+    $('#eventDetailModal').modal('hide');
+    selectedEventId = eventId;
+    selectedEventName = eventName;
+    
+    // 立即触发确认操作，移除延迟
+    confirmSelection();
+}
+
+// 加载赛事项目（使用上add_player.html相同的API）
+async function loadEventCategories(eventId) {
+    console.log('加载项目分类，赛事ID:', eventId);
+    try {
+        await renderCompetitionCategories('teamEventCategories', {
+            mode: 'join_team',
+            enableSelection: true,
+            enableToggle: true
+        });
+        console.log('项目分类加载完成');
+    } catch (error) {
+        console.error('加载项目分类失败:', error);
+        const container = document.getElementById('teamEventCategories');
+        if (container) {
+            container.innerHTML = '<div class="alert alert-danger">加载项目分类失败，请刷新页面重试</div>';
+        }
+    }
+}
+
+function confirmSelection() {
+    console.log('confirmSelection 函数被调用');
+    console.log('selectedEventId:', selectedEventId);
+    
+    if (!selectedEventId) {
+        showMessage('请先选择一个赛事', 'warning');
+        return;
+    }
+    
+    // 根据来源页面跳转到不同的目标页面
+    const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('source');
+    console.log('URL参数 source:', source);
+    
+    const eventParams = `event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName)}`;
+
+    const userRole = '{{ session.get("user_role", "") }}';
+    const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
+
+    // 管理员/超级管理员：除“回到管理页”的场景外，统一先进入队伍列表页，再选择队伍查看对应报名比赛管理
+    if (isAdminRole && source !== 'player_list' && source !== 'staff_list' && source !== 'participants') {
+        window.location.href = `/team_review_list?${eventParams}`;
+        return;
+    }
+
+    if (source === 'staff' || source === 'player_registration') {
+        // 第二步入口：队员报名人员列表
+        window.location.href = `/player_registration_list?${eventParams}`;
+        return;
+    } else if (source === 'summary') {
+        // 检查是否为管理员（保持与旧版 projet01_old2 一致）
+        if (userRole === 'admin' || userRole === 'super_admin') {
+            // 管理员跳转到队伍审核列表
+            window.location.href = `/team_review_list?event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName)}`;
+        } else {
+            // 普通用户跳转到资料汇总页面
+            const existingTeam = selectedEventId ? getExistingTeam(selectedEventId) : null;
+            const teamParam = existingTeam && existingTeam.id ? `&team_id=${encodeURIComponent(existingTeam.id)}` : '';
+            window.location.href = `/data_summary?event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName)}${teamParam}`;
+        }
+    } else if (source === 'player_list') {
+        // 跳转回参赛选手页面
+        window.location.href = `/player_list?event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName)}`;
+    } else if (source === 'staff_list') {
+        // 跳转回随行人员列表页面
+        window.location.href = `/staff_list?event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName)}`;
+    } else if (source === 'participant_overview') {
+        // 从参赛人员列表页面进入，切换后返回同一页面
+        window.location.href = `/participant_overview?event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName)}&from_event_selection=true`;
+    } else if (source === 'participants') {
+        // 从参赛者管理页面进入，切换后返回参赛者管理
+        window.location.href = `/participants?event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName)}&from_event_selection=true`;
+    } else if (source === 'team' || !source || (source && source.startsWith('step'))) {
+        // 第一步入口（或无来源，或从首页四个步骤入口进来）：统一从“队伍资料”开始
+        console.log('准备直接进入领队表单');
+        sessionStorage.setItem('selectedEventId', String(selectedEventId));
+        sessionStorage.setItem('selectedEventName', String(selectedEventName || ''));
+        sessionStorage.setItem('selectedEvent', JSON.stringify({
+            id: selectedEventId,
+            name: selectedEventName
+        }));
+        // 隐藏赛事选择页面，显示领队表单
+        $('#eventsListPage').css('display', 'none');
+        showTeamLeaderForm();
+        sessionStorage.removeItem('eventSelectionSource');
+    } else if (source === 'add_staff') {
+        // 明确从随队人员登记入口进来时，才跳转到人员登记页面
+        window.location.href = `/add_staff?${eventParams}`;
+    } else {
+        // 其他未知来源：为了安全起见，统一回到队员报名人员列表，避免误跳人员登记
+        window.location.href = `/player_registration_list?${eventParams}`;
+    }
+}
+
+// 从“第二步-随队人员登记”入口的身份选择
+function chooseStaffRole(role) {
+    if (role === 'player') {
+        if (!selectedEventId) {
+            showMessage('请先选择赛事', 'warning');
+            return;
+        }
+        const params = `event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName || '')}`;
+        window.location.href = `/player_registration_list?${params}`;
+    } else if (role === 'staff') {
+        // 跳转到随队人员登记页面
+        window.location.href = `/add_staff?event_id=${selectedEventId}&event_name=${encodeURIComponent(selectedEventName)}`;
+    }
+}
+
+// 从队伍资料页面进入“队员报名人员列表”
+function goToPlayerRegistrationList() {
+    // 优先使用全局变量，其次使用 sessionStorage
+    let eventId = selectedEventId;
+    let eventName = selectedEventName;
+
+    if (!eventId) {
+        const stored = sessionStorage.getItem('selectedEvent');
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                eventId = parsed.id || eventId;
+                eventName = parsed.name || eventName;
+            } catch (e) {
+                console.warn('解析 selectedEvent 失败:', e);
+            }
+        }
+    }
+
+    if (!eventName) {
+        eventName = sessionStorage.getItem('selectedEventName') || eventName;
+    }
+
+    if (!eventName) {
+        eventName = '当前赛事';
+    }
+
+    if (!eventId) {
+        showMessage('请先选择赛事', 'warning');
+        window.location.href = '/event_selection';
+        return;
+    }
+
+    const existingTeam = getExistingTeam(eventId);
+    if (!existingTeam || !existingTeam.id) {
+        showMessage('请先创建队伍', 'warning');
+        return;
+    }
+
+    const params = new URLSearchParams();
+    params.set('event_id', eventId);
+    params.set('event_name', eventName);
+
+    window.location.href = `/player_registration_list?${params.toString()}`;
+}
+
+function goBackFromStaffRole() {
+    $('#staffRoleSelection').css('display', 'none');
+    $('#eventsListPage').css('display', 'block');
+}
+
+// 显示角色选择页面
+function showRoleSelection() {
+    console.log('showRoleSelection 函数被调用');
+    
+    // 立即隐藏赛事选择页面，防止闪烁
+    $('#eventsListPage').css('display', 'none');
+    // 立即显示角色选择页面
+    $('#roleSelection').css('display', 'block');
+}
+
+// 返回到上一步（从角色选择页面点击上一步）
+function goBackToEventSelection() {
+    // 检查URL参数中是否有event_id
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    
+    if (eventId) {
+        // 如果有event_id参数，说明是从"最新赛事"报名进来的，返回首页
+        window.location.href = '/';
+    } else {
+        // 如果没有event_id参数，说明是从核心功能进来的，返回赛事选择页面
+        $('#roleSelection').css('display', 'none');
+        $('#eventsListPage').css('display', 'block');
+    }
+}
+
+// 显示消息提示 - 使用全局统一样式
+function showMessage(message, type = 'info') {
+    // 调用base.html中定义的全局showCenterMessage函数
+    if (typeof showCenterMessage === 'function') {
+        showCenterMessage(message, type);
+    } else {
+        // 降级方案：如果全局函数不存在，使用alert
+        alert(message);
+    }
+}
+
+// 显示领队表单
+function showTeamLeaderForm() {
+    // 检查用户是否已经加入队伍（作为队员）
+    const currentUserId = Number('{{ session.get("user_id") or 0 }}');
+    const currentUser = getCurrentUser();
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    
+    // 查找当前赛事中用户的已通过申请（作为队员加入的队伍）
+    const userApprovedApplications = applications.filter(app => 
+        String(app.userId) === String(currentUserId) &&
+        String(app.eventId) === String(selectedEventId) &&
+        app.status === 'approved'
+    );
+    
+    console.log('检查用户是否已加入队伍:', {
+        userId: currentUserId,
+        eventId: selectedEventId,
+        approvedApplications: userApprovedApplications
+    });
+    
+    // 检查用户是否是当前赛事的领队（本地缓存 + 后端同步缓存）
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    const userTeamsFromLocal = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    let userTeamsFromBackend = [];
+    try {
+        userTeamsFromBackend = JSON.parse(localStorage.getItem('allUserTeams') || '[]');
+    } catch (err) {
+        console.warn('解析 allUserTeams 失败:', err);
+    }
+    const mergedTeams = [...userTeamsFromBackend, ...userTeamsFromLocal];
+    const leaderTeam = mergedTeams.find(team => 
+        String(team.eventId) === String(selectedEventId) &&
+        (team.isLeader === true || String(team.createdBy) === String(currentUser) || String(team.createdByDisplay) === String(currentUser))
+    );
+    const isLeaderOfCurrentEvent = Boolean(leaderTeam);
+    
+    console.log('用户是否是当前赛事的领队:', isLeaderOfCurrentEvent, leaderTeam);
+    
+    if (userApprovedApplications.length > 0 && !isLeaderOfCurrentEvent) {
+        // 用户已经加入队伍且不是领队，不能再创建队伍
+        showMessage('你已加入队伍，不可再创建队伍', 'error');
+        return;
+    }
+
+    // 持久化当前赛事信息，供其他页面回显
+    if (selectedEventId) {
+        sessionStorage.setItem('selectedEventId', String(selectedEventId));
+    }
+    if (selectedEventName) {
+        sessionStorage.setItem('selectedEventName', selectedEventName);
+    }
+
+    // 立即隐藏角色选择页面
+    $('#roleSelection').css('display', 'none');
+    // 立即显示领队表单
+    $('#teamProfileContent').css('display', 'block');
+    
+    // 确保职务字段始终显示"领队"
+    $('#leaderPosition').val('领队');
+    
+    loadTeamProfile();
+}
+
+// 显示加入队伍页面
+function joinTeam() {
+    console.log('=== 显示加入队伍页面 ===');
+    console.log('当前选择的赛事ID (selectedEventId):', selectedEventId);
+    
+    // 设置 currentEventId 为当前选择的赛事
+    currentEventId = selectedEventId;
+    console.log('设置 currentEventId 为:', currentEventId);
+    
+    // 立即隐藏角色选择页面
+    $('#roleSelection').css('display', 'none');
+    // 立即显示加入队伍页面
+    $('#joinTeamContent').css('display', 'block');
+    checkUserApplicationStatus(); // 检查用户申请状态
+    loadAvailableTeamsForCurrentEvent(); // 队伍列表加载完成后会自动调用checkIfUserIsLeaderAndAutoFill
+    loadEventCategories(selectedEventId); // 加载项目分类
+}
+
+function dedupeTeamsForJoin(teams) {
+    if (!Array.isArray(teams) || teams.length === 0) return [];
+    const seen = new Set();
+    const result = [];
+    teams.forEach(team => {
+        if (!team) return;
+        const keys = [];
+        if (team.id) {
+            keys.push(`id:${String(team.id)}`);
+        }
+        const eventKey = (team.eventId || selectedEventId || '') && (team.teamName || '').trim();
+        if (eventKey) {
+            keys.push(`event:${String(team.eventId || selectedEventId)}|name:${eventKey.toLowerCase()}`);
+        }
+        if (keys.length === 0) return;
+        const hasSeen = keys.some(key => seen.has(key));
+        if (hasSeen) {
+            return;
+        }
+        keys.forEach(key => seen.add(key));
+        result.push(team);
+    });
+    return result;
+}
+
+// 检查当前用户是否是当前赛事某个队伍的领队，并自动填充表单
+function checkIfUserIsLeaderAndAutoFill() {
+    console.log('=== 检查当前用户是否是当前赛事的领队 ===');
+    
+    const currentUser = getCurrentUser();
+    console.log('当前用户:', currentUser);
+    console.log('当前赛事ID:', selectedEventId);
+    
+    if (!currentUser || !selectedEventId) {
+        console.log('无法获取用户信息或赛事ID，跳过自动填充');
+        return;
+    }
+    
+    // 获取当前用户的队伍
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    const userTeams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    console.log('用户队伍总数:', userTeams.length);
+    console.log('用户所有队伍:', userTeams);
+    
+    // 查找当前用户在当前赛事中作为领队创建的队伍
+    const leaderTeam = userTeams.find(team => {
+        const eventIdMatch = String(team.eventId) === String(selectedEventId);
+        const isCreated = team.isCreated === true;
+        const isLeader = team.isLeader === true;
+        
+        console.log(`检查队伍: ${team.teamName}, eventId匹配:${eventIdMatch}, 已创建:${isCreated}, 是领队:${isLeader}`);
+        
+        return eventIdMatch && isCreated && isLeader;
+    });
+    
+    if (leaderTeam) {
+        console.log('✓ 找到领队队伍，准备自动填充:', leaderTeam);
+        ensureTeamOption(leaderTeam);
+        
+        // 自动选择队伍并禁用
+        $('#teamSelect').val(leaderTeam.id).prop('disabled', true);
+        console.log('设置队伍选择:', leaderTeam.id, '当前值:', $('#teamSelect').val());
+        
+        // 自动填充姓名并禁用
+        $('#memberName').val(leaderTeam.leaderName || '').prop('readonly', true);
+        
+        // 自动填充联系电话并禁用
+        $('#memberPhone').val(leaderTeam.leaderPhone || '').prop('readonly', true);
+        
+        // 身份证号保持可编辑
+        $('#memberIdCard').prop('readonly', false);
+        
+        console.log('✓ 已自动填充：队伍=' + leaderTeam.teamName + ', 姓名=' + leaderTeam.leaderName + ', 电话=' + leaderTeam.leaderPhone);
+    } else {
+        console.log('✗ 当前用户不是当前赛事的领队，表单保持可编辑');
+        
+        // 恢复所有字段为可编辑状态
+        $('#teamSelect').prop('disabled', false);
+        $('#memberName').prop('readonly', false);
+        $('#memberPhone').prop('readonly', false);
+        $('#memberIdCard').prop('readonly', false);
+    }
+    console.log('=== 自动填充检查完成 ===');
+}
+
+// 页面加载后执行首页入口的初始化检查
+try {
+    initFromHomepageIfNeeded();
+} catch (e) {
+    console.warn('调用 initFromHomepageIfNeeded 失败:', e);
+}
+
+// 返回到角色选择页面
+function goBackToRoleSelection() {
+    console.log('点击了上一步按钮');
+    
+    // 检查是否是从 auto_role=player 模式进入的
+    const urlParams = new URLSearchParams(window.location.search);
+    const autoRole = urlParams.get('auto_role');
+    const source = urlParams.get('source');
+    
+    if (autoRole === 'player' && source === 'team') {
+        // 如果是从资料汇总页面跳转过来的，直接返回资料汇总页面
+        console.log('检测到是从 auto_role=player 模式进入，返回资料汇总页面');
+        
+        // 获取当前赛事信息
+        const eventId = urlParams.get('event_id');
+        const eventName = sessionStorage.getItem('selectedEventName') || '';
+        
+        // 返回到资料汇总页面并带上赛事信息
+        if (eventId && eventName) {
+            window.location.href = `/data_summary?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}`;
+        } else {
+            window.location.href = '/data_summary';
+        }
+    } else {
+        // 正常流程：返回赛事选择页面
+        console.log('正常返回赛事选择页面');
+        // 隐藏团队资料、加入队伍、角色选择页面
+        $('#teamProfileContent, #joinTeamContent, #roleSelection').css('display', 'none');
+        // 显示赛事选择页面
+        $('#eventsListPage').css('display', 'block');
+
+        // 从队伍资料返回时，可能尚未加载过赛事列表，主动重新加载一遍
+        try {
+            // 重置选中的赛事，避免状态残留
+            if (typeof selectedEventId !== 'undefined') {
+                selectedEventId = null;
+            }
+            if (typeof selectedEventName !== 'undefined') {
+                selectedEventName = '';
+            }
+            if (typeof loadEvents === 'function') {
+                loadEvents();
+            }
+        } catch (e) {
+            console.warn('返回赛事选择页面时重新加载赛事列表失败:', e);
+        }
+    }
+}
+
+// 加载当前赛事中可加入的队伍列表
+async function loadAvailableTeamsForCurrentEvent() {
+    console.log('加载当前赛事中的队伍，赛事ID:', selectedEventId);
+    
+    const teamSelect = document.getElementById('teamSelect');
+    
+    // 检查是否已选择赛事
+    if (!selectedEventId) {
+        teamSelect.innerHTML = '<option value="">请先选择赛事</option>';
+        return;
+    }
+    
+    // 若未选中赛事，尝试从 sessionStorage 回退
+    if (!selectedEventId) {
+        const sid = sessionStorage.getItem('selectedEventId');
+        if (sid) {
+            selectedEventId = isNaN(Number(sid)) ? sid : Number(sid);
+        }
+    }
+    if (!selectedEventName) {
+        const sname = sessionStorage.getItem('selectedEventName');
+        if (sname) selectedEventName = sname;
+    }
+
+    // 清空现有选项
+    teamSelect.innerHTML = '<option value="">请选择要加入的队伍</option>';
+    
+    // 先尝试从后端获取当前赛事下所有可加入的队伍（支持跨账号）
+    let currentEventTeams = [];
+    try {
+        const resp = await fetch(`/api/teams/${selectedEventId}?visibility=all`);
+        const json = await resp.json();
+        if (json && json.success && Array.isArray(json.teams)) {
+            currentEventTeams = json.teams.map(team => ({
+                id: String(team.id),
+                teamName: team.teamName || team.name || '',
+                leaderName: team.leaderName || team.leader || '',
+                eventId: selectedEventId,
+                eventName: selectedEventName,
+                isCreated: true
+            }));
+            console.log('从后端加载的队伍列表:', currentEventTeams);
+        } else {
+            console.log('后端返回的队伍数据为空或失败:', json);
+        }
+    } catch (error) {
+        console.error('从后端加载队伍失败，回退到本地 createdTeams_ 数据:', error);
+    }
+    
+    // 如果后端没有返回任何队伍，则回退到本地 createdTeams_ 扫描逻辑
+    if (currentEventTeams.length === 0) {
+        // 获取所有用户创建的队伍
+        let allTeams = [];
+        
+        // 遍历localStorage中所有以'createdTeams_'开头的键
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('createdTeams_')) {
+                try {
+                    const userTeams = JSON.parse(localStorage.getItem(key) || '[]');
+                    // 只添加已创建的队伍
+                    const createdTeams = userTeams.filter(team => team.isCreated === true);
+                    allTeams = allTeams.concat(createdTeams);
+                    console.log(`从 ${key} 加载了 ${createdTeams.length} 个队伍`);
+                } catch (error) {
+                    console.error(`解析 ${key} 数据时出错:`, error);
+                }
+            }
+        }
+        
+        // 筛选当前赛事中已创建的队伍
+        currentEventTeams = allTeams.filter(team => 
+            String(team.eventId) === String(selectedEventId) && team.isCreated === true
+        );
+        
+        console.log('所有队伍数量:', allTeams.length);
+        console.log('当前赛事的队伍(本地 createdTeams_):', currentEventTeams);
+    }
+    
+    currentEventTeams = dedupeTeamsForJoin(currentEventTeams);
+
+    if (currentEventTeams.length === 0) {
+        const selfTeam = normalizeTeamSnapshot(getExistingTeam(selectedEventId));
+        if (selfTeam && selfTeam.id) {
+            currentEventTeams = [selfTeam];
+        }
+    }
+
+    if (currentEventTeams.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '该赛事暂无可加入的队伍';
+        option.disabled = true;
+        teamSelect.appendChild(option);
+        joinableTeamsForCurrentEvent = [];
+        return;
+    }
+    
+    // 显示可加入的队伍
+    currentEventTeams.forEach(team => {
+        const option = document.createElement('option');
+        option.value = team.id;
+        
+        // 格式化队伍显示信息
+        let teamText = team.teamName;
+        if (team.leaderName) {
+            teamText += ` - 领队: ${team.leaderName}`;
+        }
+        
+        option.textContent = teamText;
+        teamSelect.appendChild(option);
+    });
+    
+    joinableTeamsForCurrentEvent = currentEventTeams;
+    
+    // 队伍列表加载完成后，立即检查是否需要自动填充
+    console.log('队伍列表加载完成，数量:', currentEventTeams.length);
+    console.log('准备执行自动填充检查');
+    checkIfUserIsLeaderAndAutoFill();
+}
+
+// 队伍资料相关函数
+let currentEventId = null; // 当前选择的赛事ID
+let currentTeamDraft = null; // 当前的队伍草稿
+let isEditMode = false; // 是否为编辑模式
+let joinableTeamsForCurrentEvent = [];
+
+function ensureTeamOption(team) {
+    if (!team || !team.id) return;
+    const select = document.getElementById('teamSelect');
+    if (!select) return;
+    if (!Array.isArray(joinableTeamsForCurrentEvent)) {
+        joinableTeamsForCurrentEvent = [];
+    }
+    const exists = joinableTeamsForCurrentEvent.some(t => String(t.id) === String(team.id));
+    if (!exists) {
+        joinableTeamsForCurrentEvent.push(team);
+        const option = document.createElement('option');
+        option.value = team.id;
+        let text = team.teamName || team.name || `队伍 ${team.id}`;
+        if (team.leaderName) {
+            text += ` - 领队: ${team.leaderName}`;
+        }
+        option.textContent = text;
+        select.appendChild(option);
+    }
+}
+
+// 更新赛事选择详情显示
+function updateSelectionDetails() {
+    // 更新选中赛事的显示信息
+    console.log('更新赛事选择详情，ID:', selectedEventId, '名称:', selectedEventName);
+    // 这里可以添加更新页面显示的逻辑
+    // 比如更新选择提示、高亮显示选中的赛事等
+}
+
+// 清理没有 eventId 的旧申请记录（一次性清理）
+function cleanupOldApplications() {
+    try {
+        const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+        const validApplications = applications.filter(app => app.eventId && app.userId);
+        const removedCount = applications.length - validApplications.length;
+        
+        if (removedCount > 0) {
+            localStorage.setItem('teamApplications', JSON.stringify(validApplications));
+            console.log(`已清理 ${removedCount} 条旧的申请记录（没有赛事ID或用户ID）`);
+        }
+    } catch (error) {
+        console.error('清理旧申请记录时出错:', error);
+    }
+}
+
+// 页面加载时自动清理一次
+cleanupOldApplications();
+
+async function loadTeamProfile() {
+    console.log('加载队伍资料页面，赛事ID:', selectedEventId);
+    
+    // 确保用户信息已设置
+    initializeUserInfo();
+    
+    // 严格验证用户身份
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        console.error('用户身份验证失败，无法加载队伍资料');
+        showMessage('用户身份验证失败，请重新登录', 'error');
+        return;
+    }
+    
+    console.log('用户身份验证成功:', currentUser);
+    
+    // 获取当前选择的赛事ID
+    currentEventId = selectedEventId;
+    
+    // 先清空表单数据
+    clearTeamForm();
+    
+    // 表单始终可编辑
+    $('#teamProfileForm input, #teamProfileForm select, #teamProfileForm textarea').prop('disabled', false);
+    
+    // 优先从后端获取我在该赛事下的队伍
+    let existingTeam = null;
+    try {
+        existingTeam = null;
+        // mine: 仅当前用户创建的队伍
+        // 复用 /api/teams/<event_id> 接口（不传visibility将按mine返回）
+        // 如果接口需要明确可用，可加 visibility=mine
+        // 这里容错处理
+        
+        // 同步请求后端
+        // 注意：fetch 默认异步，这里用 await 包裹在异步调用外不方便，改为then链保持结构
+    } catch (e) { /* 忽略后端错误，继续用本地数据兜底 */ }
+
+    // 尝试同步方式获取（使用XMLHttpRequest 简单封装）
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', `/api/teams/${currentEventId}` + '', false);
+        xhr.send(null);
+        if (xhr.status === 200) {
+            const json = JSON.parse(xhr.responseText || '{}');
+            if (json && json.success && Array.isArray(json.teams) && json.teams.length > 0) {
+                const t = json.teams[0];
+                existingTeam = {
+                    id: String(t.id),
+                    eventId: currentEventId,
+                    eventName: selectedEventName,
+                    teamName: t.name,
+                    teamType: t.type,
+                    teamAddress: '',
+                    teamDescription: '',
+                    leaderName: t.leader,
+                    leaderPosition: '领队',
+                    leaderPhone: '',
+                    leaderEmail: '',
+                    isCreated: true,
+                    isLeader: t.canEdit === true,
+                    createdAt: new Date().toISOString(),
+                };
+                // 将后端队伍同步写入本地，确保后续本地逻辑可用
+                const currentUser = getCurrentUser();
+                if (currentUser) {
+                    const userTeamsKey = `createdTeams_${currentUser}`;
+                    let teams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+                    // 覆盖当前赛事的记录
+                    teams = teams.filter(tm => String(tm.eventId) !== String(currentEventId));
+                    teams.push(existingTeam);
+                    localStorage.setItem(userTeamsKey, JSON.stringify(teams));
+                }
+            }
+        }
+    } catch (e) { /* 忽略 */ }
+
+    // 如后端无队伍，再检查本地
+    if (!existingTeam) {
+        existingTeam = getExistingTeam(currentEventId);
+    }
+
+    if (existingTeam && existingTeam.id) {
+        existingTeam = await enrichTeamWithBackendDetails(existingTeam);
+        persistTeamToLocalCache(existingTeam);
+    }
+
+    if (existingTeam) {
+        // 基于旧本地 createdTeams 数据，确保后端 teams 表中也有对应记录（一次性迁移）
+        ensureBackendTeamExists(existingTeam);
+        
+        // 如果已经创建了队伍，检查是否有有效的草稿数据
+        const draft = await getTeamDraft(currentEventId);
+        
+        if (draft && !isDraftEmpty(draft)) {
+            // 有有效草稿数据，优先显示草稿
+            console.log('加载草稿数据（队伍已创建）');
+            loadDraftData(draft);
+        } else {
+            // 没有草稿或草稿为空，显示已创建的队伍数据
+            console.log('加载已创建的队伍数据');
+            loadExistingTeamData(existingTeam);
+        }
+        setModifyMode();
+    } else {
+        // 队伍未创建，检查是否有保存的草稿（云端）
+        const draft = await getTeamDraft(currentEventId);
+        if (draft) {
+            console.log('加载草稿数据（队伍未创建）');
+            loadDraftData(draft);
+        }
+        // 设置为创建模式
+        setCreateMode();
+    }
+}
+
+// 清空队伍表单
+function clearTeamForm() {
+    $('#teamName').val('');
+    $('#teamType').val('');
+    $('#teamAddress').val('');
+    $('#teamDescription').val('');
+    $('#leaderName').val('');
+    $('#leaderPosition').val('领队'); // 职务始终为"领队"
+    $('#leaderPhone').val('');
+    $('#leaderEmail').val('');
+}
+
+async function ensureBackendTeamExists(team) {
+    try {
+        const resp = await fetch(`/api/teams/${team.eventId}`);
+        const json = await resp.json();
+        if (json && json.success && Array.isArray(json.teams) && json.teams.length > 0) {
+            console.log('后端已存在当前赛事的队伍记录，无需迁移');
+            return;
+        }
+    } catch (error) {
+        console.warn('检查后端队伍记录失败，跳过迁移:', error);
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/teams', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                event_id: team.eventId,
+                team_name: team.teamName,
+                team_type: team.teamType,
+                team_address: team.teamAddress,
+                team_description: team.teamDescription,
+                leader_name: team.leaderName,
+                leader_position: team.leaderPosition,
+                leader_phone: team.leaderPhone,
+                leader_email: team.leaderEmail
+            })
+        });
+        const res = await response.json();
+        console.log('基于本地 createdTeams 迁移队伍到后端结果:', res);
+    } catch (error) {
+        console.warn('基于本地 createdTeams 迁移队伍到后端失败:', error);
+    }
+}
+
+// 初始化用户信息
+function initializeUserInfo() {
+    // 尝试从多个来源获取用户信息并设置到sessionStorage
+    let userInfo = sessionStorage.getItem('user_name') || 
+                   sessionStorage.getItem('username') || 
+                   sessionStorage.getItem('real_name');
+    
+    // 如果sessionStorage中没有，尝试通过API获取
+    if (!userInfo) {
+        // 可以通过AJAX调用获取当前用户信息
+        fetch('/api/check_login')
+            .then(response => response.json())
+            .then(data => {
+                if (data.logged_in && data.user_name) {
+                    sessionStorage.setItem('user_name', data.user_name);
+                    sessionStorage.setItem('username', data.username || data.user_name);
+                    console.log('从API获取用户信息:', data.user_name);
+                }
+            })
+            .catch(error => {
+                console.log('获取用户信息失败:', error);
+            });
+    }
+    
+    // 执行一次性的数据清理（确保完全独立）
+    cleanupSharedData();
+}
+
+// 清理共享数据，确保账号完全独立
+function cleanupSharedData() {
+    console.log('执行彻底数据清理，确保账号完全独立...');
+    
+    // 清理所有可能的共享存储数据
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        // 清理旧的共享数据
+        if (key === 'createdTeams' || key === 'teamDrafts') {
+            keysToRemove.push(key);
+        }
+        // 清理可能的跨用户数据泄露
+        if (key && key.includes('Teams') && !key.includes('_')) {
+            keysToRemove.push(key);
+        }
+    }
+    
+    keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        console.log('已清理共享数据:', key);
+    });
+    
+    // 强制重置清理标记，确保每次都执行清理
+    localStorage.setItem('dataCleanupCompleted', new Date().toISOString());
+    
+    console.log('彻底数据清理完成，所有账号现在完全独立');
+}
+
+// 检查同一赛事中是否存在相同名称的队伍
+function isTeamNameDuplicateInEvent(teamName, eventId) {
+    console.log(`检查队伍名称重复: ${teamName} 在赛事 ${eventId} 中`);
+    
+    // 获取所有用户创建的队伍
+    let allTeams = [];
+    
+    // 遍历localStorage中所有以'createdTeams_'开头的键
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('createdTeams_')) {
+            try {
+                const userTeams = JSON.parse(localStorage.getItem(key) || '[]');
+                // 只检查已创建的队伍
+                const createdTeams = userTeams.filter(team => team.isCreated === true);
+                allTeams = allTeams.concat(createdTeams);
+            } catch (error) {
+                console.error(`解析 ${key} 数据时出错:`, error);
+            }
+        }
+    }
+    
+    // 筛选同一赛事中的队伍
+    const sameEventTeams = allTeams.filter(team => 
+        String(team.eventId) === String(eventId) && team.isCreated === true
+    );
+    
+    console.log(`赛事 ${eventId} 中现有队伍:`, sameEventTeams.map(t => t.teamName));
+    
+    // 检查是否存在相同名称的队伍（不区分大小写）
+    const duplicate = sameEventTeams.some(team => 
+        team.teamName && team.teamName.toLowerCase() === teamName.toLowerCase()
+    );
+    
+    console.log(`队伍名称 "${teamName}" 是否重复:`, duplicate);
+    
+    return duplicate;
+}
+
+// 获取当前登录用户的用户名
+function getCurrentUser(forceRefresh = false) {
+    if (!forceRefresh && window._currentUserName) {
+        return window._currentUserName;
+    }
+
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/check_login', false);
+        xhr.send();
+        if (xhr.status === 200) {
+            const data = JSON.parse(xhr.responseText || '{}');
+            if (data && data.logged_in && data.user_name) {
+                window._currentUserName = data.user_name;
+                sessionStorage.setItem('user_name', data.user_name);
+                sessionStorage.setItem('username', data.username || data.user_name);
+                sessionStorage.setItem('real_name', data.real_name || data.user_name);
+                if (data.user_id) {
+                    sessionStorage.setItem('user_id', String(data.user_id));
+                }
+            }
+        }
+    } catch (error) {
+        console.warn('获取当前用户信息失败，使用缓存值:', error);
+        window._currentUserName = window._currentUserName || sessionStorage.getItem('user_name') || sessionStorage.getItem('username');
+    }
+
+    const currentUser = window._currentUserName || sessionStorage.getItem('user_name') || sessionStorage.getItem('username') || sessionStorage.getItem('real_name') || null;
+    enforceAccountIsolation(currentUser);
+    if (currentUser) {
+        syncCreatedTeamsFromBackend(currentUser);
+    }
+    return currentUser;
+}
+
+function enforceAccountIsolation(currentUser) {
+    if (!currentUser) return;
+    const allowedSuffixes = new Set();
+    allowedSuffixes.add(String(currentUser).trim());
+    const userId = sessionStorage.getItem('user_id');
+    if (userId) {
+        allowedSuffixes.add(String(userId).trim());
+    }
+    ['createdTeams_', 'teamDrafts_'].forEach(prefix => {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith(prefix)) continue;
+            const suffix = key.substring(prefix.length).trim();
+            if (!allowedSuffixes.has(suffix)) {
+                localStorage.removeItem(key);
+                console.log('已移除跨账号缓存:', key);
+            }
+        }
+    });
+}
+
+async function syncCreatedTeamsFromBackend(username) {
+    if (!username || hasSyncedCreatedTeams) {
+        return;
+    }
+
+    hasSyncedCreatedTeams = true;
+
+    try {
+        const resp = await fetch('/api/teams/my');
+        const data = await resp.json();
+
+        if (!data || data.success === false || !Array.isArray(data.teams)) {
+            hasSyncedCreatedTeams = false;
+            return;
+        }
+
+        const normalized = data.teams.map(team => ({
+            id: team.id || team.team_id,
+            eventId: team.eventId || team.event_id,
+            eventName: team.eventName || team.event_name,
+            teamName: team.teamName || team.team_name,
+            teamType: team.teamType || team.team_type,
+            teamAddress: team.teamAddress || team.team_address,
+            teamDescription: team.teamDescription || team.team_description,
+            leaderName: team.leaderName || team.leader_name,
+            leaderPosition: team.leaderPosition || team.leader_position || '领队',
+            leaderPhone: team.leaderPhone || team.leader_phone,
+            leaderEmail: team.leaderEmail || team.leader_email,
+            createdAt: team.createdAt || team.created_at,
+            updatedAt: team.updatedAt || team.updated_at,
+            isCreated: true,
+            isLeader: true,
+        }));
+
+        localStorage.setItem(`createdTeams_${username}`, JSON.stringify(normalized));
+    } catch (error) {
+        console.warn('同步我创建的队伍失败:', error);
+        hasSyncedCreatedTeams = false;
+    }
+}
+
+// 获取当前用户的user_id（数字ID）
+function getCurrentUserId() {
+    // 先确保用户信息已更新
+    getCurrentUser();
+    // 返回user_id
+    const userId = sessionStorage.getItem('user_id');
+    return userId ? parseInt(userId) : null;
+}
+
+// 验证用户权限
+function validateUserAccess(operation) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        console.error(`权限验证失败 - 操作: ${operation}, 用户未登录`);
+        showMessage('用户未登录，无法执行操作', 'error');
+        return false;
+    }
+    
+    console.log(`权限验证通过 - 操作: ${operation}, 用户: ${currentUser}`);
+    return true;
+}
+
+function getUserScopedStorageKeys(prefix) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return [];
+    const keys = [];
+    const primaryKey = `${prefix}${String(currentUser).trim()}`;
+    keys.push(primaryKey);
+    const userId = sessionStorage.getItem('user_id');
+    if (userId) {
+        const numericKey = `${prefix}${String(userId).trim()}`;
+        if (numericKey !== primaryKey) {
+            keys.push(numericKey);
+        }
+    }
+    return keys;
+}
+
+// 获取已创建的队伍（按用户独立存储）
+function getExistingTeam(eventId) {
+    if (!validateUserAccess('获取队伍数据')) {
+        return null;
+    }
+
+    const results = [];
+    const keysToScan = getUserScopedStorageKeys('createdTeams_');
+
+    keysToScan.forEach(key => {
+        try {
+            const list = JSON.parse(localStorage.getItem(key) || '[]');
+            list.forEach(team => {
+                const eventOk = String(team.eventId) === String(eventId);
+                if (eventOk && team.isCreated === true) {
+                    results.push(team);
+                }
+            });
+        } catch (e) { /* ignore */ }
+    });
+
+    results.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    const result = results[0] || null;
+    console.log('getExistingTeam(当前账号) 结果:', result);
+    return result;
+}
+
+// 获取队伍草稿（云端存储）
+async function getTeamDraft(eventId) {
+    if (!validateUserAccess('获取草稿数据')) {
+        return null;
+    }
+
+    try {
+        const resp = await fetch(`/api/events/${eventId}/team-draft`);
+        if (!resp.ok) {
+            console.warn('获取队伍草稿失败，HTTP 状态：', resp.status);
+            return null;
+        }
+        const data = await resp.json();
+        if (!data || data.success === false) {
+            console.warn('获取队伍草稿失败：', data && data.message);
+            return null;
+        }
+        const draft = data.draft || null;
+        console.log('getTeamDraft(云端) 结果:', draft);
+        return draft;
+    } catch (e) {
+        console.warn('调用 /api/events/<event_id>/team-draft 获取草稿出错：', e);
+        return null;
+    }
+}
+
+// 判断草稿是否为空（检查关键字段是否都为空）
+function isDraftEmpty(draft) {
+    if (!draft) return true;
+    
+    // 只检查关键字段是否都为空，如果关键字段都为空则认为草稿无效
+    const isEmpty = (
+        (!draft.teamName || draft.teamName.trim() === '') &&
+        (!draft.teamType || draft.teamType === '') &&
+        (!draft.leaderName || draft.leaderName.trim() === '') &&
+        (!draft.leaderPosition || draft.leaderPosition === '') &&
+        (!draft.leaderPhone || draft.leaderPhone.trim() === '')
+    );
+    
+    return isEmpty;
+}
+
+// 检查队伍资料是否完整（创建队伍需要的必填字段）
+function isTeamDataComplete() {
+    const teamName = $('#teamName').val().trim();
+    const teamType = $('#teamType').val();
+    const leaderName = $('#leaderName').val().trim();
+    const leaderPosition = $('#leaderPosition').val();
+    const leaderPhone = $('#leaderPhone').val().trim();
+    
+    return teamName && teamType && leaderName && leaderPosition && leaderPhone;
+}
+
+
+// 加载已存在的队伍数据
+function normalizeTeamSnapshot(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const normalized = {
+        id: raw.id || raw.teamId || raw.team_id || null,
+        eventId: Number(raw.eventId ?? raw.event_id ?? currentEventId ?? selectedEventId ?? null),
+        eventName: raw.eventName || raw.event_name || selectedEventName || '',
+        teamName: raw.teamName || raw.team_name || raw.name || '',
+        teamType: raw.teamType || raw.team_type || raw.type || '',
+        teamAddress: raw.teamAddress || raw.team_address || raw.address || '',
+        teamDescription: raw.teamDescription || raw.team_description || raw.description || '',
+        leaderName: raw.leaderName || raw.leader_name || raw.leader || '',
+        leaderPosition: raw.leaderPosition || raw.leader_position || '领队',
+        leaderPhone: raw.leaderPhone || raw.leader_phone || '',
+        leaderEmail: raw.leaderEmail || raw.leader_email || '',
+        createdBy: raw.createdBy || raw.created_by || raw.createdByDisplay || getCurrentUser(),
+        createdByDisplay: raw.createdByDisplay || raw.createdBy || raw.created_by || getCurrentUser(),
+        isCreated: raw.isCreated !== undefined ? raw.isCreated : true,
+        isLeader: raw.isLeader !== undefined ? raw.isLeader : true,
+        createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
+        updatedAt: raw.updatedAt || raw.updated_at || raw.createdAt || raw.created_at || new Date().toISOString(),
+    };
+    return normalized;
+}
+
+function loadExistingTeamData(team) {
+    const normalized = normalizeTeamSnapshot(team) || {};
+    $('#teamName').val(normalized.teamName || '');
+    $('#teamType').val(normalized.teamType || '');
+    $('#teamAddress').val(normalized.teamAddress || '');
+    $('#teamDescription').val(normalized.teamDescription || '');
+    $('#leaderName').val(normalized.leaderName || '');
+    $('#leaderPosition').val(normalized.leaderPosition || '领队');
+    $('#leaderPhone').val(normalized.leaderPhone || '');
+    $('#leaderEmail').val(normalized.leaderEmail || '');
+}
+
+async function enrichTeamWithBackendDetails(team) {
+    const normalized = normalizeTeamSnapshot(team);
+    if (!normalized || !normalized.id) {
+        return normalized;
+    }
+    try {
+        const response = await fetch(`/api/team/${normalized.id}`);
+        if (!response.ok) {
+            return normalized;
+        }
+        const data = await response.json();
+        if (!data || data.success === false || !data.team) {
+            return normalized;
+        }
+        const serverTeam = data.team;
+        return normalizeTeamSnapshot({
+            ...normalized,
+            eventId: serverTeam.event_id,
+            eventName: serverTeam.event_name,
+            teamName: serverTeam.name,
+            teamType: serverTeam.type,
+            teamAddress: serverTeam.address,
+            teamDescription: serverTeam.description,
+            leaderName: serverTeam.leader_name,
+            leaderPosition: serverTeam.leader_position,
+            leaderPhone: serverTeam.leader_phone,
+            leaderEmail: serverTeam.leader_email,
+            updatedAt: serverTeam.updated_at,
+        });
+    } catch (error) {
+        console.warn('获取队伍详情失败，使用本地数据:', error);
+        return normalized;
+    }
+}
+
+function persistTeamToLocalCache(team) {
+    const normalized = normalizeTeamSnapshot(team);
+    if (!normalized) return;
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+    const key = `createdTeams_${currentUser}`;
+    let teams = safeReadArrayFromStorage(key);
+    const filtered = teams.filter(t => String((t.eventId || t.event_id || '')) !== String(normalized.eventId));
+    filtered.push(normalized);
+    localStorage.setItem(key, JSON.stringify(filtered));
+}
+
+// 加载草稿数据
+function loadDraftData(draft) {
+    $('#teamName').val(draft.teamName || '');
+    $('#teamType').val(draft.teamType || '');
+    $('#teamAddress').val(draft.teamAddress || '');
+    $('#teamDescription').val(draft.teamDescription || '');
+    $('#leaderName').val(draft.leaderName || '');
+    $('#leaderPosition').val('领队'); // 职务始终为"领队"
+    $('#leaderPhone').val(draft.leaderPhone || '');
+    $('#leaderEmail').val(draft.leaderEmail || '');
+}
+
+// 设置为创建模式（未创建队伍时）
+function setCreateMode() {
+    isEditMode = false;
+    
+    // 显示保存草稿按钮
+    $('#saveTeamProfileBtn').show().html('<i class="fas fa-save me-2"></i>保存草稿');
+    
+    // 显示创建队伍按钮
+    $('#teamActionBtn').show().html('<i class="fas fa-plus-circle me-2"></i>创建队伍');
+    $('#teamActionBtn').removeClass('btn-secondary').addClass('golden-btn');
+    
+    // 隐藏删除队伍按钮（创建模式下不显示）
+    $('#deleteTeamBtn').hide();
+}
+
+// 设置为修改模式（已创建队伍时）
+function setModifyMode() {
+    isEditMode = false;
+    
+    // 显示保存草稿按钮
+    $('#saveTeamProfileBtn').show().html('<i class="fas fa-save me-2"></i>保存草稿');
+    
+    // 显示修改资料按钮
+    $('#teamActionBtn').show().html('<i class="fas fa-edit me-2"></i>修改资料');
+    $('#teamActionBtn').removeClass('btn-secondary').addClass('golden-btn');
+    
+    // 显示删除队伍按钮（修改模式下显示）
+    $('#deleteTeamBtn').show();
+}
+
+// 保存队伍资料（草稿或更新已创建队伍）
+function saveTeamProfile() {
+    const teamData = collectFormData();
+    
+    // 保存草稿时不要求必填字段，只验证格式
+    if (!validateFormData(teamData, false)) {
+        return;
+    }
+    
+    // 检查是否已经创建了队伍
+    const existingTeam = getExistingTeam(currentEventId);
+    
+    if (existingTeam) {
+        // 如果已经创建了队伍，检查是否为空草稿
+        if (isDraftEmpty(teamData)) {
+            // 如果是空草稿，删除草稿数据，这样下次加载时会显示已创建队伍的数据
+            console.log('删除空草稿');
+            removeTeamDraft(currentEventId);
+        } else {
+            // 保存为草稿，不直接更新已创建的队伍数据
+            console.log('保存草稿（队伍已创建）');
+            saveTeamDraft(teamData);
+        }
+    } else {
+        // 如果还没创建队伍，保存为草稿（即使是空草稿也保存）
+        console.log('保存为草稿');
+        saveTeamDraft(teamData);
+    }
+    
+    showMessage('草稿保存成功！', 'success');
+    
+    // 保存成功后自动跳转回角色选择页面
+    setTimeout(() => {
+        goBackToRoleSelection();
+    }, 1000);
+}
+
+// 更新已存在的队伍数据（按用户独立存储）
+function updateExistingTeam(teamData) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        console.log('用户未登录，无法更新队伍数据');
+        return;
+    }
+    
+    // 优先更新当前用户键，如不存在则尝试定位并更新任意 createdTeams_*
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    let teams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    let teamIndex = teams.findIndex(team => String(team.eventId) === String(currentEventId) && team.isCreated === true);
+
+    if (teamIndex === -1) {
+        // 扫描所有键，找到目标并回写到当前用户键下
+        let foundTeam = null;
+        for (let i = 0; i < localStorage.length && !foundTeam; i++) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith('createdTeams_')) continue;
+            const list = JSON.parse(localStorage.getItem(key) || '[]');
+            const idx = list.findIndex(t => String(t.eventId) === String(currentEventId) && t.isCreated === true && (t.createdBy === currentUser || t.createdByDisplay === currentUser || !t.createdBy));
+            if (idx !== -1) {
+                foundTeam = list[idx];
+            }
+        }
+        if (foundTeam) {
+            teams = [foundTeam];
+            teamIndex = 0;
+        }
+    }
+
+    if (teamIndex !== -1) {
+        const originalId = teams[teamIndex].id;
+        teams[teamIndex] = {
+            ...teams[teamIndex],
+            ...teamData,
+            id: originalId,
+            isCreated: true,
+            isLeader: true,
+            createdAt: teams[teamIndex].createdAt,
+            createdBy: teams[teamIndex].createdBy,
+            createdByDisplay: teams[teamIndex].createdByDisplay,
+            updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem(userTeamsKey, JSON.stringify(teams));
+        console.log('队伍数据已更新（兼容写回）:', teams[teamIndex]);
+    }
+}
+
+// 处理队伍操作按钮点击（创建队伍或修改资料）
+function handleTeamAction() {
+    const existingTeam = getExistingTeam(currentEventId);
+    
+    if (existingTeam) {
+        // 已创建队伍，执行修改资料操作
+        modifyTeamProfile();
+    } else {
+        // 未创建队伍，执行创建队伍操作
+        createTeam();
+    }
+}
+
+// 修改队伍资料（直接更新已创建的队伍，同时保存草稿）
+function modifyTeamProfile() {
+    const teamData = collectFormData();
+    
+    // 验证数据
+    if (!validateFormData(teamData, false)) {
+        return;
+    }
+    
+    // 获取当前队伍信息
+    const existingTeam = getExistingTeam(currentEventId);
+    if (!existingTeam || !existingTeam.id) {
+        showMessage('未找到已创建的队伍，无法修改资料，请先创建队伍', 'error');
+        return;
+    }
+
+    // 检查队伍名称是否与其他队伍重复（排除当前队伍）
+    if (teamData.teamName !== existingTeam.teamName) {
+        if (isTeamNameDuplicateInEvent(teamData.teamName, currentEventId)) {
+            showMessage(`队伍名称"${teamData.teamName}"在该赛事中已存在，请选择其他名称！`, 'error');
+            return;
+        }
+    }
+
+    // 先调用后端 API 更新 teams 表，确保所有依赖后端数据的页面实时生效
+    const payload = {
+        team_name: teamData.teamName,
+        team_type: teamData.teamType,
+        team_address: teamData.teamAddress,
+        team_description: teamData.teamDescription,
+        leader_name: teamData.leaderName,
+        leader_position: teamData.leaderPosition,
+        leader_phone: teamData.leaderPhone,
+        leader_email: teamData.leaderEmail,
+    };
+
+    fetch(`/api/teams/${existingTeam.id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    })
+        .then(res => res.json())
+        .then(res => {
+            if (!res || res.success === false) {
+                console.error('更新后端队伍信息失败:', res);
+                showMessage(res && res.message ? res.message : '更新队伍信息失败，请稍后重试', 'error');
+                return;
+            }
+
+            // 后端更新成功后，再更新本地 createdTeams_ 数据
+            updateExistingTeam(teamData);
+
+            // 同步草稿
+            if (isDraftEmpty(teamData)) {
+                console.log('删除空草稿');
+                removeTeamDraft(currentEventId);
+            } else {
+                console.log('同步保存草稿');
+                saveTeamDraft(teamData);
+            }
+
+            showMessage('队伍资料修改成功！', 'success');
+
+            // 修改成功后自动跳转回角色选择页面
+            setTimeout(() => {
+                goBackToRoleSelection();
+            }, 1000);
+        })
+        .catch(err => {
+            console.error('调用 /api/teams 更新队伍信息异常:', err);
+            showMessage('更新队伍信息时发生异常，请稍后重试', 'error');
+        });
+}
+
+// 创建队伍
+async function createTeam() {
+    const teamData = collectFormData();
+    
+    // 创建队伍时需要验证必填字段
+    if (!validateFormData(teamData, true)) {
+        return;
+    }
+    
+    // 检查是否已经在当前赛事中创建过队伍
+    const existingTeam = getExistingTeam(currentEventId);
+    if (existingTeam) {
+        showMessage('您已经在该赛事中创建过队伍了！', 'error');
+        return;
+    }
+    
+    // 检查同一赛事中是否已存在相同名称的队伍
+    if (isTeamNameDuplicateInEvent(teamData.teamName, currentEventId)) {
+        showMessage(`队伍名称"${teamData.teamName}"在该赛事中已存在，请选择其他名称！`, 'error');
+        return;
+    }
+    
+    // 标记为已创建
+    teamData.isCreated = true;
+    teamData.createdAt = new Date().toISOString();
+    
+    // 添加创建者信息（用于权限控制）
+    teamData.createdBy = '{{ session.get("username", "") }}';
+    teamData.createdByDisplay = '{{ current_user }}';
+    
+    // 标记创建者为领队
+    teamData.isLeader = true;
+    
+    // 保存到已创建队伍列表（按用户独立存储）
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        console.log('用户未登录，无法创建队伍');
+        showMessage('用户未登录，无法创建队伍', 'error');
+        return;
+    }
+
+    // 兜底：确保赛事上下文已写入 sessionStorage，避免下一步页面判定“未选择赛事”
+    try {
+        if (currentEventId) {
+            sessionStorage.setItem('selectedEventId', String(currentEventId));
+        }
+        if (selectedEventName) {
+            sessionStorage.setItem('selectedEventName', String(selectedEventName));
+        }
+        if (currentEventId || selectedEventName) {
+            sessionStorage.setItem('selectedEvent', JSON.stringify({
+                id: currentEventId || selectedEventId,
+                name: selectedEventName || ''
+            }));
+        }
+    } catch (e) {
+        console.warn('创建队伍时写入赛事上下文到 sessionStorage 失败:', e);
+    }
+    
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    let teams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    teams = teams.filter(t => String(t.eventId) !== String(currentEventId));
+    teams.push(teamData);
+    localStorage.setItem(userTeamsKey, JSON.stringify(teams));
+    
+    // 异步将新建队伍写入后端数据库，供 /data_summary 及相关页面通过 /api/teams/<event_id> 加载
+    try {
+        const response = await fetch('/api/teams', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                event_id: currentEventId,
+                team_name: teamData.teamName,
+                team_type: teamData.teamType,
+                team_address: teamData.teamAddress,
+                team_description: teamData.teamDescription,
+                leader_name: teamData.leaderName,
+                leader_position: teamData.leaderPosition,
+                leader_phone: teamData.leaderPhone,
+                leader_email: teamData.leaderEmail
+            })
+        });
+
+        const res = await response.json();
+        console.log('创建队伍到后端结果:', res);
+
+        if (!res || res.success === false) {
+            // 后端写入失败，给出明确提示并阻止后续跳转
+            const msg = (res && res.message) ? res.message : '创建队伍写入数据库失败，请稍后重试';
+            showMessage(msg, 'error');
+            return;
+        }
+    } catch (error) {
+        console.warn('创建队伍到后端异常:', error);
+        showMessage('创建队伍写入数据库失败，请检查网络或稍后重试', 'error');
+        return;
+    }
+    
+    // 删除草稿
+    removeTeamDraft(currentEventId);
+    
+    showMessage('队伍创建成功！', 'success');
+    
+    // 创建成功后，切换到修改模式并自动跳转
+    setTimeout(() => {
+        loadExistingTeamData(teamData);
+        setModifyMode();
+        
+        // 自动跳转回角色选择页面
+        setTimeout(() => {
+            goBackToRoleSelection();
+        }, 1000);
+    }, 100);
+}
+
+
+// 显示确认对话框
+function showConfirmDialog(title, message, onConfirm, onCancel) {
+    // 创建确认对话框HTML
+    const dialogHtml = `
+        <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${title}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>${message}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-success" id="confirmBtn">确认</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除已存在的对话框
+    $('#confirmModal').remove();
+    
+    // 添加到页面
+    $('body').append(dialogHtml);
+    
+    // 绑定事件
+    let confirmed = false;
+    
+    $('#confirmBtn').on('click', function() {
+        confirmed = true;
+        $('#confirmModal').modal('hide');
+        if (onConfirm) onConfirm();
+    });
+    
+    $('#confirmModal').on('hidden.bs.modal', function() {
+        if (!confirmed && onCancel) onCancel();
+        $(this).remove();
+    });
+    
+    // 显示对话框
+    $('#confirmModal').modal('show');
+}
+
+// 更新队伍资料
+function updateTeamProfile() {
+    const teamData = collectFormData();
+    
+    if (!validateFormData(teamData, true)) {
+        // 验证失败，恢复只读状态
+        $('#teamProfileForm input, #teamProfileForm select, #teamProfileForm textarea').prop('disabled', true);
+        return;
+    }
+    
+    // 更新已创建的队伍（按用户独立存储）
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        console.log('用户未登录，无法更新队伍');
+        showMessage('用户未登录，无法更新队伍', 'error');
+        return;
+    }
+    
+    const userTeamsKey = `createdTeams_${currentUser}`;
+    const teams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+    const teamIndex = teams.findIndex(team => team.eventId === currentEventId && team.isCreated === true);
+    
+    if (teamIndex !== -1) {
+        const originalId = teams[teamIndex].id; // 保存原始ID
+        teams[teamIndex] = { ...teams[teamIndex], ...teamData, id: originalId, updatedAt: new Date().toISOString() };
+        localStorage.setItem(userTeamsKey, JSON.stringify(teams));
+        
+        // 更新成功后，重新加载数据
+        setTimeout(() => {
+            loadExistingTeamData(teams[teamIndex]);
+        }, 100);
+    }
+}
+
+// 收集表单数据
+function collectFormData() {
+    return {
+        draftId: Date.now().toString(),
+        eventId: currentEventId,
+        eventName: selectedEventName,
+        teamName: $('#teamName').val().trim(),
+        teamType: $('#teamType').val(),
+        teamAddress: $('#teamAddress').val().trim(),
+        teamDescription: $('#teamDescription').val().trim(),
+        leaderName: $('#leaderName').val().trim(),
+        leaderPosition: $('#leaderPosition').val(),
+        leaderPhone: $('#leaderPhone').val().trim(),
+        leaderEmail: $('#leaderEmail').val().trim(),
+        isCreated: false
+    };
+}
+
+// 验证表单数据 - 区分保存草稿和创建队伍
+function validateFormData(teamData, isForCreation = false) {
+    if (isForCreation) {
+        // 创建队伍时需要验证必填字段
+        const missingFields = [];
+        
+        if (!teamData.teamName) missingFields.push('队伍名称');
+        if (!teamData.teamType) missingFields.push('队伍类型');
+        if (!teamData.leaderName) missingFields.push('负责人姓名');
+        if (!teamData.leaderPosition) missingFields.push('职务');
+        if (!teamData.leaderPhone) missingFields.push('联系电话');
+        
+        if (missingFields.length > 0) {
+            showMessage(`创建队伍需要填写以下必填字段：${missingFields.join('、')}`, 'error');
+            return false;
+        }
+    }
+    
+    // 验证手机号格式（如果填写了的话）
+    if (teamData.leaderPhone && teamData.leaderPhone.length > 0) {
+        const phoneRegex = /^1[3-9]\d{9}$/;
+        if (!phoneRegex.test(teamData.leaderPhone)) {
+            showMessage('请输入正确的手机号格式', 'error');
+            return false;
+        }
+    }
+    
+    // 验证邮箱格式（如果填写了的话）
+    if (teamData.leaderEmail && teamData.leaderEmail.length > 0) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(teamData.leaderEmail)) {
+            showMessage('请输入正确的邮箱地址格式', 'error');
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// 保存队伍草稿（云端存储）
+async function saveTeamDraft(teamData) {
+    // 严格验证用户权限
+    if (!validateUserAccess('保存草稿')) {
+        return;
+    }
+
+    try {
+        const payload = {
+            event_id: currentEventId,
+            team_name: teamData.teamName,
+            team_type: teamData.teamType,
+            team_address: teamData.teamAddress,
+            team_description: teamData.teamDescription,
+            leader_name: teamData.leaderName,
+            leader_position: teamData.leaderPosition,
+            leader_phone: teamData.leaderPhone,
+            leader_email: teamData.leaderEmail,
+        };
+
+        const resp = await fetch(`/api/events/${currentEventId}/team-draft`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || data.success === false) {
+            console.warn('保存队伍草稿失败：', data && data.message, 'HTTP 状态：', resp.status);
+            showMessage(data && data.message ? data.message : '保存草稿失败，请稍后重试', 'error');
+            return;
+        }
+
+        console.log('队伍草稿已保存到云端');
+    } catch (e) {
+        console.warn('调用 /api/events/<event_id>/team-draft 保存草稿出错：', e);
+        showMessage('保存草稿时发生异常，请稍后重试', 'error');
+    }
+}
+
+// 删除队伍草稿（云端存储）
+async function removeTeamDraft(eventId) {
+    if (!validateUserAccess('删除草稿')) {
+        return;
+    }
+
+    try {
+        const resp = await fetch(`/api/events/${eventId}/team-draft`, {
+            method: 'DELETE',
+        });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok || !data || data.success === false) {
+            console.warn('删除队伍草稿失败：', data && data.message, 'HTTP 状态：', resp.status);
+            return;
+        }
+        console.log('队伍草稿已从云端删除');
+    } catch (e) {
+        console.warn('调用 /api/events/<event_id>/team-draft 删除草稿出错：', e);
+    }
+}
+
+// 分页控制函数
+function updatePagination(totalPages) {
+    const pageInfo = $('#pageInfo');
+    const prevBtn = $('#prevBtn');
+    const nextBtn = $('#nextBtn');
+    const pagination = $('#pagination');
+    
+    // 更新页面信息
+    pageInfo.text(`第 ${currentPage} 页，共 ${totalPages} 页`);
+    
+    // 更新按钮状态
+    prevBtn.prop('disabled', currentPage <= 1);
+    nextBtn.prop('disabled', currentPage >= totalPages);
+    
+    // 显示分页控件（只有超过1页时才显示）
+    if (totalPages > 1) {
+        pagination.show();
+    } else {
+        pagination.hide();
+    }
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        displayCurrentPage();
+        // 清除选中状态
+        selectedEventId = null;
+        selectedEventName = '';
+        $('#confirmBtn').hide();
+    }
+}
+
+function nextPage() {
+    const totalPages = Math.ceil(allEvents.length / eventsPerPage);
+    if (currentPage < totalPages) {
+        currentPage++;
+        displayCurrentPage();
+        // 清除选中状态
+        selectedEventId = null;
+        selectedEventName = '';
+        $('#confirmBtn').hide();
+    }
+}
+
+// 处理队员加入队伍的表单提交
+$(document).ready(function() {
+    // 提交加入队伍表单
+    $('#submitJoinTeam').on('click', function() {
+        console.log('=== 开始提交队员申请 ===');
+        console.log('当前赛事ID:', currentEventId);
+        
+        // 获取当前用户信息
+        const currentUser = getCurrentUser();
+        const currentUserId = getCurrentUserId();  // 获取数字ID
+        
+        if (!currentUser || !currentUserId) {
+            showMessage('无法获取用户信息，请重新登录', 'error');
+            return;
+        }
+        
+        console.log('当前用户:', currentUser, '用户ID:', currentUserId);
+        
+        // 检查当前用户在当前赛事下是否已有申请（按赛事和用户双重隔离）
+        const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+        console.log('所有申请记录:', applications);
+        
+        const userEventApplications = applications.filter(app => 
+            app.eventId && // 必须有 eventId 字段，忽略旧记录
+            app.eventId === currentEventId && 
+            app.userId === currentUserId  // 使用数字ID比较
+        );
+        console.log('当前用户在当前赛事的有效申请记录:', userEventApplications);
+        
+        const pendingApplication = userEventApplications.find(app => app.status === 'pending');
+        const approvedApplication = userEventApplications.find(app => app.status === 'approved');
+        
+        if (pendingApplication) {
+            showMessage('您在此赛事已有待审核的申请，请先取消当前申请或等待审核结果', 'warning');
+            return;
+        }
+        
+        if (approvedApplication) {
+            showMessage('您在此赛事已加入队伍，无法申请其他队伍', 'warning');
+            return;
+        }
+        
+        // 临时启用可能被禁用的字段以获取值
+        const teamSelectWasDisabled = $('#teamSelect').prop('disabled');
+        if (teamSelectWasDisabled) {
+            $('#teamSelect').prop('disabled', false);
+        }
+        
+        const teamId = $('#teamSelect').val();
+        const name = $('#memberName').val().trim();
+        const phone = $('#memberPhone').val().trim();
+        const idCard = $('#memberIdCard').val().trim();
+        
+        // 恢复禁用状态
+        if (teamSelectWasDisabled) {
+            $('#teamSelect').prop('disabled', true);
+        }
+
+        if (!teamId || !name || !phone || !idCard) {
+            showMessage('请填写所有必填项', 'warning');
+            return;
+        }
+
+        // 验证身份证号格式
+        const idCardRegex = /^[1-9]\d{5}(18|19|20)\d{2}((0[1-9])|(1[0-2]))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$/;
+        if (!idCardRegex.test(idCard)) {
+            showMessage('请输入正确的身份证号格式', 'error');
+            return;
+        }
+
+        // 验证手机号格式
+        const phoneRegex = /^1[3-9]\d{9}$/;
+        if (!phoneRegex.test(phone)) {
+            showMessage('请输入正确的手机号格式', 'error');
+            return;
+        }
+
+        // 优先从当前赛事可加入队伍缓存中查找选中的队伍（包含后端和本地回退）
+        let selectedTeam = null;
+        if (Array.isArray(joinableTeamsForCurrentEvent) && joinableTeamsForCurrentEvent.length > 0) {
+            selectedTeam = joinableTeamsForCurrentEvent.find(team =>
+                String(team.id) === String(teamId) || String(team.teamId || '') === String(teamId)
+            );
+        }
+
+        // 如果缓存中没有找到，兜底到本地 createdTeams_ 数据
+        if (!selectedTeam) {
+            let allTeams = [];
+            
+            // 遍历localStorage中所有以'createdTeams_'开头的键
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('createdTeams_')) {
+                    try {
+                        const userTeams = JSON.parse(localStorage.getItem(key) || '[]');
+                        const createdTeams = userTeams.filter(team => team.isCreated === true);
+                        allTeams = allTeams.concat(createdTeams);
+                    } catch (error) {
+                        console.error(`解析 ${key} 数据时出错:`, error);
+                    }
+                }
+            }
+            
+            selectedTeam = allTeams.find(team => String(team.id) === String(teamId));
+        }
+        
+        if (!selectedTeam) {
+            showMessage('选择的队伍不存在', 'error');
+            return;
+        }
+        
+        const eventId = selectedTeam.eventId || currentEventId || selectedEventId;
+        
+        // 获取所有勾选的赛事项目
+        const selectedEvents = [];
+        
+        // 获取所有勾选的复选框
+        const checkedBoxes = document.querySelectorAll('input[type="checkbox"][id^="category-"]:checked');
+        checkedBoxes.forEach(checkbox => {
+            const label = document.querySelector(`label[for="${checkbox.id}"]`);
+            if (label) {
+                selectedEvents.push(label.textContent.trim());
+            }
+        });
+        
+        // 如果勾选了"其他拳术"，添加输入框内容
+        if (document.getElementById('category-1-3-1')?.checked) {
+            const otherMartialArt = document.getElementById('otherMartialArtInput')?.value.trim();
+            if (otherMartialArt) {
+                selectedEvents.push(otherMartialArt);
+            }
+        }
+        
+        // 如果勾选了"其他器械"，添加输入框内容
+        if (document.getElementById('category-2-3-1')?.checked) {
+            const otherWeapon = document.getElementById('otherWeaponInput')?.value.trim();
+            if (otherWeapon) {
+                selectedEvents.push(otherWeapon);
+            }
+        }
+        
+        // 验证是否至少选择了一个参赛项目
+        if (selectedEvents.length === 0) {
+            showMessage('请至少勾选一个参赛项目', 'warning');
+            return;
+        }
+        
+        console.log('提交的参赛信息:', { teamId, eventId, name, phone, idCard, selectedEvents });
+        showMessage('正在提交申请...', 'info');
+
+        // 检查当前用户是否是队伍的领队（使用已有的currentUser变量）
+        const userTeamsKey = `createdTeams_${currentUser}`;
+        const userTeams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+        
+        const isLeaderOfThisTeam = userTeams.some(team => 
+            team.id === teamId && 
+            team.isCreated === true &&
+            team.isLeader === true
+        );
+        
+        // 如果是领队，自动通过审核
+        const applicationStatus = isLeaderOfThisTeam ? 'approved' : 'pending';
+        const approvedAt = isLeaderOfThisTeam ? new Date().toISOString() : null;
+        
+        console.log('是否为领队:', isLeaderOfThisTeam, '申请状态:', applicationStatus);
+
+        // 直接保存申请信息到localStorage（队员申请不需要等待API响应）
+        saveTeamApplication(teamId, {
+            name: name,
+            phone: phone,
+            idCard: idCard,
+            teamName: selectedTeam.teamName,
+            eventName: selectedTeam.eventName,
+            appliedAt: new Date().toISOString(),
+            approvedAt: approvedAt, // 领队申请自动设置审核时间
+            status: applicationStatus, // 领队：'approved'，队员：'pending'
+            selectedEvents: selectedEvents // 保存勾选的项目
+        });
+        
+        // 如果是领队，直接调用后端API将自己写入该队伍的队伍成员（team_players + participants）
+        if (isLeaderOfThisTeam) {
+            try {
+                const payload = {
+                    event_id: eventId,
+                    real_name: name,
+                    id_card: idCard,
+                    phone: phone,
+                    competition_event: selectedEvents.join('、') || '个人项目',
+                    selected_events: selectedEvents
+                };
+                console.log('作为领队，直接调用 /api/teams/' + teamId + '/players，payload:', payload);
+
+                fetch(`/api/team/${teamId}/players`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(res => {
+                    console.log('add_team_player 接口返回:', res);
+                    if (!res || res.success === false) {
+                        showMessage(res && res.message ? res.message : '加入队伍失败，请稍后重试', 'error');
+                        return;
+                    }
+                    showMessage('已成功加入队伍，并写入参赛选手信息！', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1500);
+                })
+                .catch(err => {
+                    console.error('调用 add_team_player 失败:', err);
+                    showMessage('加入队伍时后端写入失败，请联系管理员检查网络或服务器日志', 'error');
+                });
+            } catch (e) {
+                console.error('调用 add_team_player 异常:', e);
+                showMessage('加入队伍时发生异常，请稍后重试', 'error');
+            }
+        } else {
+            // 普通队员：仍然只提交申请，等待领队在审核页面通过，后端在审核通过时写入 team_players/participants
+            showMessage('申请提交成功，等待领队审核！', 'success');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1500);
+        }
+    });
+
+});
+
+// 检查用户申请状态（按赛事和用户双重隔离）
+function checkUserApplicationStatus() {
+    console.log('=== 检查用户申请状态 ===');
+    console.log('当前赛事ID:', currentEventId);
+    
+    // 获取当前用户信息
+    const currentUser = getCurrentUser();
+    const currentUserId = getCurrentUserId();  // 获取数字ID
+    
+    if (!currentUser || !currentUserId) {
+        console.log('用户未登录');
+        enableApplicationForm();
+        hideApplicationStatus();
+        return;
+    }
+    
+    console.log('当前用户:', currentUser, '用户ID:', currentUserId);
+    
+    // 如果还没选择赛事，不进行检查
+    if (!currentEventId) {
+        console.log('尚未选择赛事');
+        enableApplicationForm();
+        hideApplicationStatus();
+        return;
+    }
+    
+    // 1. 检查 teamApplications（队员申请加入的记录）
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    console.log('所有申请记录总数:', applications.length);
+    
+    const userEventApplications = applications.filter(app => 
+        app.eventId && 
+        app.eventId === currentEventId && 
+        (app.userId === currentUserId || app.applicantName === currentUser)  // 兼容旧数据
+    );
+    
+    console.log('teamApplications中的申请:', userEventApplications);
+    
+    // 2. 检查 playerList（领队直接添加的记录）
+    const playerList = JSON.parse(localStorage.getItem('playerList') || '[]');
+    const userInPlayerList = playerList.find(player => 
+        player.eventId === currentEventId && 
+        (player.name === currentUser || player.real_name === currentUser)
+    );
+    
+    console.log('playerList中的记录:', userInPlayerList);
+    
+    // 检查是否有待审核或已通过的申请
+    const pendingApplication = userEventApplications.find(app => app.status === 'pending');
+    let approvedApplication = userEventApplications.find(app => app.status === 'approved');
+    const rejectedApplications = userEventApplications.filter(app => app.status === 'rejected');
+    
+    // 如果在 playerList 中找到，视为已通过
+    if (userInPlayerList && !approvedApplication) {
+        console.log('userInPlayerList 数据:', userInPlayerList);
+        
+        // 通过 teamId 查找真实的队伍名称
+        let teamName = userInPlayerList.teamName || '未找到队伍';
+        
+        console.log('初始 teamName:', teamName);
+        console.log('teamId:', userInPlayerList.teamId);
+        
+        if (userInPlayerList.teamId) {
+            // 遍历所有 createdTeams_ 键查找队伍
+            console.log('开始遍历 localStorage 查找队伍...');
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('createdTeams_')) {
+                    console.log('检查存储键:', key);
+                    const teams = JSON.parse(localStorage.getItem(key) || '[]');
+                    console.log('该键下的队伍数量:', teams.length);
+                    
+                    const team = teams.find(t => {
+                        console.log(`比较 teamId: ${t.id} === ${userInPlayerList.teamId}`, t.id === userInPlayerList.teamId);
+                        return t.id === userInPlayerList.teamId;
+                    });
+                    
+                    if (team) {
+                        teamName = team.teamName || team.name || teamName;
+                        console.log('找到匹配的队伍:', team);
+                        console.log('队伍名称:', teamName);
+                        break;
+                    }
+                }
+            }
+            console.log('遍历完成，最终 teamName:', teamName);
+        }
+        
+        approvedApplication = {
+            teamName: teamName,
+            applicantName: userInPlayerList.name || userInPlayerList.real_name,
+            phone: userInPlayerList.phone,
+            idCard: userInPlayerList.idCard,
+            status: 'approved',
+            appliedAt: userInPlayerList.submittedAt || new Date().toISOString()
+        };
+        
+        console.log('从 playerList 构造的申请信息:', approvedApplication);
+    }
+    
+    console.log('当前用户当前赛事-待审核申请:', pendingApplication);
+    console.log('当前用户当前赛事-已通过申请:', approvedApplication);
+    console.log('当前用户当前赛事-被拒绝申请:', rejectedApplications);
+    
+    if (approvedApplication) {
+        // 在当前赛事已加入队伍，不能再申请其他队伍
+        console.log('用户已在当前赛事加入队伍');
+        showApplicationStatus('approved', approvedApplication);
+        disableApplicationForm();
+    } else if (pendingApplication) {
+        // 在当前赛事有待审核申请，不能申请其他队伍，但可以取消当前申请
+        console.log('用户在当前赛事有待审核申请');
+        showApplicationStatus('pending', pendingApplication);
+        disableApplicationForm();
+    } else {
+        // 在当前赛事没有申请或申请被拒绝，可以正常申请
+        console.log('用户可以在当前赛事申请加入队伍');
+        if (rejectedApplications.length > 0) {
+            // 显示最近被拒绝的申请信息（作为提示）
+            showRejectedApplicationHint(rejectedApplications[rejectedApplications.length - 1]);
+        } else {
+            hideApplicationStatus();
+        }
+        enableApplicationForm();
+    }
+}
+
+// 显示申请状态
+function showApplicationStatus(status, application) {
+    const statusArea = document.getElementById('applicationStatusArea');
+    if (!statusArea) {
+        console.error('申请状态显示区域不存在');
+        return;
+    }
+    
+    // 通过 teamId 查找真实的队伍名称
+    let teamName = application.teamName || '未知队伍';
+    
+    if (application.teamId && (!application.teamName || application.teamName === '未知队伍')) {
+        console.log('尝试通过 teamId 查找队伍名称:', application.teamId);
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('createdTeams_')) {
+                const teams = JSON.parse(localStorage.getItem(key) || '[]');
+                const team = teams.find(t => t.id === application.teamId);
+                if (team) {
+                    teamName = team.teamName || team.name || teamName;
+                    console.log('找到队伍名称:', teamName);
+                    break;
+                }
+            }
+        }
+    }
+    
+    let statusHtml = '';
+    
+    if (status === 'pending') {
+        // 安全地处理可能为空的字段
+        const appliedAt = application.appliedAt ? new Date(application.appliedAt).toLocaleString('zh-CN') : '未知时间';
+        const applicantName = application.applicantName || '';
+        const applicantPhone = application.applicantPhone || '';
+        const applicantIdCard = application.applicantIdCard || '';
+        const selectedEvents = application.selectedEvents || [];
+        
+        // 生成参赛项目显示内容
+        let eventsDisplay = '';
+        if (selectedEvents.length > 0) {
+            eventsDisplay = selectedEvents.map(event => `<span class="badge bg-primary me-1 mb-1">${event}</span>`).join('');
+        } else {
+            eventsDisplay = '<span class="text-muted">暂无参赛项目</span>';
+        }
+        
+        statusHtml = `
+            <div class="alert alert-warning animate__animated animate__fadeIn" style="border-left: 4px solid #ffc107;">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h5 class="mb-1">
+                            <i class="fas fa-clock me-2"></i>申请审核中
+                        </h5>
+                        <small class="text-muted">您已提交申请，正在等待队伍"${teamName}"审核</small>
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="cancelApplication('${application.id}')" title="取消申请">
+                        <i class="fas fa-times me-1"></i>取消申请
+                    </button>
+                </div>
+                
+                <div class="card bg-light border-0 mt-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-info-circle me-1"></i>已提交的申请信息（只读）
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <strong>队伍名称：</strong>${teamName}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>申请时间：</strong>${appliedAt}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>姓名：</strong>${applicantName}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>联系电话：</strong>${applicantPhone}
+                            </div>
+                            <div class="col-12 mb-2">
+                                <strong>身份证号：</strong>${applicantIdCard}
+                            </div>
+                            <div class="col-12 mb-0">
+                                <strong>参赛项目：</strong>
+                                <div class="mt-1">${eventsDisplay}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (status === 'approved') {
+        // teamName 已经在函数开头通过 teamId 查找过了
+        const appliedAt = application.appliedAt ? new Date(application.appliedAt).toLocaleString('zh-CN') : '未知时间';
+        const applicantName = application.applicantName || application.name || '';
+        const applicantPhone = application.phone || application.applicantPhone || '';
+        const applicantIdCard = application.idCard || application.applicantIdCard || '';
+        const selectedEvents = application.selectedEvents || [];
+        
+        // 生成参赛项目显示内容
+        let eventsDisplay = '';
+        if (selectedEvents.length > 0) {
+            eventsDisplay = selectedEvents.map(event => `<span class="badge bg-primary me-1 mb-1">${event}</span>`).join('');
+        } else {
+            eventsDisplay = '<span class="text-muted">暂无参赛项目</span>';
+        }
+        
+        statusHtml = `
+            <div class="alert alert-success animate__animated animate__fadeIn" style="border-left: 4px solid #28a745;">
+                <div class="mb-3">
+                    <h5 class="mb-1">
+                        <i class="fas fa-check-circle me-2"></i>已加入队伍
+                    </h5>
+                    <small class="text-muted">您已成功加入"${teamName}"</small>
+                </div>
+                
+                <div class="card bg-light border-0 mt-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-id-card me-1"></i>您的队员信息
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <strong>队伍名称：</strong>${teamName}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>加入时间：</strong>${appliedAt}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>姓名：</strong>${applicantName}
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <strong>联系电话：</strong>${applicantPhone}
+                            </div>
+                            <div class="col-12 mb-2">
+                                <strong>身份证号：</strong>${applicantIdCard}
+                            </div>
+                            <div class="col-12 mb-0">
+                                <strong>参赛项目：</strong>
+                                <div class="mt-1">${eventsDisplay}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    statusArea.innerHTML = statusHtml;
+    statusArea.style.display = 'block';
+    statusArea.style.opacity = '1';
+    statusArea.style.transition = 'opacity 0.3s ease-in';
+}
+
+// 显示被拒绝申请的提示
+function showRejectedApplicationHint(rejectedApplication) {
+    const statusArea = document.getElementById('applicationStatusArea');
+    if (!statusArea) {
+        console.error('申请状态显示区域不存在');
+        return;
+    }
+    
+    const teamName = rejectedApplication.teamName || '未知队伍';
+    const appliedAt = rejectedApplication.appliedAt ? new Date(rejectedApplication.appliedAt).toLocaleString('zh-CN') : '未知时间';
+    const applicantName = rejectedApplication.applicantName || '';
+    const applicantPhone = rejectedApplication.applicantPhone || '';
+    const applicantIdCard = rejectedApplication.applicantIdCard || '';
+    
+    const statusHtml = `
+        <div class="alert alert-danger animate__animated animate__fadeIn" style="border-left: 4px solid #dc3545;">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h5 class="mb-1">
+                        <i class="fas fa-times-circle me-2"></i>申请被拒绝
+                    </h5>
+                    <small class="text-muted">您之前申请加入"${teamName}"被领队拒绝，您现在可以申请加入其他队伍</small>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearRejectedApplicationHint()" title="关闭提示">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="card bg-light border-0 mt-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-history me-1"></i>上次申请信息
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <strong>队伍名称：</strong>${teamName}
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <strong>申请时间：</strong>${appliedAt}
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <strong>姓名：</strong>${applicantName}
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <strong>联系电话：</strong>${applicantPhone}
+                        </div>
+                        <div class="col-12 mb-2">
+                            <strong>身份证号：</strong>${applicantIdCard}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    statusArea.innerHTML = statusHtml;
+    statusArea.style.display = 'block';
+    statusArea.style.opacity = '1';
+    statusArea.style.transition = 'opacity 0.3s ease-in';
+}
+
+// 清除被拒绝申请的提示
+function clearRejectedApplicationHint() {
+    hideApplicationStatus();
+}
+
+// 隐藏申请状态
+function hideApplicationStatus() {
+    const statusArea = document.getElementById('applicationStatusArea');
+    if (statusArea) {
+        statusArea.style.transition = 'opacity 0.3s ease-out';
+        statusArea.style.opacity = '0';
+        setTimeout(() => {
+            statusArea.style.display = 'none';
+        }, 300);
+    }
+}
+
+// 禁用申请表单
+function disableApplicationForm() {
+    const form = document.getElementById('joinTeamForm');
+    if (!form) {
+        console.error('申请表单不存在');
+        return;
+    }
+    
+    const inputs = form.querySelectorAll('input, select, button');
+    inputs.forEach(input => {
+        input.disabled = true;
+        input.style.opacity = '0.6';
+    });
+    
+    // 添加禁用状态的视觉提示
+    form.style.pointerEvents = 'none';
+    form.style.opacity = '0.7';
+}
+
+// 启用申请表单
+function enableApplicationForm() {
+    const form = document.getElementById('joinTeamForm');
+    if (!form) {
+        console.error('申请表单不存在');
+        return;
+    }
+    
+    const inputs = form.querySelectorAll('input, select, button');
+    inputs.forEach(input => {
+        input.disabled = false;
+        input.style.opacity = '1';
+    });
+    
+    // 移除禁用状态的视觉提示
+    form.style.pointerEvents = 'auto';
+    form.style.opacity = '1';
+}
+
+// 取消申请
+function cancelApplication(applicationId) {
+    console.log('取消申请:', applicationId);
+    
+    // 显示确认对话框
+    if (!confirm('确定要取消申请吗？取消后您可以申请加入其他队伍。')) {
+        return;
+    }
+    
+    // 显示取消中的状态
+    showMessage('正在取消申请...', 'info');
+    
+    // 从localStorage中删除申请记录
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const canceledApplication = applications.find(app => app.id === applicationId);
+    const filteredApplications = applications.filter(app => app.id !== applicationId);
+    localStorage.setItem('teamApplications', JSON.stringify(filteredApplications));
+    
+    console.log('申请已取消，ID:', applicationId);
+    console.log('取消的申请信息:', canceledApplication);
+    
+    // 添加动画效果
+    const statusArea = document.getElementById('applicationStatusArea');
+    if (statusArea) {
+        statusArea.style.transition = 'opacity 0.3s ease-out';
+        statusArea.style.opacity = '0.5';
+        
+        setTimeout(() => {
+            showMessage('申请已取消，您现在可以申请加入其他队伍', 'success');
+            // 重新检查申请状态
+            checkUserApplicationStatus();
+        }, 300);
+    } else {
+        showMessage('申请已取消，您现在可以申请加入其他队伍', 'success');
+        checkUserApplicationStatus();
+    }
+}
+
+// 保存队伍申请信息
+function saveTeamApplication(teamId, applicationData) {
+    // 获取现有的申请信息
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    
+    // 获取当前用户信息
+    const currentUser = getCurrentUser();
+    const currentUserId = getCurrentUserId();  // 获取数字ID
+    
+    if (!currentUser || !currentUserId) {
+        console.error('无法获取当前用户信息');
+        return;
+    }
+    
+    console.log('保存申请记录 - 用户名:', currentUser, '用户ID:', currentUserId);
+    
+    // 创建新的申请记录（队员申请），包含赛事ID和用户ID以实现完全隔离
+    const newApplication = {
+        id: 'app_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        type: 'player',  // 队员申请类型
+        teamId: teamId,
+        eventId: currentEventId, // 赛事ID隔离
+        userId: currentUserId, // 用户数字ID（用于后端通知）
+        applicantName: applicationData.name,
+        applicantPhone: applicationData.phone,
+        applicantIdCard: applicationData.idCard,
+        teamName: applicationData.teamName,
+        eventName: applicationData.eventName,
+        submittedAt: applicationData.appliedAt || new Date().toISOString(),
+        appliedAt: applicationData.appliedAt || new Date().toISOString(),
+        status: applicationData.status,
+        selectedEvents: applicationData.selectedEvents || [] // 保存勾选的项目
+    };
+    
+    // 添加到申请列表
+    applications.push(newApplication);
+    
+    // 保存到localStorage
+    localStorage.setItem('teamApplications', JSON.stringify(applications));
+    
+    console.log('队伍申请信息已保存（包含赛事ID和用户ID）:', newApplication);
+}
+// 添加选中样式的CSS
+const style = document.createElement('style');
+style.textContent = `
+.event-card.selected {
+    border: 3px solid #0d6efd;
+    box-shadow: 0 12px 35px rgba(13, 110, 253, 0.3);
+}
+`;
+document.head.appendChild(style);
+
+// 分类展开折叠功能
+function toggleCategory(element) {
+    // 切换当前元素的激活状态
+    element.classList.toggle('active');
+    
+    // 查找下一个兄弟元素（子分类容器）
+    let nextElement = element.nextElementSibling;
+    
+    // 检查是否存在子分类容器
+    if (nextElement && (nextElement.classList.contains('category-level-2') || nextElement.classList.contains('category-level-3'))) {
+        // 切换显示状态
+        if (nextElement.style.display === 'none' || nextElement.style.display === '') {
+            nextElement.style.display = 'block';
+            // 动画效果
+            nextElement.style.opacity = '0';
+            nextElement.style.transform = 'translateY(-10px)';
+            nextElement.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            
+            // 触发重排后设置最终状态
+            setTimeout(() => {
+                nextElement.style.opacity = '1';
+                nextElement.style.transform = 'translateY(0)';
+            }, 10);
+        } else {
+            // 隐藏动画
+            nextElement.style.opacity = '0';
+            nextElement.style.transform = 'translateY(-10px)';
+            
+            // 动画结束后隐藏
+            setTimeout(() => {
+                nextElement.style.display = 'none';
+            }, 300);
+        }
+    }
+}
+
+// ==================== 搜索功能 ====================
+// 搜索赛事项目
+function searchCategories() {
+    const searchInput = document.getElementById('categorySearchInput');
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const resultInfo = document.getElementById('searchResultInfo');
+    const resultCount = document.getElementById('searchResultCount');
+    
+    // 显示/隐藏清除按钮
+    clearBtn.style.display = searchTerm ? 'block' : 'none';
+    
+    // 获取所有分类项
+    const allCategories = document.querySelectorAll('.category-item');
+    const allDetailItems = document.querySelectorAll('.category-item.category-detail');
+    
+    let matchCount = 0;
+    
+    if (!searchTerm) {
+        // 如果搜索为空，恢复所有项目
+        allCategories.forEach(item => {
+            item.style.display = '';
+            item.classList.remove('search-highlight');
+            // 移除高亮
+            const labels = item.querySelectorAll('label');
+            labels.forEach(label => {
+                if (label.innerHTML.includes('<mark>')) {
+                    label.innerHTML = label.textContent;
+                }
+            });
+        });
+        
+        // 隐藏所有二级三级分类
+        document.querySelectorAll('.category-level-2, .category-level-3').forEach(level => {
+            level.style.display = 'none';
+        });
+        
+        // 隐藏搜索结果信息
+        resultInfo.style.display = 'none';
+        return;
+    }
+    
+    // 首先隐藏所有详细项
+    allDetailItems.forEach(item => {
+        const label = item.querySelector('label');
+        if (label) {
+            const text = label.textContent.toLowerCase();
+            
+            if (text.includes(searchTerm)) {
+                // 匹配的项目
+                item.style.display = '';
+                item.classList.add('search-highlight');
+                matchCount++;
+                
+                // 高亮匹配文本
+                const originalText = label.textContent;
+                const regex = new RegExp(`(${searchTerm})`, 'gi');
+                label.innerHTML = originalText.replace(regex, '<mark style="background: #ffeb3b; padding: 2px 4px; border-radius: 3px; font-weight: 600;">$1</mark>');
+                
+                // 展开包含此项的所有父级分类
+                let parent = item.parentElement;
+                while (parent) {
+                    if (parent.classList.contains('category-level-2') || parent.classList.contains('category-level-3')) {
+                        parent.style.display = 'block';
+                        parent.style.opacity = '1';
+                        parent.style.transform = 'translateY(0)';
+                        
+                        // 激活对应的标题
+                        const prevSibling = parent.previousElementSibling;
+                        if (prevSibling && prevSibling.classList.contains('category-item')) {
+                            prevSibling.classList.add('active');
+                        }
+                    }
+                    parent = parent.parentElement;
+                }
+            } else {
+                // 不匹配的项目
+                item.style.display = 'none';
+                item.classList.remove('search-highlight');
+                // 移除高亮
+                if (label.innerHTML.includes('<mark>')) {
+                    label.innerHTML = label.textContent;
+                }
+            }
+        }
+    });
+    
+    // 处理分类标题的显示
+    document.querySelectorAll('.category-sub').forEach(sub => {
+        const parent = sub.nextElementSibling;
+        if (parent) {
+            const visibleItems = parent.querySelectorAll('.category-item.category-detail:not([style*="display: none"])');
+            if (visibleItems.length > 0) {
+                sub.style.display = '';
+            } else {
+                sub.style.display = 'none';
+            }
+        }
+    });
+    
+    // 显示搜索结果信息
+    resultCount.textContent = matchCount;
+    resultInfo.style.display = 'block';
+    
+    // 如果没有匹配结果
+    if (matchCount === 0) {
+        resultInfo.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>未找到匹配的项目，请尝试其他关键词';
+        resultInfo.style.background = '#fff3cd';
+        resultInfo.style.color = '#856404';
+    } else {
+        resultInfo.innerHTML = `<i class="fas fa-check-circle me-1"></i>找到 <strong id="searchResultCount">${matchCount}</strong> 个匹配项目`;
+        resultInfo.style.background = '#e3f2fd';
+        resultInfo.style.color = '#1976d2';
+    }
+}
+
+// 清除搜索
+function clearCategorySearch() {
+    const searchInput = document.getElementById('categorySearchInput');
+    searchInput.value = '';
+    searchCategories();
+    searchInput.focus();
+}
+
+// 切换"其他拳术"输入框的显示/隐藏
+function toggleOtherMartialArt(checkbox) {
+    const input = document.getElementById('otherMartialArtInput');
+    if (checkbox.checked) {
+        input.style.display = 'block';
+        input.focus();
+    } else {
+        input.style.display = 'none';
+        input.value = '';
+    }
+}
+
+// 切换"其他器械"输入框的显示/隐藏
+function toggleOtherWeapon(checkbox) {
+    const input = document.getElementById('otherWeaponInput');
+    if (checkbox.checked) {
+        input.style.display = 'block';
+        input.focus();
+    } else {
+        input.style.display = 'none';
+        input.value = '';
+    }
+}
+
+// 限制每个大类只能选择一个项目
+function limitCategorySelection(checkbox) {
+    if (!checkbox.checked) {
+        return; // 如果是取消勾选，不做处理
+    }
+    
+    // 获取复选框ID，格式为 category-X-Y-Z
+    const checkboxId = checkbox.id;
+    const match = checkboxId.match(/category-(\d+)-/);
+    
+    if (!match) {
+        return;
+    }
+    
+    const categoryNumber = match[1]; // 获取大类编号（1=拳术类，2=器械类）
+    
+    // 查找同一大类下的所有复选框
+    const allCheckboxes = document.querySelectorAll(`input[type="checkbox"][id^="category-${categoryNumber}-"]`);
+    
+    // 取消其他复选框的选中状态
+    allCheckboxes.forEach(cb => {
+        if (cb !== checkbox && cb.checked) {
+            cb.checked = false;
+            
+            // 如果是"其他拳术"或"其他器械"，也要隐藏输入框
+            if (cb.id === 'category-1-3-1') {
+                toggleOtherMartialArt(cb);
+            } else if (cb.id === 'category-2-3-1') {
+                toggleOtherWeapon(cb);
+            }
+        }
+    });
+}
+
+// 辅助函数 - 从赛事大全页面复制
+function formatDateTime(dateTimeStr) {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+// 计算报名状态
+function getRegistrationStatus(event) {
+    const now = new Date();
+    const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+    const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+    
+    // 如果没有设置报名时间，默认显示为报名进行中
+    if (!regStart && !regEnd) {
+        return { text: '报名进行中', color: 'bg-success' };
+    }
+    
+    if (regStart && now < regStart) {
+        return { text: '报名未开始', color: 'bg-secondary' };
+    } else if (regEnd && now > regEnd) {
+        return { text: '报名已截止', color: 'bg-danger' };
+    } else {
+        return { text: '报名进行中', color: 'bg-success' };
+    }
+}
+
+// 计算比赛状态
+function getEventStatus(event) {
+    const now = new Date();
+    const eventStart = event.start_date ? new Date(event.start_date) : null;
+    const eventEnd = event.end_date ? new Date(event.end_date) : null;
+    
+    if (!eventStart || !eventEnd) {
+        return { text: '赛事未设置', color: 'bg-light text-dark' };
+    }
+    
+    if (now < eventStart) {
+        return { text: '赛事未开始', color: 'bg-warning' };
+    } else if (now >= eventStart && now <= eventEnd) {
+        return { text: '赛事进行中', color: 'bg-info' };
+    } else {
+        return { text: '赛事已结束', color: 'bg-dark' };
+    }
+}
+
+// 删除队伍功能
+function deleteTeam() {
+    // 显示自定义确认弹窗
+    showDeleteConfirmModal();
+}
+
+// 显示删除确认弹窗
+function showDeleteConfirmModal() {
+    const modalHtml = `
+        <div class="modal fade" id="deleteTeamModal" tabindex="-1" aria-labelledby="deleteTeamModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header border-0 pb-0">
+                        <h5 class="modal-title text-danger" id="deleteTeamModalLabel">
+                            <i class="fas fa-exclamation-triangle me-2"></i>确定要删除这个队伍吗？
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body pt-2">
+                        <p class="text-muted mb-0">删除后将无法恢复，所有相关的申请信息也会被清除。</p>
+                    </div>
+                    <div class="modal-footer border-0 pt-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-danger" onclick="confirmDeleteTeam()">确定删除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除已存在的弹窗
+    const existingModal = document.getElementById('deleteTeamModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 添加弹窗到页面
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // 显示弹窗
+    const modal = new bootstrap.Modal(document.getElementById('deleteTeamModal'));
+    modal.show();
+    
+    // 弹窗关闭后清理DOM
+    document.getElementById('deleteTeamModal').addEventListener('hidden.bs.modal', function () {
+        this.remove();
+    });
+}
+
+// 确认删除队伍
+async function confirmDeleteTeam() {
+    const modalEl = document.getElementById('deleteTeamModal');
+    if (modalEl) {
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
+    }
+
+    if (!currentEventId) {
+        showMessage('无法确定要删除的队伍', 'error');
+        return;
+    }
+
+    const existingTeam = getExistingTeam(currentEventId);
+    if (!existingTeam || !existingTeam.id) {
+        showMessage('未找到需要删除的队伍', 'error');
+        return;
+    }
+
+    try {
+        showMessage('正在删除队伍...', 'info');
+        const response = await fetch(`/api/teams/${existingTeam.id}`, {
+            method: 'DELETE'
+        });
+        let result = null;
+        try {
+            result = await response.json();
+        } catch (e) {
+            result = null;
+        }
+
+        if (!response.ok || !result || result.success === false) {
+            const msg = (result && result.message) ? result.message : '删除队伍失败，请稍后重试';
+            showMessage(msg, 'error');
+            return;
+        }
+
+        purgeLocalTeamData(existingTeam.id, currentEventId, existingTeam.teamName || existingTeam.name);
+        removeTeamDraft(currentEventId);
+        clearTeamForm();
+        setCreateMode();
+        window.teamListNeedsUpdate = true;
+
+        showMessage('队伍删除成功！', 'success');
+        setTimeout(() => {
+            goBackToRoleSelection();
+        }, 1000);
+    } catch (error) {
+        console.error('删除队伍请求异常:', error);
+        showMessage('删除队伍失败，请检查网络或稍后再试', 'error');
+    }
+}
+
+// 清空队伍表单
+function clearTeamForm() {
+    // 清空所有表单字段
+    $('#teamName').val('');
+    $('#teamAddress').val('');
+    $('#teamDescription').val('');
+    $('#leaderName').val('');
+    $('#leaderPosition').val('领队'); // 职务始终保持为"领队"
+    $('#leaderPhone').val('');
+    $('#leaderEmail').val('');
+    
+    console.log('队伍表单已清空');
+}
+
+// 根据事件ID自动选择赛事
+function autoSelectEventById(eventId) {
+    console.log('尝试自动选择赛事，ID:', eventId);
+    
+    // 首先尝试从API获取赛事信息
+    $.ajax({
+        url: `/api/events/${eventId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.event) {
+                const event = response.event;
+                console.log('找到赛事信息:', event);
+                
+                // 设置选中的赛事
+                selectedEventId = event.event_id;
+                selectedEventName = event.name;
+                
+                // 更新页面显示
+                updateSelectionDetails();
+                
+                // 显示确认按钮
+                $('#confirmBtn').show();
+                
+                // 直接跳转到角色选择页面，不显示弹窗
+                confirmSelection();
+            } else {
+                console.error('未找到指定的赛事');
+                showMessage('未找到指定的赛事，请手动选择', 'warning');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('获取赛事信息失败:', error);
+            showMessage('获取赛事信息失败，请手动选择', 'error');
+        }
+    });
+}
+
+// 移除了旧的模拟数据代码，现在使用真实API数据
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 为所有拳术类和器械类的复选框添加单选限制
+    const categoryCheckboxes = document.querySelectorAll('input[type="checkbox"][id^="category-1-"], input[type="checkbox"][id^="category-2-"]');
+    categoryCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            limitCategorySelection(this);
+        });
+    });
+    
+    // 检查URL参数，如果有event_id则自动选择对应赛事
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const source = urlParams.get('source');
+    
+    // 如果有source参数，说明是从其他页面跳转过来的
+    if (source) {
+        console.log('来源页面:', source);
+        // 保存source到sessionStorage
+        sessionStorage.setItem('eventSelectionSource', source);
+        // 初始化自动跳转功能
+        checkAndRedirectAfterSelection();
+    } else {
+        // 清除之前保存的source
+        sessionStorage.removeItem('eventSelectionSource');
+    }
+    
+    if (eventId) {
+        console.log('检测到URL参数 event_id:', eventId);
+        
+        // 检测是否有 auto_role 参数
+        const autoRole = urlParams.get('auto_role');
+        console.log('检测到 auto_role 参数:', autoRole);
+        
+        if (autoRole === 'player') {
+            // 自动选择队员角色，直接进入加入队伍页面
+            console.log('自动进入队员模式，跳过角色选择');
+            
+            // 设置当前赛事ID
+            currentEventId = parseInt(eventId);
+            selectedEventId = parseInt(eventId);
+            
+            // 从 sessionStorage 获取赛事名称
+            const eventName = sessionStorage.getItem('selectedEventName') || urlParams.get('event_name') || '当前赛事';
+            selectedEventName = eventName;
+            
+            console.log('设置赛事ID:', currentEventId, '赛事名称:', selectedEventName);
+            
+            // 立即隐藏不需要的页面，减少视觉延迟
+            const eventsListPage = document.getElementById('eventsListPage');
+            const roleSelectionPage = document.getElementById('roleSelection');
+            
+            if (eventsListPage) eventsListPage.style.display = 'none';
+            if (roleSelectionPage) roleSelectionPage.style.display = 'none';
+            
+            // 极短延迟，仅确保 DOM 完全加载
+            setTimeout(() => {
+                // 直接调用 joinTeam() 函数显示加入队伍页面
+                console.log('调用 joinTeam() 函数');
+                joinTeam();
+            }, 50);
+        } else if (autoRole === 'leader') {
+            // 自动选择领队角色，直接进入编辑队伍资料页面
+            console.log('自动进入领队模式，跳过角色选择');
+            
+            // 设置当前赛事ID
+            currentEventId = parseInt(eventId);
+            selectedEventId = parseInt(eventId);
+            
+            // 从 sessionStorage 获取赛事名称
+            const eventName = sessionStorage.getItem('selectedEventName') || urlParams.get('event_name') || '当前赛事';
+            selectedEventName = eventName;
+            
+            console.log('设置赛事ID:', currentEventId, '赛事名称:', selectedEventName);
+            
+            // 立即隐藏不需要的页面
+            const eventsListPage = document.getElementById('eventsListPage');
+            const roleSelectionPage = document.getElementById('roleSelection');
+            
+            if (eventsListPage) eventsListPage.style.display = 'none';
+            if (roleSelectionPage) roleSelectionPage.style.display = 'none';
+            
+            // 极短延迟，仅确保 DOM 完全加载
+            setTimeout(() => {
+                // 直接调用 showTeamLeaderForm() 函数显示队伍资料编辑页面
+                console.log('调用 showTeamLeaderForm() 函数');
+                showTeamLeaderForm();
+            }, 50);
+        } else {
+            // 没有 auto_role 参数，正常流程：自动选择赛事并显示角色选择页面
+            setTimeout(() => {
+                autoSelectEventById(eventId);
+            }, 500);
+        }
+    }
+    
+    // 为队伍名称输入框添加实时验证
+    const teamNameInput = document.getElementById('teamName');
+    if (teamNameInput) {
+        let validationTimeout;
+        
+        teamNameInput.addEventListener('input', function() {
+            // 清除之前的定时器
+            clearTimeout(validationTimeout);
+            
+            // 延迟500ms执行验证，避免频繁检查
+            validationTimeout = setTimeout(() => {
+                const teamName = this.value.trim();
+                
+                // 只有在有队伍名称且当前有选中赛事时才进行验证
+                if (teamName && currentEventId) {
+                    validateTeamNameInRealTime(teamName);
+                } else {
+                    // 清除验证提示
+                    clearTeamNameValidation();
+                }
+            }, 500);
+        });
+    }
+    
+    // 全局跳转拦截器 - 自动重定向到正确的页面
+    const originalLocationSetter = Object.getOwnPropertyDescriptor(window, 'location').set;
+    Object.defineProperty(window, 'location', {
+        set: function(value) {
+            const source = sessionStorage.getItem('eventSelectionSource');
+            
+            // 如果有source且跳转目标是add_staff或staff_registration，则重定向
+            if (source && typeof value === 'string' && (value.includes('add_staff') || value.includes('staff_registration'))) {
+                console.log('检测到跳转到随行人员页面，重定向到:', source);
+                
+                // 提取赛事参数
+                const eventIdMatch = value.match(/event_id=([^&]+)/);
+                const eventNameMatch = value.match(/event_name=([^&]+)/);
+                
+                const eventId = eventIdMatch ? eventIdMatch[1] : sessionStorage.getItem('selectedEventId');
+                const eventName = eventNameMatch ? decodeURIComponent(eventNameMatch[1]) : sessionStorage.getItem('selectedEventName');
+                
+                // 调用重定向函数
+                redirectAfterEventSelection(eventId, eventName);
+                return;
+            }
+            
+            originalLocationSetter.call(window, value);
+        },
+        get: function() {
+            return window.location;
+        }
+    });
+});
+
+// 全局监听location.href的修改
+window.addEventListener('beforeunload', function() {
+    // 检查是否需要重定向
+    const source = sessionStorage.getItem('eventSelectionSource');
+    if (source && (window.location.href.includes('add_staff') || window.location.href.includes('staff_registration'))) {
+        const eventId = sessionStorage.getItem('selectedEventId');
+        const eventName = sessionStorage.getItem('selectedEventName');
+        
+        if (eventId && eventName) {
+            redirectAfterEventSelection(eventId, eventName);
+        }
+    }
+});
+
+// 实时验证队伍名称
+function validateTeamNameInRealTime(teamName) {
+    const existingTeam = getExistingTeam(currentEventId);
+    
+    // 如果是修改模式且名称没有改变，不需要验证
+    if (existingTeam && teamName === existingTeam.teamName) {
+        clearTeamNameValidation();
+        return;
+    }
+    
+    // 检查是否重复
+    if (isTeamNameDuplicateInEvent(teamName, currentEventId)) {
+        showTeamNameValidationError(`队伍名称"${teamName}"在该赛事中已存在`);
+    } else {
+        showTeamNameValidationSuccess('队伍名称可用');
+    }
+}
+
+// 显示队伍名称验证错误
+function showTeamNameValidationError(message) {
+    const teamNameInput = document.getElementById('teamName');
+    const existingFeedback = teamNameInput.parentNode.querySelector('.validation-feedback');
+    
+    // 移除现有的验证提示
+    if (existingFeedback) {
+        existingFeedback.remove();
+    }
+    
+    // 添加错误样式
+    teamNameInput.classList.remove('is-valid');
+    teamNameInput.classList.add('is-invalid');
+    
+    // 添加错误提示
+    const feedback = document.createElement('div');
+    feedback.className = 'invalid-feedback validation-feedback';
+    feedback.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i>${message}`;
+    teamNameInput.parentNode.appendChild(feedback);
+}
+
+// 显示队伍名称验证成功
+function showTeamNameValidationSuccess(message) {
+    const teamNameInput = document.getElementById('teamName');
+    const existingFeedback = teamNameInput.parentNode.querySelector('.validation-feedback');
+    
+    // 移除现有的验证提示
+    if (existingFeedback) {
+        existingFeedback.remove();
+    }
+    
+    // 添加成功样式
+    teamNameInput.classList.remove('is-invalid');
+    teamNameInput.classList.add('is-valid');
+    
+    // 添加成功提示
+    const feedback = document.createElement('div');
+    feedback.className = 'valid-feedback validation-feedback';
+    feedback.innerHTML = `<i class="fas fa-check-circle me-1"></i>${message}`;
+    teamNameInput.parentNode.appendChild(feedback);
+}
+
+// 清除队伍名称验证提示
+function clearTeamNameValidation() {
+    const teamNameInput = document.getElementById('teamName');
+    const existingFeedback = teamNameInput.parentNode.querySelector('.validation-feedback');
+    
+    if (existingFeedback) {
+        existingFeedback.remove();
+    }
+    
+    teamNameInput.classList.remove('is-valid', 'is-invalid');
+}
+
+// 返回首页功能
+function goBack() {
+    // 返回首页按钮始终返回到真正的首页
+    window.location.href = '/';
+}
+
+// 选择赛事后跳转到对应页面
+function redirectAfterEventSelection(eventId, eventName) {
+    // 从sessionStorage读取来源页面
+    const source = sessionStorage.getItem('eventSelectionSource');
+    
+    // 构建跳转URL，携带赛事信息
+    let redirectUrl = '';
+    const eventParams = eventId && eventName ? `?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}` : '';
+    
+    // 根据来源参数决定跳转的页面
+    if (source === 'player_list') {
+        redirectUrl = '/player_list' + eventParams;
+        console.log('跳转到参赛选手页面:', redirectUrl);
+    } else if (source === 'player_registration' || source === 'staff') {
+        redirectUrl = '/player_registration_list' + eventParams;
+        console.log('跳转到队员报名人员列表:', redirectUrl);
+    } else if (source === 'staff_list') {
+        redirectUrl = '/staff_list' + eventParams;
+        console.log('跳转到随行人员页面:', redirectUrl);
+    } else if (source === 'summary') {
+        const existingTeam = eventId ? getExistingTeam(eventId) : null;
+        const teamParam = existingTeam && existingTeam.id ? `&team_id=${encodeURIComponent(existingTeam.id)}` : '';
+        redirectUrl = '/data_summary' + eventParams + teamParam;
+        console.log('跳转到资料汇总页面:', redirectUrl);
+    } else {
+        // 默认跳转到添加随行人员页面
+        redirectUrl = '/add_staff' + eventParams;
+        console.log('跳转到添加随行人员页面:', redirectUrl);
+    }
+    
+    // 清除sessionStorage中的source信息
+    sessionStorage.removeItem('eventSelectionSource');
+    
+    // 执行跳转
+    window.location.href = redirectUrl;
+}
+
+// 检查是否需要在选择赛事后自动跳转
+function checkAndRedirectAfterSelection() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('source');
+    
+    // 如果有source参数，设置一个标记
+    if (source && source !== 'team') {
+        // 只有非team来源才监听自动跳转，team来源应该停留在角色选择页面
+        window.addEventListener('eventSelected', function(e) {
+            const eventData = e.detail;
+            redirectAfterEventSelection(eventData.eventId, eventData.eventName);
+        });
+    }
+}
+
+// 触发赛事选择事件（在保存赛事选择后调用此函数）
+function triggerEventSelectedEvent(eventId, eventName) {
+    const event = new CustomEvent('eventSelected', {
+        detail: { eventId: eventId, eventName: eventName }
+    });
+    window.dispatchEvent(event);
+}
+
+</script>
+{% endblock %}

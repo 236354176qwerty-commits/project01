@@ -1,0 +1,1254 @@
+{% extends "base.html" %}
+
+{% block title %}赛事大全 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<!-- 页面标题和操作栏 - 统一优雅设计 -->
+<div class="page-header-card">
+    <div class="page-header-content">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="fas fa-calendar-alt me-2"></i>赛事大全
+                </h1>
+                <p class="page-description">
+                    管理和查看所有武术赛事信息
+                </p>
+            </div>
+            <div class="btn-group" role="group">
+                {% if user_role in ['admin', 'super_admin'] %}
+                <button type="button" class="btn btn-primary" onclick="showCreateEventModal()">
+                    <i class="fas fa-plus me-1"></i>创建赛事
+                </button>
+                {% endif %}
+                <button type="button" class="btn btn-primary" onclick="refreshEvents()">
+                    <i class="fas fa-sync-alt me-1"></i>刷新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #28a745 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+}
+
+.page-header-content {
+    padding: 1.75rem 2rem;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.page-title i {
+    color: #28a745;
+}
+
+.page-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+}
+</style>
+
+<!-- 筛选和搜索栏 -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="searchInput" class="form-label">搜索赛事</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="searchInput" placeholder="输入赛事名称或地点">
+                    <button class="btn btn-outline-secondary" type="button" onclick="searchEvents()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label for="registrationFilter" class="form-label">报名状态筛选</label>
+                <select class="form-select" id="registrationFilter" onchange="filterEvents()">
+                    <option value="">全部报名状态</option>
+                    <option value="reg_not_started">报名未开始</option>
+                    <option value="reg_ongoing">报名进行中</option>
+                    <option value="reg_ended">报名已截止</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="eventTimeFilter" class="form-label">比赛状态筛选</label>
+                <select class="form-select" id="eventTimeFilter" onchange="filterEvents()">
+                    <option value="">全部比赛状态</option>
+                    <option value="event_not_started">比赛未开始</option>
+                    <option value="event_ongoing">比赛进行中</option>
+                    <option value="event_ended">比赛已结束</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button class="btn btn-primary" onclick="clearFilters()">
+                        <i class="fas fa-undo me-1"></i>重置筛选
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 赛事列表 -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">赛事列表</h5>
+        <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="viewMode" id="cardView" checked>
+            <label class="btn btn-outline-primary" for="cardView">
+                <i class="fas fa-th-large"></i>
+            </label>
+            <input type="radio" class="btn-check" name="viewMode" id="listView">
+            <label class="btn btn-outline-primary" for="listView">
+                <i class="fas fa-list"></i>
+            </label>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- 加载状态 -->
+        <div id="loading-events" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3 text-muted">正在加载赛事信息...</p>
+        </div>
+
+        <!-- 卡片视图 -->
+        <div id="events-card-view" class="row g-4" style="display: none;">
+            <!-- 赛事卡片将通过JavaScript动态生成 -->
+        </div>
+
+        <!-- 列表视图 -->
+        <div id="events-list-view" style="display: none;">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>赛事名称</th>
+                            <th>地点</th>
+                            <th>开始时间</th>
+                            <th>参赛人数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="events-table-body">
+                        <!-- 表格行将通过JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 无数据提示 -->
+        <div id="no-events" class="text-center py-5" style="display: none;">
+            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">暂无赛事信息</h5>
+            <p class="text-muted">
+                {% if user_role in ['admin', 'super_admin'] %}
+                点击上方"创建赛事"按钮开始创建第一个赛事
+                {% else %}
+                请等待管理员创建赛事
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <!-- 分页控件 -->
+    <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3">
+        <div class="text-muted">
+            <span id="pageInfo">第 1 页，共 1 页</span>
+            <span class="ms-3" id="totalInfo">共 0 个赛事</span>
+        </div>
+        <nav>
+            <ul class="pagination mb-0">
+                <li class="page-item" id="prevPage">
+                    <a class="page-link" href="#" onclick="changePage(currentPage - 1); return false;">上一页</a>
+                </li>
+                <li class="page-item active" id="currentPageItem">
+                    <span class="page-link" id="currentPageSpan" style="color: #fff; background-color: #0d6efd; border-color: #0d6efd;">1</span>
+                </li>
+                <li class="page-item" id="nextPage">
+                    <a class="page-link" href="#" onclick="changePage(currentPage + 1); return false;">下一页</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- 引入共用的创建赛事模态框 -->
+{% include 'components/create_event_modal.html' %}
+
+<!-- 赛事详情模态框 -->
+<div class="modal fade" id="eventDetailModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventDetailTitle">赛事详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="eventDetailContent">
+                <!-- 详情内容将通过JavaScript动态生成 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <div id="eventDetailActions">
+                    <!-- 操作按钮将根据权限动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>确认删除
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">确定要删除赛事 <strong id="deleteEventName"></strong> 吗？</p>
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>警告：</strong>此操作不可恢复，删除后所有相关数据将被永久清除！
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>取消
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-times me-2"></i>确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/event_modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/event_fees.js') }}"></script>
+
+<style>
+/* 赛事详情模态框样式优化 */
+#eventDetailModal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+#eventDetailModal .modal-body p {
+    word-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+/* 赛事描述区域特殊样式 */
+#eventDetailModal .modal-body .mt-3 {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+#eventDetailModal .modal-body .mt-3 p {
+    margin-bottom: 0;
+    max-height: none;
+}
+
+/* 滚动条样式优化 */
+#eventDetailModal .modal-body::-webkit-scrollbar,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar {
+    width: 8px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-track,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-thumb,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-thumb:hover,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 解决模态框层级问题 - 确保编辑模态框显示在详情模态框前面 */
+#eventModal {
+    z-index: 1060 !important;
+}
+
+#eventModal .modal-backdrop {
+    z-index: 1059 !important;
+}
+
+/* 当编辑模态框打开时，降低详情模态框的层级 */
+.modal-backdrop.show ~ #eventDetailModal {
+    z-index: 1040 !important;
+}
+
+/* 去掉所有模态框的背景遮罩 */
+.modal-backdrop {
+    display: none !important;
+}
+</style>
+
+<script>
+let currentPage = 1;
+let currentFilters = {};
+let allEvents = [];
+let filteredEvents = [];  // 筛选后的赛事
+let totalPages = 1;  // 总页数
+const eventsPerPage = 9;  // 每页显示9个赛事（3x3）
+const canEdit = {{ 'true' if user_role in ['admin', 'super_admin'] else 'false' }};
+
+$(document).ready(function() {
+    // 加载赛事列表
+    loadEvents();
+    
+    // 检查URL参数
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 如果有action=create则自动显示创建模态框
+    if (urlParams.get('action') === 'create') {
+        showCreateEventModal();
+        // 清除URL参数，避免刷新时重复显示
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // 如果有id参数，则在赛事加载完成后自动显示该赛事详情
+    const eventId = urlParams.get('id');
+    if (eventId) {
+        // 延迟执行，等待赛事数据加载完成
+        setTimeout(function() {
+            viewEventDetail(parseInt(eventId));
+            // 清除URL参数，避免刷新时重复显示
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 500);
+    }
+    
+    // 视图切换
+    $('input[name="viewMode"]').change(function() {
+        toggleViewMode();
+    });
+    
+    // 搜索框回车事件
+    $('#searchInput').on('keypress', function(e) {
+        if (e.which === 13) {
+            searchEvents();
+        }
+    });
+    
+    // 确认删除按钮事件
+    $('#confirmDeleteBtn').on('click', function() {
+        if (deleteEventId) {
+            $('#deleteConfirmModal').modal('hide');
+            deleteEvent(deleteEventId);
+            deleteEventId = null;
+        }
+    });
+});
+
+function loadEvents(page = 1) {
+    currentPage = page;
+    
+    showLoading();
+    
+    $.ajax({
+        url: '/api/events/',
+        method: 'GET',
+        data: {
+            page: 1,
+            page_size: 1000,  // 获取所有赛事，前端分页
+            ...currentFilters
+        },
+        success: function(response) {
+            if (response.success) {
+                allEvents = response.events;
+                filteredEvents = response.events;  // 初始时所有赛事都是筛选结果
+                displayEventsWithPagination();
+            } else {
+                showNoEvents();
+            }
+        },
+        error: function() {
+            showNoEvents();
+        },
+        complete: function() {
+            hideLoading();
+        }
+    });
+}
+
+// 分页显示赛事
+function displayEventsWithPagination() {
+    if (filteredEvents.length === 0) {
+        showNoEvents();
+        return;
+    }
+    
+    // 计算总页数
+    totalPages = Math.ceil(filteredEvents.length / eventsPerPage);
+    
+    // 确保当前页在有效范围内
+    if (currentPage > totalPages) {
+        currentPage = totalPages;
+    }
+    if (currentPage < 1) {
+        currentPage = 1;
+    }
+    
+    // 获取当前页的赛事
+    const startIndex = (currentPage - 1) * eventsPerPage;
+    const endIndex = startIndex + eventsPerPage;
+    const currentPageEvents = filteredEvents.slice(startIndex, endIndex);
+    
+    // 显示赛事
+    displayEvents(currentPageEvents);
+    
+    // 更新分页信息
+    updatePaginationInfo();
+}
+
+// 更新分页信息
+function updatePaginationInfo() {
+    $('#pageInfo').text(`第 ${currentPage} 页，共 ${totalPages} 页`);
+    $('#totalInfo').text(`共 ${filteredEvents.length} 个赛事`);
+    $('#currentPageSpan').text(currentPage);
+    
+    // 更新分页按钮状态
+    if (currentPage <= 1) {
+        $('#prevPage').addClass('disabled');
+    } else {
+        $('#prevPage').removeClass('disabled');
+    }
+    
+    if (currentPage >= totalPages) {
+        $('#nextPage').addClass('disabled');
+    } else {
+        $('#nextPage').removeClass('disabled');
+    }
+}
+
+// 切换页码
+function changePage(newPage) {
+    if (newPage < 1 || newPage > totalPages) {
+        return;
+    }
+    currentPage = newPage;
+    displayEventsWithPagination();
+}
+
+function displayEvents(events) {
+    if (events.length === 0) {
+        showNoEvents();
+        return;
+    }
+    
+    // 按报名状态和比赛状态综合排序
+    // 排序规则：报名进行中 → 报名未开始 → 报名已截止 → 比赛已开始 → 比赛已结束 → 赛事已取消
+    events.sort((a, b) => {
+        const statusA = getRegistrationStatusForButton(a);
+        const statusB = getRegistrationStatusForButton(b);
+        
+        // 定义排序优先级（数字越小越靠前）
+        const getPriority = (status) => {
+            if (status.reason === '报名进行中') return 1;  // 最优先：可以报名
+            if (status.reason === '报名未开始') return 2;  // 即将开放报名
+            if (status.reason === '报名已截止') return 3;  // 报名结束但比赛未开始
+            if (status.reason === '比赛已开始') return 4;  // 比赛进行中
+            if (status.reason === '比赛已结束') return 5;  // 比赛已结束
+            if (status.reason === '赛事已取消') return 6;  // 赛事取消
+            return 7;  // 其他情况
+        };
+        
+        const priorityA = getPriority(statusA);
+        const priorityB = getPriority(statusB);
+        
+        // 如果优先级不同，按优先级排序
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+        
+        // 如果优先级相同，按时间排序
+        // 对于"报名进行中"和"报名未开始"，按报名开始时间排序（早的在前）
+        if (priorityA <= 2) {
+            const timeA = a.registration_start_time ? new Date(a.registration_start_time) : new Date(0);
+            const timeB = b.registration_start_time ? new Date(b.registration_start_time) : new Date(0);
+            return timeA - timeB;
+        }
+        
+        // 对于其他状态，按比赛开始时间排序（近的在前）
+        const timeA = a.start_date ? new Date(a.start_date) : new Date(0);
+        const timeB = b.start_date ? new Date(b.start_date) : new Date(0);
+        return timeB - timeA;  // 降序，最近的比赛在前
+    });
+    
+    if ($('#cardView').is(':checked')) {
+        displayCardView(events);
+    } else {
+        displayListView(events);
+    }
+    // DOM渲染需要一点时间，延迟执行状态更新
+    setTimeout(updateAllEventStatuses, 100);
+}
+
+function displayCardView(events) {
+    const container = $('#events-card-view');
+    container.empty().show();
+    $('#events-list-view').hide();
+    
+    events.forEach(function(event) {
+        const eventCard = createEventCard(event);
+        container.append(eventCard);
+    });
+}
+
+function displayListView(events) {
+    const tbody = $('#events-table-body');
+    tbody.empty();
+    $('#events-list-view').show();
+    $('#events-card-view').hide();
+    
+    events.forEach(function(event) {
+        const eventRow = createEventRow(event);
+        tbody.append(eventRow);
+    });
+}
+
+function createEventCard(event) {
+    // 调试：输出赛事状态信息
+    console.log(`赛事 "${event.name}" 状态:`, event.status, '完整数据:', event);
+    
+    // 从localStorage获取实际参赛人数
+    const actualParticipantCount = getEventTotalParticipants(event.event_id);
+    
+    let cardHtml = `
+        <div class="col-md-6 col-lg-4">
+            <div class="card event-card h-100 border-0 shadow-sm position-relative" 
+                 data-event-id="${event.event_id}"
+                 data-reg-start="${event.registration_start_time || ''}"
+                 data-reg-end="${event.registration_deadline || ''}"
+                 data-event-start="${event.start_date || ''}"
+                 data-event-end="${event.end_date || ''}">`;
+
+    if (canEdit) {
+        cardHtml += `
+            <button class="btn btn-danger btn-sm position-absolute" 
+                    style="top: 10px; right: 10px; z-index: 10; width: 36px; height: 36px; padding: 0; font-size: 1.1rem; font-weight: 700;"
+                    onclick="showDeleteConfirmModal(${event.event_id}, '${event.name}')"
+                    title="删除赛事">
+                <i class="fas fa-times"></i>
+            </button>`;
+    }
+
+    const description = event.description ? (event.description.length > 80 ? event.description.substring(0, 80) + '...' : event.description) : '暂无描述';
+    const titlePadding = canEdit ? '40px' : '0';
+
+    cardHtml += `
+        <div class="card-body">
+            <div class="mb-2">
+                <h6 class="card-title mb-0" style="padding-right: ${titlePadding};">${event.name}</h6>
+            </div>
+            <div class="event-info mb-3">
+                <p class="card-text text-muted small mb-1"><i class="fas fa-map-marker-alt me-1"></i> ${event.location || '待定'}</p>
+                <p class="card-text text-muted small mb-1"><i class="fas fa-calendar me-1"></i> ${formatDateTime(event.start_date)}</p>
+                <p class="card-text text-muted small mb-2"><i class="fas fa-users me-1"></i> 参赛人数: ${actualParticipantCount}/${event.max_participants || '∞'}</p>
+                <div class="d-flex justify-content-start gap-2 mt-2">
+                   <span class="badge registration-status-badge"></span>
+                   <span class="badge event-status-badge"></span>
+                </div>
+            </div>
+            <div class="event-description mb-3">
+                <p class="card-text small text-muted">${description}</p>
+            </div>
+        </div>
+        <div class="card-footer bg-transparent border-0">
+            <div class="btn-group w-100" role="group">
+                <button class="btn btn-primary btn-sm" onclick="viewEventDetail(${event.event_id})"><i class="fas fa-eye me-1"></i>详情</button>`;
+
+    // 根据报名状态显示不同的报名按钮
+    if (!event.status || event.status !== 'cancelled') {
+        const registrationStatus = getRegistrationStatusForButton(event);
+        if (registrationStatus.canRegister) {
+            cardHtml += `<button class="btn btn-success btn-sm" onclick="registerForEvent(${event.event_id})" title="点击报名参加此赛事"><i class="fas fa-user-plus me-1"></i>报名</button>`;
+        } else {
+            cardHtml += `<button class="btn btn-secondary btn-sm" disabled title="${registrationStatus.reason}"><i class="fas fa-ban me-1"></i>不可报名</button>`;
+        }
+    }
+
+    if (canEdit) {
+        cardHtml += `<button class="btn btn-warning btn-sm text-white" onclick="editEvent(${event.event_id})"><i class="fas fa-edit me-1"></i>编辑</button>`;
+    }
+
+    cardHtml += `
+            </div>
+        </div>
+    </div>
+</div>`;
+
+    return cardHtml;
+}
+
+function createEventRow(event) {
+    // 从localStorage获取实际参赛人数
+    const actualParticipantCount = getEventTotalParticipants(event.event_id);
+    
+    let rowHtml = `
+        <tr data-event-id="${event.event_id}"
+            data-reg-start="${event.registration_start_time || ''}"
+            data-reg-end="${event.registration_deadline || ''}"
+            data-event-start="${event.start_date || ''}"
+            data-event-end="${event.end_date || ''}">
+            <td>
+                <div class="d-flex align-items-center">
+                    <div>
+                        <h6 class="mb-0">${event.name}</h6>`;
+    
+    if (event.description) {
+        rowHtml += `<small class="text-muted">${event.description.substring(0, 50)}...</small>`;
+    }
+
+    rowHtml += `
+                    </div>
+                </div>
+            </td>
+            <td>${event.location || '待定'}</td>
+            <td>${formatDateTime(event.start_date)}</td>
+            <td>
+                ${actualParticipantCount}/${event.max_participants || '∞'}
+                <div class="d-flex justify-content-start gap-1 mt-1">
+                   <span class="badge registration-status-badge"></span>
+                   <span class="badge event-status-badge"></span>
+                </div>
+            </td>
+            <td>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-primary" onclick="viewEventDetail(${event.event_id})" title="查看详情"><i class="fas fa-eye"></i></button>`;
+
+    // 根据报名状态显示不同的报名按钮
+    if (!event.status || event.status !== 'cancelled') {
+        const registrationStatus = getRegistrationStatusForButton(event);
+        if (registrationStatus.canRegister) {
+            rowHtml += `<button class="btn btn-success" onclick="registerForEvent(${event.event_id})" title="报名参赛"><i class="fas fa-user-plus"></i></button>`;
+        } else {
+            rowHtml += `<button class="btn btn-secondary" disabled title="${registrationStatus.reason}"><i class="fas fa-ban"></i></button>`;
+        }
+    }
+
+    if (canEdit) {
+        rowHtml += `
+            <button class="btn btn-outline-warning" onclick="editEvent(${event.event_id})" title="编辑"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-danger" onclick="showDeleteConfirmModal(${event.event_id}, '${event.name}')" title="删除" style="font-weight: 700;"><i class="fas fa-times"></i></button>`;
+    }
+
+    rowHtml += `
+                </div>
+            </td>
+        </tr>`;
+
+    return rowHtml;
+}
+
+function showLoading() {
+    $('#loading-events').show();
+    $('#events-card-view, #events-list-view, #no-events').hide();
+}
+
+function hideLoading() {
+    $('#loading-events').hide();
+}
+
+function showNoEvents() {
+    $('#no-events').show();
+    $('#events-card-view, #events-list-view').hide();
+}
+
+function toggleViewMode() {
+    if (filteredEvents.length > 0) {
+        displayEventsWithPagination();
+    }
+}
+
+function searchEvents() {
+    currentPage = 1;  // 搜索时重置到第一页
+    const searchTerm = $('#searchInput').val().trim();
+    currentFilters.search = searchTerm;
+    applyClientSideFilters();
+}
+
+function filterEvents() {
+    currentPage = 1;  // 筛选时重置到第一页
+    const status = $('#statusFilter').val();
+    const registrationFilter = $('#registrationFilter').val();
+    const eventTimeFilter = $('#eventTimeFilter').val();
+    
+    currentFilters.status = status;
+    currentFilters.registration_filter = registrationFilter;
+    currentFilters.event_time_filter = eventTimeFilter;
+    
+    // 应用客户端筛选
+    applyClientSideFilters();
+}
+
+function clearFilters() {
+    $('#searchInput').val('');
+    $('#registrationFilter').val('');
+    $('#eventTimeFilter').val('');
+    currentFilters = {};
+    filteredEvents = allEvents;
+    currentPage = 1;
+    displayEventsWithPagination();
+}
+
+// 客户端筛选逻辑
+function applyClientSideFilters() {
+    let filtered = [...allEvents];
+    const now = new Date();
+    
+    // 搜索筛选
+    const searchTerm = $('#searchInput').val().trim().toLowerCase();
+    if (searchTerm) {
+        filtered = filtered.filter(event => 
+            event.name.toLowerCase().includes(searchTerm) || 
+            (event.location && event.location.toLowerCase().includes(searchTerm))
+        );
+    }
+    
+    
+    // 报名状态筛选
+    const registrationFilter = $('#registrationFilter').val();
+    if (registrationFilter) {
+        filtered = filtered.filter(event => {
+            const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+            const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+            
+            if (!regStart || !regEnd) return false;
+            
+            switch (registrationFilter) {
+                case 'reg_not_started':
+                    return now < regStart;
+                case 'reg_ongoing':
+                    return now >= regStart && now <= regEnd;
+                case 'reg_ended':
+                    return now > regEnd;
+                default:
+                    return true;
+            }
+        });
+    }
+    
+    // 比赛状态筛选
+    const eventTimeFilter = $('#eventTimeFilter').val();
+    if (eventTimeFilter) {
+        filtered = filtered.filter(event => {
+            const eventStart = event.start_date ? new Date(event.start_date) : null;
+            const eventEnd = event.end_date ? new Date(event.end_date) : null;
+            
+            if (!eventStart || !eventEnd) return false;
+            
+            switch (eventTimeFilter) {
+                case 'event_not_started':
+                    return now < eventStart;
+                case 'event_ongoing':
+                    return now >= eventStart && now <= eventEnd;
+                case 'event_ended':
+                    return now > eventEnd;
+                default:
+                    return true;
+            }
+        });
+    }
+    
+    filteredEvents = filtered;
+    currentPage = 1;
+    displayEventsWithPagination();
+}
+
+function refreshEvents() {
+    showMessage('正在刷新赛事列表...', 'info');
+    currentPage = 1;  // 刷新时重置到第一页
+    loadEvents(1);
+}
+
+// showCreateEventModal 现在由共用的 event_modal.js 提供
+
+function editEvent(eventId) {
+    const event = allEvents.find(e => e.event_id === eventId);
+    if (!event) return;
+    
+    // 先隐藏详情模态框，然后显示编辑模态框
+    $('#eventDetailModal').modal('hide');
+    
+    // 等待详情模态框完全隐藏后再显示编辑模态框
+    setTimeout(() => {
+        showEditEventModal(event);
+    }, 300);
+}
+
+function saveEvent() {
+    submitEventForm();
+}
+
+function viewEventDetail(eventId) {
+    let event = allEvents.find(e => e.event_id === eventId);
+    if (!event) return;
+    
+    // 从localStorage获取费用数据并增强event对象
+    event = enhanceEventWithFees(event);
+    
+    $('#eventDetailTitle').text(event.name);
+    
+    const detailContent = `
+        <div class="row">
+            <div class="col-12">
+                <h6>基本信息</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td width="40%">赛事名称:</td><td>${event.name}</td></tr>
+                            <tr><td>比赛地点:</td><td>${event.location || '待定'}</td></tr>
+                            <tr><td>比赛开始时间:</td><td>${formatDateTime(event.start_date)}</td></tr>
+                            <tr><td>比赛结束时间:</td><td>${formatDateTime(event.end_date)}</td></tr>
+                            <tr><td>最大人数:</td><td>${event.max_participants || '不限'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td width="40%">报名开始时间:</td><td>${formatDateTime(event.registration_start_time) || '未设置'}</td></tr>
+                            <tr><td>报名截止时间:</td><td>${formatDateTime(event.registration_deadline) || '未设置'}</td></tr>
+                            <tr><td>联系电话:</td><td>${event.contact_phone || '未设置'}</td></tr>
+                            <tr><td>主办单位:</td><td>${event.organizer || '未设置'}</td></tr>
+                            <tr><td>承办单位:</td><td>${event.co_organizer || '未设置'}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                ${(event.individual_fee > 0 || event.pair_practice_fee > 0 || event.team_competition_fee > 0) ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>报名费用</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">个人赛报名费用</small>
+                                    <strong class="text-success">¥${(event.individual_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">对练报名费用</small>
+                                    <strong class="text-success">¥${(event.pair_practice_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">团体赛报名费用</small>
+                                    <strong class="text-success">¥${(event.team_competition_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <strong>报名状态:</strong> <span class="badge ${getRegistrationStatus(event).color}">${getRegistrationStatus(event).text}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>比赛状态:</strong> <span class="badge ${getEventStatus(event).color}">${getEventStatus(event).text}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ${event.description ? `
+            <div class="mt-3">
+                <h6>赛事描述</h6>
+                <p class="text-muted">${event.description}</p>
+            </div>
+        ` : ''}
+    `;
+    
+    $('#eventDetailContent').html(detailContent);
+    
+    // 生成操作按钮
+    let actions = '';
+    // 根据报名状态显示不同的报名按钮
+    if (!event.status || event.status !== 'cancelled') {
+        const registrationStatus = getRegistrationStatusForButton(event);
+        if (registrationStatus.canRegister) {
+            actions += `<button class="btn btn-success me-2" onclick="registerForEvent(${event.event_id})">
+                <i class="fas fa-user-plus me-1"></i>报名参赛
+            </button>`;
+        } else {
+            actions += `<button class="btn btn-secondary me-2" disabled title="${registrationStatus.reason}">
+                <i class="fas fa-ban me-1"></i>不可报名
+            </button>`;
+        }
+    }
+    
+    {% if user_role in ['admin', 'super_admin'] %}
+    actions += `
+        <button class="btn btn-warning me-2" onclick="editEvent(${event.event_id})">
+            <i class="fas fa-edit me-1"></i>编辑
+        </button>
+        <button class="btn btn-info me-2" onclick="manageParticipants(${event.event_id})">
+            <i class="fas fa-users me-1"></i>管理参赛者
+        </button>
+    `;
+    {% endif %}
+    
+    $('#eventDetailActions').html(actions);
+    $('#eventDetailModal').modal('show');
+}
+
+function registerForEvent(eventId) {
+    // 跳转到报名页面，选择该赛事
+    window.location.href = `/event_selection?event_id=${eventId}`;
+}
+
+let deleteEventId = null;
+
+function showDeleteConfirmModal(eventId, eventName) {
+    deleteEventId = eventId;
+    $('#deleteEventName').text(eventName);
+    $('#deleteConfirmModal').modal('show');
+}
+
+function deleteEvent(eventId) {
+    $.ajax({
+        url: `/api/events/${eventId}`,
+        method: 'DELETE',
+        success: function(response) {
+            if (response.success) {
+                showMessage('赛事删除成功！', 'success');
+                loadEvents(currentPage);
+            } else {
+                showMessage(response.message, 'error');
+            }
+        },
+        error: function(xhr) {
+            let message = '删除失败，请稍后重试';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            }
+            showMessage(message, 'error');
+        }
+    });
+}
+
+function manageParticipants(eventId) {
+    window.location.href = `/participants?event_id=${eventId}`;
+}
+
+// 工具函数
+function getStatusColor(status) {
+    const colors = {
+        'draft': 'secondary',
+        'published': 'info',
+        'ongoing': 'warning',
+        'completed': 'success',
+        'cancelled': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+
+function getStatusText(status) {
+    const texts = {
+        'draft': '报名未开始',
+        'published': '未开始',
+        'ongoing': '进行中',
+        'completed': '已结束',
+        'cancelled': '已结束'
+    };
+    return texts[status] || '未开始';
+}
+
+// 根据时间自动计算状态
+function getAutoStatus(event) {
+    const now = new Date();
+    const startDate = new Date(event.start_date);
+    const endDate = new Date(event.end_date);
+    
+    if (now < startDate) {
+        return event.status === 'draft' ? 'draft' : 'published'; // 保持原有的草稿或已发布状态
+    } else if (now >= startDate && now <= endDate) {
+        return 'ongoing'; // 进行中
+    } else {
+        return event.status === 'cancelled' ? 'cancelled' : 'completed'; // 已结束或已取消
+    }
+}
+
+// 获取显示用的状态（基于时间自动判断）
+function getDisplayStatus(event) {
+    const autoStatus = getAutoStatus(event);
+    return getStatusText(autoStatus);
+}
+
+// 获取显示用的状态颜色（基于时间自动判断）
+function getDisplayStatusColor(event) {
+    const autoStatus = getAutoStatus(event);
+    return getStatusColor(autoStatus);
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return '待定';
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN');
+}
+
+function formatDateTimeForInput(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().slice(0, 16);
+}
+
+// --- 动态状态更新逻辑 ---
+let statusUpdateInterval;
+
+function updateAllEventStatuses() {
+    const eventElements = document.querySelectorAll('[data-event-id]');
+    const now = new Date();
+
+    eventElements.forEach(el => {
+        const regStart = el.dataset.regStart ? new Date(el.dataset.regStart) : null;
+        const regEnd = el.dataset.regEnd ? new Date(el.dataset.regEnd) : null;
+        const eventStart = el.dataset.eventStart ? new Date(el.dataset.eventStart) : null;
+        const eventEnd = el.dataset.eventEnd ? new Date(el.dataset.eventEnd) : null;
+
+        const regBadge = el.querySelector('.registration-status-badge');
+        const eventBadge = el.querySelector('.event-status-badge');
+
+        // 更新报名状态
+        if (regBadge && regStart && regEnd) {
+            if (now < regStart) {
+                updateBadge(regBadge, '报名未开始', 'bg-secondary');
+            } else if (now >= regStart && now <= regEnd) {
+                updateBadge(regBadge, '报名进行中', 'bg-success');
+            } else {
+                updateBadge(regBadge, '报名已截止', 'bg-danger');
+            }
+        } else if (regBadge) {
+            updateBadge(regBadge, '报名未设置', 'bg-light text-dark');
+        }
+
+        // 更新赛事状态
+        if (eventBadge && eventStart && eventEnd) {
+            if (now < eventStart) {
+                updateBadge(eventBadge, '赛事未开始', 'bg-warning');
+            } else if (now >= eventStart && now <= eventEnd) {
+                updateBadge(eventBadge, '赛事进行中', 'bg-info');
+            } else {
+                updateBadge(eventBadge, '赛事已结束', 'bg-dark');
+            }
+        } else if (eventBadge) {
+            updateBadge(eventBadge, '赛事未设置', 'bg-light text-dark');
+        }
+    });
+}
+
+function updateBadge(element, text, bgColor) {
+    element.textContent = text;
+    element.className = 'badge ' + bgColor;
+}
+
+// 计算报名状态（改进版：优先显示比赛状态）
+function getRegistrationStatus(event) {
+    const now = new Date();
+    const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+    const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+    const eventStart = event.start_date ? new Date(event.start_date) : null;
+    const eventEnd = event.end_date ? new Date(event.end_date) : null;
+    
+    // 优先检查比赛状态（因为比赛状态更重要）
+    if (eventEnd && now > eventEnd) {
+        return { text: '比赛已结束', color: 'bg-dark' };
+    }
+    
+    if (eventStart && now >= eventStart) {
+        return { text: '比赛进行中', color: 'bg-info' };
+    }
+    
+    // 再检查报名状态
+    if (!regStart || !regEnd) {
+        return { text: '报名未设置', color: 'bg-light text-dark' };
+    }
+    
+    if (now < regStart) {
+        return { text: '报名未开始', color: 'bg-secondary' };
+    } else if (now >= regStart && now <= regEnd) {
+        return { text: '报名进行中', color: 'bg-success' };
+    } else {
+        return { text: '报名已截止', color: 'bg-danger' };
+    }
+}
+
+// 计算比赛状态
+function getEventStatus(event) {
+    const now = new Date();
+    const eventStart = event.start_date ? new Date(event.start_date) : null;
+    const eventEnd = event.end_date ? new Date(event.end_date) : null;
+    
+    if (!eventStart || !eventEnd) {
+        return { text: '赛事未设置', color: 'bg-light text-dark' };
+    }
+    
+    if (now < eventStart) {
+        return { text: '赛事未开始', color: 'bg-warning' };
+    } else if (now >= eventStart && now <= eventEnd) {
+        return { text: '赛事进行中', color: 'bg-info' };
+    } else {
+        return { text: '赛事已结束', color: 'bg-dark' };
+    }
+}
+
+// 获取报名按钮状态（修复版：综合考虑报名时间和比赛时间）
+function getRegistrationStatusForButton(event) {
+    const now = new Date();
+    const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+    const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+    const eventStart = event.start_date ? new Date(event.start_date) : null;
+    const eventEnd = event.end_date ? new Date(event.end_date) : null;
+    
+    // 1. 检查赛事是否已取消
+    if (event.status === 'cancelled') {
+        return { 
+            canRegister: false, 
+            reason: '赛事已取消' 
+        };
+    }
+    
+    // 2. 检查比赛是否已结束
+    if (eventEnd && now > eventEnd) {
+        return { 
+            canRegister: false, 
+            reason: '比赛已结束' 
+        };
+    }
+    
+    // 3. 检查比赛是否已开始（比赛开始后不允许报名）
+    if (eventStart && now >= eventStart) {
+        return { 
+            canRegister: false, 
+            reason: '比赛已开始' 
+        };
+    }
+    
+    // 4. 如果没有设置报名时间，但比赛还没开始，可以报名
+    if (!regStart || !regEnd) {
+        if (eventStart && now < eventStart) {
+            return { 
+                canRegister: true, 
+                reason: '可以报名（报名时间未设置）' 
+            };
+        } else {
+            return { 
+                canRegister: false, 
+                reason: '报名时间未设置' 
+            };
+        }
+    }
+    
+    // 5. 检查报名是否未开始
+    if (now < regStart) {
+        return { 
+            canRegister: false, 
+            reason: '报名未开始' 
+        };
+    }
+    
+    // 6. 检查报名是否已截止
+    if (now > regEnd) {
+        return { 
+            canRegister: false, 
+            reason: '报名已截止' 
+        };
+    }
+    
+    // 7. 所有条件都满足，可以报名
+    return { 
+        canRegister: true, 
+        reason: '报名进行中' 
+    };
+}
+
+// 获取赛事的总参赛人数（从localStorage）
+function getEventTotalParticipants(eventId) {
+    if (!eventId) {
+        return 0;
+    }
+    
+    const storageKey = `eventParticipants_${eventId}`;
+    let total = 0;
+    
+    try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+            const eventParticipants = JSON.parse(stored);
+            // 累加所有队伍的参赛人数
+            for (const teamId in eventParticipants) {
+                if (eventParticipants.hasOwnProperty(teamId)) {
+                    total += eventParticipants[teamId].count || 0;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('获取赛事参赛人数失败:', e);
+    }
+    
+    return total;
+}
+
+// 页面加载和刷新时启动状态更新
+$(document).ready(function() {
+    if (statusUpdateInterval) clearInterval(statusUpdateInterval);
+    statusUpdateInterval = setInterval(updateAllEventStatuses, 60000); // 每分钟更新一次
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1538 @@
+{% extends "base.html" %}
+
+.ink-flow-tip {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #c41e3a !important;
+    letter-spacing: 1px;
+    margin: 0.5rem 0 1.5rem;
+}
+
+.step-desc {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #c41e3a;
+    line-height: 1.6;
+    letter-spacing: 0.5px;
+}
+
+/* 报名流程中未解锁步骤的禁用样式 */
+.step-locked {
+    pointer-events: none;
+    opacity: 0.6;
+    cursor: not-allowed !important;
+}
+
+// 根据报名流程步骤状态，控制首页步骤卡片的可用性
+function initStepLocksOnHome() {
+    try {
+        const step3Done = sessionStorage.getItem('registrationStep3Completed') === 'true';
+        const step4Link = document.querySelector('a[onclick="handleRegistrationStep(4)"]');
+        if (!step4Link) return;
+
+        if (!step3Done) {
+            step4Link.classList.add('step-locked');
+        } else {
+            step4Link.classList.remove('step-locked');
+        }
+    } catch (e) {
+        console.warn('初始化首页步骤锁定状态失败:', e);
+    }
+}
+
+// 简单的异常跳转日志记录（仅存入浏览器 localStorage，便于后续分析）
+function logAbnormalFlow(action, details) {
+    try {
+        const key = 'registrationFlowLogs';
+        const raw = localStorage.getItem(key);
+        const list = raw ? JSON.parse(raw) : [];
+        list.push({
+            action,
+            details,
+            timestamp: new Date().toISOString()
+        });
+        localStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {
+        console.warn('记录报名流程日志失败:', e);
+    }
+}
+
+{% block title %}首页 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+
+<!-- 主区域 - 水墨风格 -->
+<div class="ink-hero-section text-dark py-4 mb-5 rounded position-relative overflow-hidden">
+    <!-- 水墨背景层 -->
+    <div class="ink-background"></div>
+    
+    <!-- 装饰性水墨元素 -->
+    <div class="ink-decoration ink-decoration-1"></div>
+    <div class="ink-decoration ink-decoration-2"></div>
+    
+    <div class="row align-items-center position-relative" style="z-index: 2;">
+        <div class="col-lg-7" style="padding-left: 3rem;">
+            <h1 class="display-5 fw-bold mb-3 ink-title" style="color: #2c3e50; letter-spacing: 3px;">
+                <i class="fas fa-fist-raised me-3" style="color: #c41e3a;"></i>
+                武术赛事管理系统
+            </h1>
+            <p class="lead mb-3 text-start ink-subtitle" style="color: #556b2f; font-size: 1rem; line-height: 1.8;">
+                专业的武术赛事管理平台，支持赛事创建、选手注册、在线评分、成绩统计等全流程管理。
+                为武术比赛提供高效、公正、透明的管理解决方案。
+            </p>
+            {% if not is_logged_in %}
+                <!-- 了解更多按钮已移除 -->
+            {% else %}
+                <a href="{{ url_for('dashboard') }}" class="btn ink-button btn-lg mt-2">
+                    <i class="fas fa-user-circle me-2"></i>进入个人资料
+                </a>
+            {% endif %}
+        </div>
+        <div class="col-lg-5 text-center">
+            <i class="fas fa-trophy" style="font-size: 6rem; color: #c41e3a; opacity: 0.3; filter: blur(1px);"></i>
+        </div>
+    </div>
+</div>
+
+<!-- 功能特性 - 水墨风格容器 -->
+<section id="features" class="mb-5">
+    <div class="ink-container p-5 rounded position-relative">
+        <!-- 水墨纹理背景 -->
+        <div class="ink-texture"></div>
+        
+        <div class="d-flex align-items-start justify-content-between position-relative mb-2" style="z-index: 2;">
+            <div class="flex-grow-1 d-flex justify-content-center">
+                <h2 class="text-center mb-0 ink-section-title" style="color: #2c3e50; letter-spacing: 5px; font-weight: 700;">
+                    <i class="fas fa-list-check me-2" style="color: #c41e3a;"></i>赛事报名
+                </h2>
+            </div>
+            <a href="{{ url_for('event_selection') }}" class="btn start-registration-btn ms-3">
+                开始报名 <i class="fas fa-arrow-right ms-2"></i>
+            </a>
+        </div>
+        <p class="ink-flow-tip text-center mb-3" style="z-index: 2; position: relative;">
+            按照下面四个步骤，轻松完成报名。不懂的地方看文字说明。
+        </p>
+        <!-- 当前选择的比赛提示，仅在已选择赛事时显示 -->
+        <p id="home-current-event" class="text-center mb-4" style="font-size: 0.95rem; z-index: 2; position: relative; display: none; color: #2c3e50;">
+            <span class="text-muted">当前赛事：</span>
+            <span id="home-current-event-name" style="font-weight: 600;"></span>
+        </p>
+        <div class="row g-4 position-relative" style="z-index: 2;">
+            <div class="col-12 col-md-6 col-lg-3">
+                <a href="javascript:void(0)" onclick="handleRegistrationStep(1)" class="text-decoration-none">
+                    <div class="card ink-feature-card h-100 border-0" style="cursor: pointer;">
+                        <div class="card-body" style="padding: 1.5rem;">
+                            <div class="ink-icon-circle mx-auto mb-3" style="background: linear-gradient(135deg, #556b2f 0%, #6b8e23 100%);">
+                                <i class="fas fa-people-group"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3" style="color: #2c3e50; font-weight: 700; font-size: 1.2rem;">第一步：创建队伍</h5>
+                            <div class="card-text" style="text-align: center;">
+                                <p class="step-desc">点开队伍管理，先建一支队伍。<br>把队名和联系人写清楚。<br>保存后就能继续下一步。</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        
+            <div class="col-12 col-md-6 col-lg-3">
+                <a href="javascript:void(0)" onclick="handleRegistrationStep(2)" class="text-decoration-none">
+                    <div class="card ink-feature-card h-100 border-0" style="cursor: pointer;">
+                        <div class="card-body" style="padding: 1.5rem;">
+                            <div class="ink-icon-circle mx-auto mb-3" style="background: linear-gradient(135deg, #2f4f4f 0%, #2e8b57 100%);">
+                                <i class="fas fa-user-group"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3" style="color: #2c3e50; font-weight: 700; font-size: 1.2rem;">第二步：添加队员</h5>
+                            <div class="card-text" style="text-align: center;">
+                                <p class="step-desc">点击“添加队员”按钮。<br>输入姓名、证件、电话等。<br>保存就能看到完整名单。</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        
+            <div class="col-12 col-md-6 col-lg-3">
+                <a href="javascript:void(0)" onclick="handleRegistrationStep(3)" class="text-decoration-none">
+                    <div class="card ink-feature-card h-100 border-0" style="cursor: pointer;">
+                        <div class="card-body" style="padding: 1.5rem;">
+                            <div class="ink-icon-circle mx-auto mb-3" style="background: linear-gradient(135deg, #c41e3a 0%, #e63946 100%);">
+                                <i class="fas fa-id-card"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3" style="color: #2c3e50; font-weight: 700; font-size: 1.2rem;">第三步：报名赛事</h5>
+                            <div class="card-text" style="text-align: center;">
+                                <p class="step-desc">进去参赛人员列表。<br>勾选想报名的赛事项目。<br>确认人数后点“报名”。</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        
+            <div class="col-12 col-md-6 col-lg-3">
+                <a href="javascript:void(0)" onclick="handleRegistrationStep(4)" class="text-decoration-none">
+                    <div class="card ink-feature-card h-100 border-0" style="cursor: pointer;">
+                        <div class="card-body" style="padding: 1.5rem;">
+                            <div class="ink-icon-circle mx-auto mb-3" style="background: linear-gradient(135deg, #36454f 0%, #4a5a6a 100%);">
+                                <i class="fas fa-file-upload"></i>
+                            </div>
+                            <h5 class="card-title text-center mb-3" style="color: #2c3e50; font-weight: 700; font-size: 1.2rem;">第四步：提交信息</h5>
+                            <div class="card-text" style="text-align: center;">
+                                <p class="step-desc">打开报名管理页面。<br>再核对一次队伍和项目。<br>直接提交就算报名完成。</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 最新赛事 - 水墨风格容器 -->
+<section class="mb-5">
+    <div class="ink-container p-5 pb-4 rounded position-relative">
+        <div class="ink-texture"></div>
+        
+        <div class="position-relative text-center" style="z-index: 2;">
+            <h2 class="ink-section-title mb-4" style="color: #2c3e50; letter-spacing: 5px; font-weight: 700;">
+                <i class="fas fa-fire me-2" style="color: #c41e3a;"></i>最新赛事
+            </h2>
+            <a href="{{ url_for('events') }}" class="btn ink-outline-button position-absolute" style="top: 0; right: 0;">
+                查看全部 <i class="fas fa-arrow-right ms-1"></i>
+            </a>
+        </div>
+        
+        <div id="latest-events" class="row g-4 position-relative" style="z-index: 2;">
+        <!-- 赛事卡片将通过JavaScript动态加载 -->
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border" style="color: #5a6c7d;" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p class="mt-3" style="color: #5a6c7d;">正在加载最新赛事...</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- 系统统计 - 仅管理员和超级管理员可见 -->
+{% if user_role in ['admin', 'super_admin'] %}
+<section class="mb-5">
+    <div class="ink-container p-5 rounded position-relative">
+        <div class="ink-texture"></div>
+        
+        <h2 class="text-center mb-4 position-relative ink-section-title" style="color: #2c3e50; letter-spacing: 5px; font-weight: 700; z-index: 2;">
+            <i class="fas fa-chart-pie me-2" style="color: #c41e3a;"></i>系统统计
+        </h2>
+        <div class="row g-4 position-relative" style="z-index: 2;">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white text-center">
+                <div class="card-body">
+                    <i class="fas fa-calendar-alt fa-2x mb-3"></i>
+                    <h3 id="total-events" class="card-title">-</h3>
+                    <p class="card-text">总赛事数</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white text-center">
+                <div class="card-body">
+                    <i class="fas fa-users fa-2x mb-3"></i>
+                    <h3 id="total-participants" class="card-title">-</h3>
+                    <p class="card-text">参赛人数</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-white text-center">
+                <div class="card-body">
+                    <i class="fas fa-hourglass-half fa-2x mb-3"></i>
+                    <h3 id="incomplete-events" class="card-title">-</h3>
+                    <p class="card-text">未完成赛事</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white text-center">
+                <div class="card-body">
+                    <i class="fas fa-trophy fa-2x mb-3"></i>
+                    <h3 id="completed-events" class="card-title">-</h3>
+                    <p class="card-text">已完成赛事</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- 使用指南部分已按要求移除 -->
+
+<!-- 底部空白空间 -->
+<div class="py-4 mb-3"></div>
+
+<!-- 赛事详情模态框 -->
+<div class="modal fade" id="eventDetailModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventDetailTitle">赛事详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="eventDetailContent">
+                <!-- 详情内容将通过JavaScript动态生成 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <div id="eventDetailActions">
+                    <!-- 操作按钮将根据权限动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ========== 首页当前赛事提示隐藏 ========== */
+#home-current-event {
+    display: none !important;
+}
+
+/* ========== 开始报名按钮 - 突出样式 ========== */
+.start-registration-btn {
+    background-color: #c41e3a !important;
+    border-color: #a0172f !important;
+    color: white !important;
+    font-weight: 700 !important;
+    font-size: 1.2rem !important;
+    padding: 0.8rem 2rem !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(196, 30, 58, 0.4) !important;
+    min-width: 160px !important;
+    height: 60px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.3s ease !important;
+    text-decoration: none !important;
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    overflow: hidden !important;
+}
+
+.start-registration-btn:hover {
+    background-color: #a0172f !important;
+    border-color: #801226 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 16px rgba(196, 30, 58, 0.6) !important;
+    color: white !important;
+}
+
+.start-registration-btn:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 8px rgba(196, 30, 58, 0.3) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+    .start-registration-btn {
+        font-size: 1.1rem !important;
+        padding: 0.7rem 1.8rem !important;
+        min-width: 150px !important;
+        height: 55px !important;
+    }
+}
+
+@media (max-width: 992px) {
+    .start-registration-btn {
+        font-size: 1rem !important;
+        padding: 0.6rem 1.5rem !important;
+        min-width: 140px !important;
+        height: 50px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .start-registration-btn {
+        font-size: 0.95rem !important;
+        padding: 0.5rem 1.2rem !important;
+        min-width: 130px !important;
+        height: 45px !important;
+        position: absolute !important;
+        top: 0 !important;
+        right: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .start-registration-btn {
+        font-size: 0.9rem !important;
+        padding: 0.4rem 1rem !important;
+        min-width: 120px !important;
+        height: 42px !important;
+        width: auto !important;
+        max-width: none !important;
+        position: absolute !important;
+        top: 0 !important;
+        right: 0 !important;
+        margin: 0 !important;
+    }
+}
+
+/* ========== 水墨风格样式系统 ========== */
+
+/* 水墨主背景 - 宣纸质感 */
+.ink-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, 
+        #f5f5dc 0%,   /* 宣纸色 */
+        #faf9f6 25%,  /* 淡米色 */
+        #e8e8e8 50%,  /* 浅灰 */
+        #f0f0f0 75%,
+        #f8f8f8 100%
+    );
+    opacity: 0.95;
+    z-index: 0;
+}
+
+/* 水墨装饰元素 - 晕染效果 */
+.ink-decoration {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.15;
+    z-index: 1;
+}
+
+.ink-decoration-1 {
+    width: 400px;
+    height: 400px;
+    top: -100px;
+    right: -50px;
+    background: radial-gradient(circle, 
+        rgba(196, 30, 58, 0.3) 0%,    /* 朱砂红 */
+        rgba(196, 30, 58, 0.1) 40%,
+        transparent 70%
+    );
+    filter: blur(40px);
+}
+
+.ink-decoration-2 {
+    width: 300px;
+    height: 300px;
+    bottom: -50px;
+    left: 10%;
+    background: radial-gradient(circle,
+        rgba(85, 107, 47, 0.3) 0%,    /* 墨绿 */
+        rgba(85, 107, 47, 0.1) 40%,
+        transparent 70%
+    );
+    filter: blur(30px);
+}
+
+/* 模态框背景遮罩 - 使用默认样式 */
+
+/* 水墨标题样式 */
+.ink-title {
+    position: relative;
+    font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+}
+
+.ink-title::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 0;
+    width: 100px;
+    height: 3px;
+    background: linear-gradient(90deg, #c41e3a 0%, transparent 100%);
+}
+
+/* 区域标题样式：文字居中，并移除下划线 */
+.ink-section-title {
+    text-align: center;
+}
+
+.ink-section-title::after {
+    display: none !important;
+}
+
+.ink-subtitle {
+    font-family: 'Microsoft YaHei', 'SimSun', serif;
+    opacity: 0.9;
+}
+
+/* 水墨按钮 */
+.ink-button {
+    background: linear-gradient(135deg, #c41e3a 0%, #8b1a2d 100%) !important;
+    border: none !important;
+    color: #f5f5dc !important;
+    padding: 0.75rem 2rem !important;
+    border-radius: 50px !important;
+    font-weight: 600 !important;
+    letter-spacing: 2px !important;
+    box-shadow: 0 4px 15px rgba(196, 30, 58, 0.3) !important;
+    transition: all 0.3s ease !important;
+}
+
+.ink-button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 25px rgba(196, 30, 58, 0.4) !important;
+}
+
+.ink-outline-button {
+    background: #2c3e50 !important;
+    border: 2px solid #2c3e50 !important;
+    color: #f5f5dc !important;
+    padding: 0.5rem 1.5rem !important;
+    border-radius: 50px !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+
+.ink-outline-button:hover {
+    background: #2c3e50 !important;
+    color: #f5f5dc !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(44, 62, 80, 0.3);
+}
+
+/* 水墨容器 */
+.ink-container {
+    background: linear-gradient(135deg, 
+        rgba(245, 245, 220, 0.6) 0%,  /* 半透明宣纸色 */
+        rgba(250, 249, 246, 0.5) 50%,
+        rgba(240, 240, 240, 0.6) 100%
+    );
+    border: 1px solid rgba(44, 62, 80, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(10px);
+}
+
+/* 水墨纹理背景 */
+.ink-texture {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 20% 30%, rgba(85, 107, 47, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(196, 30, 58, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(44, 62, 80, 0.03) 0%, transparent 70%);
+    z-index: 0;
+    border-radius: inherit;
+}
+
+/* 水墨功能卡片 */
+.ink-feature-card {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(44, 62, 80, 0.1) !important;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08) !important;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    backdrop-filter: blur(5px);
+}
+
+.ink-feature-card:hover {
+    transform: translateY(-10px) scale(1.02) !important;
+    box-shadow: 0 15px 40px rgba(196, 30, 58, 0.15) !important;
+    border-color: rgba(196, 30, 58, 0.3) !important;
+}
+
+/* 水墨图标圆圈 */
+.ink-icon-circle {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.ink-icon-circle i {
+    font-size: 2rem;
+    color: #f5f5dc;
+}
+
+/* 水墨英雄区域样式 */
+.ink-hero-section {
+    background: linear-gradient(135deg,
+        #f5f5dc 0%,
+        #faf9f6 50%,
+        #e8e8e8 100%
+    );
+    border: 1px solid rgba(44, 62, 80, 0.15);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* 旧样式保留以防万一 */
+.feature-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+/* 赛事详情模态框样式优化 */
+#eventDetailModal .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+#eventDetailModal .modal-body p {
+    word-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+/* 赛事描述区域特殊样式 */
+#eventDetailModal .modal-body .mt-3 {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+#eventDetailModal .modal-body .mt-3 p {
+    margin-bottom: 0;
+    max-height: none;
+}
+
+/* 滚动条样式优化 */
+#eventDetailModal .modal-body::-webkit-scrollbar,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar {
+    width: 8px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-track,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-thumb,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+#eventDetailModal .modal-body::-webkit-scrollbar-thumb:hover,
+#eventDetailModal .modal-body .mt-3::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/event_fees.js') }}"></script>
+<script>
+// 全局变量存储当前赛事
+let currentEvents = [];
+
+$(document).ready(function() {
+    // 加载最新赛事
+    loadLatestEvents();
+    
+    // 加载系统统计 - 仅管理员和超级管理员
+    {% if user_role in ['admin', 'super_admin'] %}
+    loadSystemStats();
+    {% endif %}
+
+    // 初始化首页当前赛事显示
+    initHomeCurrentEvent();
+
+    // 根据流程状态初始化步骤解锁状态
+    initStepLocksOnHome();
+});
+
+// 首页显示当前选择的赛事
+function initHomeCurrentEvent() {
+    try {
+        const name = sessionStorage.getItem('selectedEventName');
+        const eventText = document.getElementById('home-current-event');
+        const nameSpan = document.getElementById('home-current-event-name');
+
+        if (!eventText || !nameSpan) return;
+
+        if (name && name.trim() !== '') {
+            nameSpan.textContent = name;
+            eventText.style.display = 'block';
+        } else {
+            eventText.style.display = 'none';
+        }
+    } catch (e) {
+        console.warn('初始化首页当前赛事显示失败:', e);
+    }
+}
+
+// 首页四个步骤入口：统一先进入赛事选择页面
+function handleRegistrationStep(step) {
+	try {
+		// 无论当前是否已选择赛事，一律先跳转到“选择要报名的赛事”页面
+		// 具体后续要去第几步，由 event_selection 页面的 source / 业务逻辑决定
+		const source = `step${step}`;
+		window.location.href = `/event_selection?source=${source}`;
+	} catch (e) {
+		console.warn('处理首页步骤跳转时出错，回退到赛事选择页:', e);
+		window.location.href = '/event_selection';
+	}
+}
+
+function loadLatestEvents() {
+    $.ajax({
+        url: '/api/events/',
+        method: 'GET',
+        data: { 
+            page: 1, 
+            page_size: 100,  // 获取更多赛事用于筛选
+            order_by: 'created_at',  // 按创建时间排序
+            order_dir: 'DESC'  // 最新的在前
+        },
+        success: function(response) {
+            if (response.success) {
+                // 筛选出报名进行中的赛事
+                const now = new Date();
+                const ongoingEvents = response.events.filter(event => {
+                    if (event.status === 'cancelled') return false;
+                    
+                    const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+                    const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+                    
+                    // 如果没有设置报名时间，视为可报名
+                    if (!regStart || !regEnd) return true;
+                    
+                    // 只保留报名进行中的赛事
+                    return now >= regStart && now <= regEnd;
+                });
+                
+                // 取最新的4个报名进行中的赛事
+                const latestFour = ongoingEvents.slice(0, 4);
+                displayEvents(latestFour);
+            } else {
+                showNoEvents();
+            }
+        },
+        error: function() {
+            showNoEvents();
+        }
+    });
+}
+
+function displayEvents(events) {
+    const container = $('#latest-events');
+    container.empty();
+    
+    // 保存赛事数据到全局变量（已经是报名进行中的赛事）
+    currentEvents = events;
+    
+    if (events.length === 0) {
+        // 显示无可用报名赛事的提示
+        container.html(`
+            <div class="col-12 text-center py-5">
+                <i class="fas fa-calendar-times fa-3x text-light mb-3"></i>
+                <p class="text-light">暂无可报名的赛事</p>
+            </div>
+        `);
+        return;
+    }
+    
+    events.forEach(function(event) {
+        const description = event.description ? (event.description.length > 50 ? event.description.substring(0, 50) + '...' : event.description) : '暂无描述';
+        
+        // 从localStorage获取实际参赛人数
+        const actualParticipantCount = getEventTotalParticipants(event.event_id);
+        
+        const eventCard = `
+            <div class="col-md-6 col-lg-3">
+                <div class="card event-card h-100 border-0 shadow-sm" 
+                     data-event-id="${event.event_id}"
+                     data-reg-start="${event.registration_start_time || ''}"
+                     data-reg-end="${event.registration_deadline || ''}"
+                     data-event-start="${event.start_date || ''}"
+                     data-event-end="${event.end_date || ''}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title">${event.name}</h6>
+                        </div>
+                        <div class="event-info mb-3">
+                            <p class="card-text text-muted small mb-1">
+                                <i class="fas fa-map-marker-alt me-1"></i>${event.location || '待定'}
+                            </p>
+                            <p class="card-text text-muted small mb-1">
+                                <i class="fas fa-calendar me-1"></i>${formatDateTime(event.start_date)}
+                            </p>
+                            <p class="card-text text-muted small mb-2">
+                                <i class="fas fa-users me-1"></i>参赛人数: ${actualParticipantCount}/${event.max_participants || '∞'}
+                            </p>
+                            <div class="d-flex justify-content-start gap-2 mt-2">
+                               <span class="badge registration-status-badge"></span>
+                               <span class="badge event-status-badge"></span>
+                            </div>
+                        </div>
+                        <div class="event-description mb-3">
+                            <p class="card-text small text-muted">${description}</p>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0">
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn btn-primary btn-sm" onclick="viewEventDetail(${event.event_id})">
+                                <i class="fas fa-eye me-1"></i>详情
+                            </button>
+                            ${createRegistrationButton(event)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.append(eventCard);
+    });
+    
+    // 更新状态显示
+    setTimeout(updateAllEventStatuses, 100);
+}
+
+function showNoEvents() {
+    $('#latest-events').html(`
+        <div class="col-12 text-center py-5">
+            <i class="fas fa-calendar-times fa-3x text-light mb-3"></i>
+            <p class="text-light">暂无赛事信息</p>
+        </div>
+    `);
+}
+
+function loadSystemStats() {
+    // 调用API获取系统统计数据
+    $.ajax({
+        url: '/api/system/statistics',
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.statistics) {
+                $('#total-events').text(response.statistics.total_events);
+                
+                // 参赛人数从localStorage计算（所有赛事的参赛人数总和）
+                const totalParticipants = calculateTotalParticipantsFromLocalStorage();
+                $('#total-participants').text(totalParticipants);
+                
+                $('#incomplete-events').text(response.statistics.incomplete_events);
+                $('#completed-events').text(response.statistics.completed_events);
+            } else {
+                console.error('获取统计数据失败:', response.message);
+                // 使用默认值
+                $('#total-events').text('0');
+                $('#total-participants').text('0');
+                $('#incomplete-events').text('0');
+                $('#completed-events').text('0');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('获取系统统计数据失败:', error);
+            // 使用默认值
+            $('#total-events').text('0');
+            $('#total-participants').text('0');
+            $('#incomplete-events').text('0');
+            $('#completed-events').text('0');
+        }
+    });
+}
+
+// 从localStorage计算所有赛事的参赛人数总和
+function calculateTotalParticipantsFromLocalStorage() {
+    let totalParticipants = 0;
+    
+    try {
+        // 遍历localStorage中所有以eventParticipants_开头的键
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('eventParticipants_')) {
+                const eventParticipants = JSON.parse(localStorage.getItem(key) || '{}');
+                
+                // 累加该赛事的所有队伍参赛人数
+                for (const teamId in eventParticipants) {
+                    if (eventParticipants.hasOwnProperty(teamId)) {
+                        totalParticipants += eventParticipants[teamId].count || 0;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error('计算总参赛人数失败:', e);
+    }
+    
+    return totalParticipants;
+}
+
+function getStatusColor(status) {
+    const colors = {
+        'published': 'primary',
+        'ongoing': 'warning',
+        'completed': 'success',
+        'cancelled': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+
+function getStatusText(status) {
+    const texts = {
+        'published': '已发布',
+        'ongoing': '进行中',
+        'completed': '已完成',
+        'cancelled': '已取消'
+    };
+    return texts[status] || '';
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '待定';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-CN');
+}
+
+function formatDateTime(dateString) {
+    if (!dateString) return '待定';
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN');
+}
+
+// 创建报名按钮
+function createRegistrationButton(event) {
+    // 根据报名状态显示不同的报名按钮
+    if (!event.status || event.status !== 'cancelled') {
+        const registrationStatus = getRegistrationStatusForButton(event);
+        if (registrationStatus.canRegister) {
+            return `<button class="btn btn-success btn-sm" onclick="registerForEvent(${event.event_id})" title="点击报名参加此赛事">
+                <i class="fas fa-user-plus me-1"></i>报名
+            </button>`;
+        } else {
+            return `<button class="btn btn-secondary btn-sm" disabled title="${registrationStatus.reason}">
+                <i class="fas fa-ban me-1"></i>不可报名
+            </button>`;
+        }
+    }
+    return '';
+}
+
+// 获取报名按钮状态
+function getRegistrationStatusForButton(event) {
+    const now = new Date();
+    const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+    const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+    
+    // 如果没有设置报名时间，默认可以报名
+    if (!regStart || !regEnd) {
+        return { 
+            canRegister: true, 
+            reason: '可以报名' 
+        };
+    }
+    
+    if (now < regStart) {
+        return { 
+            canRegister: false, 
+            reason: '报名未开始' 
+        };
+    } else if (now > regEnd) {
+        return { 
+            canRegister: false, 
+            reason: '报名已截止' 
+        };
+    } else {
+        return { 
+            canRegister: true, 
+            reason: '报名进行中' 
+        };
+    }
+}
+
+// 报名功能
+function registerForEvent(eventId) {
+    // 检查用户是否登录
+    {% if not is_logged_in %}
+    // 未登录，跳转到登录页面
+    showMessage('请先登录后再报名参赛', 'warning');
+    setTimeout(function() {
+        window.location.href = '/login';
+    }, 1500);
+    {% else %}
+    // 已登录，直接跳转到角色选择页面
+    window.location.href = `/event_selection?source=team&event_id=${eventId}`;
+    {% endif %}
+}
+
+// 查看详情功能
+function viewEventDetail(eventId) {
+    {% if not is_logged_in %}
+    // 未登录，跳转到登录页面
+    showMessage('请先登录后查看赛事详情', 'warning');
+    setTimeout(function() {
+        window.location.href = '/login';
+    }, 1500);
+    {% else %}
+    // 已登录，显示赛事详情
+    // 从当前加载的赛事中找到对应的赛事
+    const event = currentEvents.find(e => e.event_id === eventId);
+    if (!event) {
+        // 如果本地没有找到，通过API获取
+        $.ajax({
+            url: `/api/events/${eventId}`,
+            method: 'GET',
+            success: function(response) {
+                if (response.success && response.event) {
+                    showEventDetailModal(response.event);
+                } else {
+                    showMessage('获取赛事详情失败', 'error');
+                }
+            },
+            error: function() {
+                showMessage('获取赛事详情失败', 'error');
+            }
+        });
+    } else {
+        showEventDetailModal(event);
+    }
+    {% endif %}
+}
+
+// 计算报名状态
+function getRegistrationStatus(event) {
+    const now = new Date();
+    const regStart = event.registration_start_time ? new Date(event.registration_start_time) : null;
+    const regEnd = event.registration_deadline ? new Date(event.registration_deadline) : null;
+    
+    if (!regStart || !regEnd) {
+        return { text: '报名未设置', color: 'bg-light text-dark' };
+    }
+    
+    if (now < regStart) {
+        return { text: '报名未开始', color: 'bg-secondary' };
+    } else if (now >= regStart && now <= regEnd) {
+        return { text: '报名进行中', color: 'bg-success' };
+    } else {
+        return { text: '报名已截止', color: 'bg-danger' };
+    }
+}
+
+// 计算比赛状态
+function getEventStatus(event) {
+    const now = new Date();
+    const eventStart = event.start_date ? new Date(event.start_date) : null;
+    const eventEnd = event.end_date ? new Date(event.end_date) : null;
+    
+    if (!eventStart || !eventEnd) {
+        return { text: '赛事未设置', color: 'bg-light text-dark' };
+    }
+    
+    if (now < eventStart) {
+        return { text: '赛事未开始', color: 'bg-warning' };
+    } else if (now >= eventStart && now <= eventEnd) {
+        return { text: '赛事进行中', color: 'bg-info' };
+    } else {
+        return { text: '赛事已结束', color: 'bg-dark' };
+    }
+}
+
+// 更新所有赛事状态
+function updateAllEventStatuses() {
+    const eventElements = document.querySelectorAll('[data-event-id]');
+    const now = new Date();
+
+    eventElements.forEach(el => {
+        const regStart = el.dataset.regStart ? new Date(el.dataset.regStart) : null;
+        const regEnd = el.dataset.regEnd ? new Date(el.dataset.regEnd) : null;
+        const eventStart = el.dataset.eventStart ? new Date(el.dataset.eventStart) : null;
+        const eventEnd = el.dataset.eventEnd ? new Date(el.dataset.eventEnd) : null;
+
+        const regBadge = el.querySelector('.registration-status-badge');
+        const eventBadge = el.querySelector('.event-status-badge');
+
+        // 更新报名状态
+        if (regBadge && regStart && regEnd) {
+            if (now < regStart) {
+                updateBadge(regBadge, '报名未开始', 'bg-secondary');
+            } else if (now >= regStart && now <= regEnd) {
+                updateBadge(regBadge, '报名进行中', 'bg-success');
+            } else {
+                updateBadge(regBadge, '报名已截止', 'bg-danger');
+            }
+        } else if (regBadge) {
+            updateBadge(regBadge, '报名未设置', 'bg-light text-dark');
+        }
+
+        // 更新赛事状态
+        if (eventBadge && eventStart && eventEnd) {
+            if (now < eventStart) {
+                updateBadge(eventBadge, '赛事未开始', 'bg-warning');
+            } else if (now >= eventStart && now <= eventEnd) {
+                updateBadge(eventBadge, '赛事进行中', 'bg-info');
+            } else {
+                updateBadge(eventBadge, '赛事已结束', 'bg-dark');
+            }
+        } else if (eventBadge) {
+            updateBadge(eventBadge, '赛事未设置', 'bg-light text-dark');
+        }
+    });
+}
+
+function updateBadge(element, text, bgColor) {
+    element.textContent = text;
+    element.className = 'badge ' + bgColor;
+}
+
+// 显示赛事详情模态框
+function showEventDetailModal(event) {
+    // 从localStorage获取费用数据并增强event对象
+    event = enhanceEventWithFees(event);
+    
+    $('#eventDetailTitle').text(event.name);
+    
+    const detailContent = `
+        <div class="row">
+            <div class="col-12">
+                <h6>基本信息</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td width="40%">赛事名称:</td><td>${event.name}</td></tr>
+                            <tr><td>比赛地点:</td><td>${event.location || '待定'}</td></tr>
+                            <tr><td>比赛开始时间:</td><td>${formatDateTime(event.start_date)}</td></tr>
+                            <tr><td>比赛结束时间:</td><td>${formatDateTime(event.end_date)}</td></tr>
+                            <tr><td>最大人数:</td><td>${event.max_participants || '不限'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr><td width="40%">报名开始时间:</td><td>${formatDateTime(event.registration_start_time) || '未设置'}</td></tr>
+                            <tr><td>报名截止时间:</td><td>${formatDateTime(event.registration_deadline) || '未设置'}</td></tr>
+                            <tr><td>联系电话:</td><td>${event.contact_phone || '未设置'}</td></tr>
+                            <tr><td>主办单位:</td><td>${event.organizer || '未设置'}</td></tr>
+                            <tr><td>承办单位:</td><td>${event.co_organizer || '未设置'}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                ${(event.individual_fee > 0 || event.pair_practice_fee > 0 || event.team_competition_fee > 0) ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>报名费用</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">个人赛报名费用</small>
+                                    <strong class="text-success">¥${(event.individual_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">对练报名费用</small>
+                                    <strong class="text-success">¥${(event.pair_practice_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">团体赛报名费用</small>
+                                    <strong class="text-success">¥${(event.team_competition_fee || 0).toFixed(2)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <strong>报名状态:</strong> <span class="badge ${getRegistrationStatus(event).color}">${getRegistrationStatus(event).text}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>比赛状态:</strong> <span class="badge ${getEventStatus(event).color}">${getEventStatus(event).text}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        ${event.description ? `
+            <div class="mt-3">
+                <h6>赛事描述</h6>
+                <p class="text-muted">${event.description}</p>
+            </div>
+        ` : ''}
+    `;
+    
+    $('#eventDetailContent').html(detailContent);
+    
+    // 生成操作按钮
+    let actions = '';
+    // 根据报名状态显示不同的报名按钮
+    if (!event.status || event.status !== 'cancelled') {
+        const registrationStatus = getRegistrationStatusForButton(event);
+        if (registrationStatus.canRegister) {
+            actions += `<button class="btn btn-success me-2" onclick="registerForEvent(${event.event_id})">
+                <i class="fas fa-user-plus me-1"></i>报名参赛
+            </button>`;
+        } else {
+            actions += `<button class="btn btn-secondary me-2" disabled title="${registrationStatus.reason}">
+                <i class="fas fa-ban me-1"></i>不可报名
+            </button>`;
+        }
+    }
+    
+    $('#eventDetailActions').html(actions);
+    $('#eventDetailModal').modal('show');
+}
+
+// 添加消息显示函数
+function showMessage(message, type) {
+    // 简单的消息显示，可以根据需要改进
+    const alertClass = type === 'error' ? 'alert-danger' : type === 'success' ? 'alert-success' : 'alert-info';
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" style="top: 65%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; min-width: 300px;">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    $('body').append(alertHtml);
+    
+    // 3秒后自动消失
+    setTimeout(() => {
+        $('.alert').alert('close');
+    }, 3000);
+}
+
+// 显示随行人员登记的赛事选择页面
+function showStaffEventSelection() {
+    // 创建选择赛事的模态框
+    const modalHtml = `
+        <div class="modal fade" id="staffEventModal" tabindex="-1" aria-hidden="true" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="modal-dialog" style="max-width: 95vw; width: 95vw; margin: 2vh auto;">
+                <div class="modal-content" style="background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: none;">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border-radius: 20px 20px 0 0; padding: 1.5rem 2rem; border: none; position: relative;">
+                        <button type="button" class="btn btn-light btn-sm position-absolute" onclick="$('#staffEventModal').modal('hide');" style="left: 2rem; top: 50%; transform: translateY(-50%); border-radius: 25px; font-size: 0.875rem;">
+                            <i class="fas fa-arrow-left me-1"></i>返回首页
+                        </button>
+                        <div class="w-100 text-center">
+                            <h4 class="mb-0" style="color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);">
+                                <i class="fas fa-trophy me-2"></i>选择要报名的赛事
+                            </h4>
+                        </div>
+                    </div>
+                    <div class="modal-body" style="padding: 3rem 2rem;">
+                        <div id="staffEventList" class="row g-4">
+                            <!-- 赛事列表将动态加载 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除已存在的模态框
+    $('#staffEventModal').remove();
+    
+    // 添加新的模态框到页面
+    $('body').append(modalHtml);
+    
+    // 加载赛事列表
+    loadStaffEventList();
+    
+    // 显示模态框
+    $('#staffEventModal').modal('show');
+}
+
+// 加载随行人员登记的赛事列表
+function loadStaffEventList() {
+    const eventListContainer = $('#staffEventList');
+    eventListContainer.html('<div class="col-12 text-center"><i class="fas fa-spinner fa-spin fa-2x text-primary"></i><p class="mt-2">正在加载赛事列表...</p></div>');
+    
+    // 模拟加载赛事数据（实际应该从API获取）
+    setTimeout(() => {
+        const events = [
+            {
+                id: 1,
+                name: '原神杯',
+                location: '317',
+                date: '2025/10/1 - 2025/10/2',
+                status: 'ongoing',
+                deadline: '距离报名截止还有 2 天 6 小时'
+            },
+            {
+                id: 2,
+                name: '2024年春季武术锦标赛',
+                location: '体育馆',
+                date: '2025/11/15 - 2025/11/17',
+                status: 'published',
+                deadline: '距离报名截止还有 15 天'
+            }
+        ];
+        
+        let eventHtml = '';
+        
+        if (events.length === 0) {
+            eventHtml = `
+                <div class="col-12 text-center py-5">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">暂无可报名的赛事</h5>
+                    <p class="text-muted">请等待新的赛事发布</p>
+                </div>
+            `;
+        } else {
+            events.forEach(event => {
+                eventHtml += `
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 border-0 shadow-sm event-card" style="cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 15px; overflow: hidden; position: relative;" onclick="selectStaffEvent(${event.id}, '${event.name}')">
+                            <div style="position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); transform: scaleX(0); transition: transform 0.3s ease; transform-origin: left;"></div>
+                            <div class="card-body p-4" style="background: white;">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h5 class="card-title mb-0" style="color: #2d3748; font-weight: 700;">${event.name}</h5>
+                                    <span class="badge" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border-radius: 20px; padding: 0.4rem 0.8rem; font-size: 0.75rem; box-shadow: 0 2px 8px rgba(17, 153, 142, 0.3);">报名中</span>
+                                </div>
+                                <div class="mb-2 d-flex align-items-center">
+                                    <i class="fas fa-map-marker-alt me-2" style="color: #4299e1; width: 16px;"></i>
+                                    <span style="color: #4a5568;">${event.location}</span>
+                                </div>
+                                <div class="mb-3 d-flex align-items-center">
+                                    <i class="fas fa-calendar me-2" style="color: #4299e1; width: 16px;"></i>
+                                    <span style="color: #4a5568;">${event.date}</span>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%); border-radius: 12px; padding: 0.75rem 1rem; border-left: 4px solid #f56565;">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-clock me-2" style="color: #c53030;"></i>
+                                        <small style="color: #c53030; font-weight: 600;">${event.deadline}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        eventListContainer.html(eventHtml);
+        
+        // 添加悬停效果
+        $('.event-card').hover(
+            function() {
+                $(this).css({
+                    'transform': 'translateY(-8px) scale(1.02)',
+                    'box-shadow': '0 25px 50px rgba(0,0,0,0.15)'
+                });
+                $(this).find('div:first').css('transform', 'scaleX(1)');
+                $(this).find('.card-body').css('background', 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)');
+            },
+            function() {
+                $(this).css({
+                    'transform': 'translateY(0) scale(1)',
+                    'box-shadow': '0 4px 6px rgba(0,0,0,0.1)'
+                });
+                $(this).find('div:first').css('transform', 'scaleX(0)');
+                $(this).find('.card-body').css('background', 'white');
+            }
+        );
+    }, 1000);
+}
+
+// 选择赛事后跳转到随行人员登记页面
+function selectStaffEvent(eventId, eventName) {
+    // 关闭模态框
+    $('#staffEventModal').modal('hide');
+    
+    // 显示确认信息
+    showMessage(`已选择赛事：${eventName}`, 'success');
+    
+    // 延迟跳转到随行人员登记页面，并传递赛事ID
+    setTimeout(() => {
+        window.location.href = `/staff_registration?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}`;
+    }, 1000);
+}
+
+// 显示赛事详情
+function showEventDetail(eventId, eventName, location, date, participants, deadline, status) {
+    // 更新模态框内容
+    $('#detailEventName').text(eventName);
+    $('#detailEventLocation').text(location || '待定');
+    $('#detailEventDate').text(date || '待定');
+    $('#detailEventLocationText').text(location || '待定');
+    $('#detailEventDeadline').text(deadline || '待定');
+    
+    // 更新状态标签
+    const statusBadge = $('#detailEventStatus');
+    statusBadge.removeClass('bg-success bg-warning bg-secondary');
+    if (status === 'ongoing') {
+        statusBadge.addClass('bg-success').text('进行中');
+    } else if (status === 'upcoming') {
+        statusBadge.addClass('bg-warning').text('即将开始');
+    } else {
+        statusBadge.addClass('bg-secondary').text('已发布');
+    }
+    
+    // 更新赛事描述
+    const description = '这里将显示赛事的详细说明信息，包括比赛规则、参赛要求、奖项设置内容。';
+    $('#detailEventDescription').text(description);
+    
+    // 设置立即报名按钮的点击事件
+    $('#btnJoinEvent').off('click').on('click', function() {
+        // 关闭模态框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('eventDetailModal'));
+        if (modal) {
+            modal.hide();
+        }
+        
+        // 跳转到报名页面
+        window.location.href = `/event_registration?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}`;
+    });
+    
+    // 加载赛事项目（模拟数据）
+    loadEventCategories(eventId);
+    
+    // 显示模态框
+    const modalElement = document.getElementById('eventDetailModal');
+    if (modalElement) {
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',  // 点击背景不关闭
+            keyboard: false      // 按ESC键不关闭
+        });
+        modal.show();
+        
+        // 5秒后自动关闭模态框
+        setTimeout(() => {
+            if (modal) {
+                modal.hide();
+            }
+        }, 5000);
+    } else {
+        console.error('找不到模态框元素');
+    }
+}
+
+// 加载赛事项目（模拟数据）
+function loadEventCategories(eventId) {
+    const container = $('#eventCategories');
+    container.empty();
+    
+    // 模拟赛事项目数据
+    const categories = [
+        { name: '男子长拳', type: '个人', age: '不限', level: '所有段位' },
+        { name: '女子长拳', type: '个人', age: '不限', level: '所有段位' },
+        { name: '太极拳', type: '个人', age: '18岁以上', level: '初段以上' },
+        { name: '南拳', type: '个人', age: '18岁以下', level: '所有段位' },
+        { name: '器械对练', type: '双人', age: '不限', level: '二段以上' },
+        { name: '集体项目', type: '团体', age: '不限', level: '所有段位' }
+    ];
+    
+    // 渲染赛事项目
+    categories.forEach((category, index) => {
+        const categoryHtml = `
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-body p-3">
+                        <h6 class="card-title mb-2">${category.name}</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-user me-1"></i>${category.type}
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-user-clock me-1"></i>${category.age}
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-star me-1"></i>${category.level}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.append(categoryHtml);
+    });
+}
+
+// 获取赛事的总参赛人数（从localStorage）
+function getEventTotalParticipants(eventId) {
+    if (!eventId) {
+        return 0;
+    }
+    
+    const storageKey = `eventParticipants_${eventId}`;
+    let total = 0;
+    
+    try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+            const eventParticipants = JSON.parse(stored);
+            // 累加所有队伍的参赛人数
+            for (const teamId in eventParticipants) {
+                if (eventParticipants.hasOwnProperty(teamId)) {
+                    total += eventParticipants[teamId].count || 0;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('获取赛事参赛人数失败:', e);
+    }
+    
+    return total;
+}
+</script>
+
+<!-- 赛事详情模态框 -->
+<div class="modal fade" id="eventDetailModal" tabindex="-1" aria-labelledby="eventDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title" id="eventDetailModalLabel">
+                    <i class="fas fa-info-circle me-2"></i>赛事详情
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <h5 id="detailEventName" class="text-primary"></h5>
+                            <p class="text-muted mb-2" id="detailEventLocation"></p>
+                        </div>
+                        <div class="mb-3">
+                            <p class="mb-1"><i class="far fa-calendar-alt me-2"></i> <strong>比赛时间：</strong><span id="detailEventDate"></span></p>
+                            <p class="mb-1"><i class="fas fa-map-marker-alt me-2"></i> <strong>比赛地点：</strong><span id="detailEventLocationText"></span></p>
+                            <p class="mb-1"><i class="fas fa-users me-2"></i> <strong>参赛人数：</strong><span id="detailEventParticipants"></span></p>
+                            <p class="mb-1"><i class="fas fa-clock me-2"></i> <strong>报名截止：</strong><span id="detailEventDeadline"></span></p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">赛事说明</h6>
+                                <p class="card-text" id="detailEventDescription">
+                                    这里将显示赛事的详细说明信息，包括比赛规则、参赛要求、奖项设置等内容。
+                                </p>
+                                <div class="mt-3">
+                                    <span class="badge bg-primary me-2" id="detailEventStatus">已发布</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h6><i class="fas fa-list-ol me-2"></i>比赛项目</h6>
+                    <div class="row g-2" id="eventCategories">
+                        <!-- 赛事项目将通过JavaScript动态加载 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>关闭
+                </button>
+                <a href="#" class="btn btn-primary" id="btnJoinEvent">
+                    <i class="fas fa-sign-in-alt me-1"></i>立即报名
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

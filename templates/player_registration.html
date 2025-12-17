@@ -1,0 +1,744 @@
+{% extends "base.html" %}
+
+{% block title %}选手信息填报 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <div class="row g-0">
+        <div class="col-12">
+            <!-- 页面标题 -->
+            <div class="d-flex justify-content-between align-items-center mb-4 px-3">
+                <div>
+                    <h2><i class="fas fa-id-card me-2"></i>选手信息填报</h2>
+                    <p class="text-muted mb-0">提交选手个人资料与项目偏好，支持证件上传与信息校验</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="showAddPlayerModal()">
+                        <i class="fas fa-plus me-2"></i>添加选手
+                    </button>
+                </div>
+            </div>
+
+            <!-- 选手统计 -->
+            <div class="row g-3 px-3 mb-4">
+                <div class="col-md-2">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-users fa-2x mb-2"></i>
+                            <h4 id="totalPlayers">0</h4>
+                            <p class="mb-0">总选手</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-male fa-2x mb-2"></i>
+                            <h4 id="malePlayers">0</h4>
+                            <p class="mb-0">男选手</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-pink text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-female fa-2x mb-2"></i>
+                            <h4 id="femalePlayers">0</h4>
+                            <p class="mb-0">女选手</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-check-circle fa-2x mb-2"></i>
+                            <h4 id="completedPlayers">0</h4>
+                            <p class="mb-0">已完成</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-clock fa-2x mb-2"></i>
+                            <h4 id="pendingPlayers">0</h4>
+                            <p class="mb-0">待完善</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card bg-secondary text-white">
+                        <div class="card-body text-center">
+                            <i class="fas fa-trophy fa-2x mb-2"></i>
+                            <h4 id="registeredEvents">0</h4>
+                            <p class="mb-0">报名项目</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 选手列表 -->
+            <div class="card shadow-sm mx-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>选手列表
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <select class="form-select" id="statusFilter" onchange="filterPlayers()" style="width: auto;">
+                            <option value="">全部状态</option>
+                            <option value="completed">已完成</option>
+                            <option value="pending">待完善</option>
+                        </select>
+                        <div class="input-group" style="max-width: 300px;">
+                            <input type="text" id="searchInput" class="form-control" placeholder="搜索选手姓名">
+                            <button class="btn btn-outline-primary" type="button" onclick="searchPlayers()">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="playersTable">
+                            <thead>
+                                <tr>
+                                    <th>姓名</th>
+                                    <th>性别</th>
+                                    <th>年龄</th>
+                                    <th>联系电话</th>
+                                    <th>主项目</th>
+                                    <th>级别</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="playersTableBody">
+                                <!-- 选手数据将通过JavaScript动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 无数据提示 -->
+                    <div id="noPlayersData" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">暂无选手信息</h5>
+                        <p class="text-muted">点击上方"添加选手"按钮开始录入选手信息</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加/编辑选手模态框 -->
+<div class="modal fade" id="playerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="playerModalTitle">
+                    <i class="fas fa-user-plus me-2"></i>添加选手
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="playerForm">
+                    <!-- 基本信息 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="fas fa-user me-2"></i>基本信息
+                            </h6>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="playerName" class="form-label">姓名 *</label>
+                                <input type="text" class="form-control" id="playerName" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="playerGender" class="form-label">性别 *</label>
+                                <select class="form-select" id="playerGender" required>
+                                    <option value="">请选择性别</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="playerBirthdate" class="form-label">出生日期 *</label>
+                                <input type="date" class="form-control" id="playerBirthdate" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 联系信息 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="fas fa-phone me-2"></i>联系信息
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="playerPhone" class="form-label">联系电话 *</label>
+                                <input type="tel" class="form-control" id="playerPhone" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="playerEmail" class="form-label">邮箱地址</label>
+                                <input type="email" class="form-control" id="playerEmail">
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="playerIdCard" class="form-label">身份证号 *</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="playerIdCard" required oninput="extractGenderFromIdCard(this.value)">
+                                    <span class="input-group-text" id="extractedGender">性别: -</span>
+                                </div>
+                                <small class="form-text text-muted">输入身份证号后将自动提取性别信息</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 身体信息 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="fas fa-weight me-2"></i>身体信息
+                            </h6>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="playerHeight" class="form-label">身高 (cm)</label>
+                                <input type="number" class="form-control" id="playerHeight" min="100" max="250">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="playerWeight" class="form-label">体重 (kg)</label>
+                                <input type="number" class="form-control" id="playerWeight" min="30" max="200" step="0.1">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="playerBloodType" class="form-label">血型</label>
+                                <select class="form-select" id="playerBloodType">
+                                    <option value="">请选择血型</option>
+                                    <option value="A">A型</option>
+                                    <option value="B">B型</option>
+                                    <option value="AB">AB型</option>
+                                    <option value="O">O型</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 武术信息 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="fas fa-fist-raised me-2"></i>武术信息
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="playerMainEvent" class="form-label">主项目 *</label>
+                                <select class="form-select" id="playerMainEvent" required>
+                                    <option value="">请选择主项目</option>
+                                    <option value="changquan">长拳</option>
+                                    <option value="taijiquan">太极拳</option>
+                                    <option value="nanquan">南拳</option>
+                                    <option value="jianshu">剑术</option>
+                                    <option value="daoshu">刀术</option>
+                                    <option value="qiangshu">枪术</option>
+                                    <option value="gunshu">棍术</option>
+                                    <option value="sanda">散打</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="playerLevel" class="form-label">级别 *</label>
+                                <select class="form-select" id="playerLevel" required>
+                                    <option value="">请选择级别</option>
+                                    <option value="beginner">初级</option>
+                                    <option value="intermediate">中级</option>
+                                    <option value="advanced">高级</option>
+                                    <option value="professional">专业</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="playerExperience" class="form-label">练习年限</label>
+                                <input type="number" class="form-control" id="playerExperience" min="0">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="playerAchievements" class="form-label">主要成绩</label>
+                                <input type="text" class="form-control" id="playerAchievements" placeholder="如：全国武术锦标赛第三名">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 紧急联系人 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="border-bottom pb-2 mb-3">
+                                <i class="fas fa-phone-alt me-2"></i>紧急联系人
+                            </h6>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="emergencyName" class="form-label">姓名 *</label>
+                                <input type="text" class="form-control" id="emergencyName" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="emergencyRelation" class="form-label">关系 *</label>
+                                <select class="form-select" id="emergencyRelation" required>
+                                    <option value="">请选择关系</option>
+                                    <option value="parent">父母</option>
+                                    <option value="spouse">配偶</option>
+                                    <option value="sibling">兄弟姐妹</option>
+                                    <option value="friend">朋友</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="emergencyPhone" class="form-label">联系电话 *</label>
+                                <input type="tel" class="form-control" id="emergencyPhone" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 备注 -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="playerNotes" class="form-label">备注</label>
+                                <textarea class="form-control" id="playerNotes" rows="3" placeholder="其他需要说明的信息，如特殊饮食要求、过敏史等"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="playerId">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="savePlayer()">
+                    <i class="fas fa-save me-2"></i>保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.bg-pink {
+    background-color: #e91e63 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let playersList = [];
+let currentEditId = null;
+
+$(document).ready(function() {
+    // 检查登录状态
+    if (!checkLoginStatus()) {
+        return;
+    }
+    
+    // 加载选手列表
+    loadPlayersList();
+    
+    // 搜索框回车事件
+    $('#searchInput').on('keypress', function(e) {
+        if (e.which === 13) {赛事报名
+            searchPlayers();
+        }
+    });
+});
+
+function checkLoginStatus() {
+    if (!{{ 'true' if is_logged_in else 'false' }}) {
+        showMessage('请先登录后再访问此页面', 'warning');
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 2000);
+        return false;
+    }
+    return true;
+}
+
+function loadPlayersList() {
+    // 这里应该调用API加载选手数据
+    // 暂时使用模拟数据
+    playersList = [
+        {
+            id: 1,
+            name: '李小明',
+            gender: 'male',
+            birthdate: '2000-05-15',
+            phone: '13800138001',
+            email: 'lixiaoming@example.com',
+            idCard: '110101200005151234',
+            height: 175,
+            weight: 65,
+            bloodType: 'A',
+            mainEvent: 'changquan',
+            level: 'advanced',
+            experience: 8,
+            achievements: '全国武术锦标赛第三名',
+            emergencyName: '李父',
+            emergencyRelation: 'parent',
+            emergencyPhone: '13900139001',
+            notes: '无特殊要求',
+            status: 'completed'
+        }
+    ];
+    
+    renderPlayersTable();
+    updateStatistics();
+}
+
+function renderPlayersTable() {
+    const tbody = $('#playersTableBody');
+    tbody.empty();
+    
+    if (playersList.length === 0) {
+        $('#noPlayersData').show();
+        $('#playersTable').hide();
+        return;
+    }
+    
+    $('#noPlayersData').hide();
+    $('#playersTable').show();
+    
+    playersList.forEach(player => {
+        const age = calculateAge(player.birthdate);
+        const row = `
+            <tr>
+                <td>${player.name}</td>
+                <td>${player.gender === 'male' ? '男' : '女'}</td>
+                <td>${age}岁</td>
+                <td>${player.phone}</td>
+                <td>${getEventText(player.mainEvent)}</td>
+                <td>${getLevelText(player.level)}</td>
+                <td>
+                    <span class="badge ${player.status === 'completed' ? 'bg-success' : 'bg-warning'}">
+                        ${player.status === 'completed' ? '已完成' : '待完善'}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="editPlayer(${player.id})" title="编辑">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="viewPlayer(${player.id})" title="查看详情">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-danger" onclick="deletePlayer(${player.id})" title="删除" style="padding: 0.4rem 0.8rem;">
+                            <i class="fas fa-trash" style="color: white; font-size: 1.1em;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+function updateStatistics() {
+    const total = playersList.length;
+    const male = playersList.filter(p => p.gender === 'male').length;
+    const female = playersList.filter(p => p.gender === 'female').length;
+    const completed = playersList.filter(p => p.status === 'completed').length;
+    const pending = playersList.filter(p => p.status === 'pending').length;
+    
+    $('#totalPlayers').text(total);
+    $('#malePlayers').text(male);
+    $('#femalePlayers').text(female);
+    $('#completedPlayers').text(completed);
+    $('#pendingPlayers').text(pending);
+    $('#registeredEvents').text(total); // 简化处理
+}
+
+function showAddPlayerModal() {
+    currentEditId = null;
+    $('#playerModalTitle').html('<i class="fas fa-user-plus me-2"></i>添加选手');
+    $('#playerForm')[0].reset();
+    $('#playerId').val('');
+    $('#playerModal').modal('show');
+}
+
+function editPlayer(id) {
+    const player = playersList.find(p => p.id === id);
+    if (!player) return;
+    
+    currentEditId = id;
+    $('#playerModalTitle').html('<i class="fas fa-edit me-2"></i>编辑选手');
+    
+    // 填充表单数据
+    $('#playerId').val(player.id);
+    $('#playerName').val(player.name);
+    $('#playerGender').val(player.gender);
+    $('#playerBirthdate').val(player.birthdate);
+    $('#playerPhone').val(player.phone);
+    $('#playerEmail').val(player.email || '');
+    $('#playerIdCard').val(player.idCard);
+    $('#playerHeight').val(player.height || '');
+    $('#playerWeight').val(player.weight || '');
+    $('#playerBloodType').val(player.bloodType || '');
+    $('#playerMainEvent').val(player.mainEvent);
+    $('#playerLevel').val(player.level);
+    $('#playerExperience').val(player.experience || '');
+    $('#playerAchievements').val(player.achievements || '');
+    $('#emergencyName').val(player.emergencyName);
+    $('#emergencyRelation').val(player.emergencyRelation);
+    $('#emergencyPhone').val(player.emergencyPhone);
+    $('#playerNotes').val(player.notes || '');
+    
+    $('#playerModal').modal('show');
+}
+
+function savePlayer() {
+    const form = $('#playerForm')[0];
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const playerData = {
+        name: $('#playerName').val().trim(),
+        gender: $('#playerGender').val(),
+        birthdate: $('#playerBirthdate').val(),
+        phone: $('#playerPhone').val().trim(),
+        email: $('#playerEmail').val().trim(),
+        idCard: $('#playerIdCard').val().trim(),
+        height: parseInt($('#playerHeight').val()) || null,
+        weight: parseFloat($('#playerWeight').val()) || null,
+        bloodType: $('#playerBloodType').val(),
+        mainEvent: $('#playerMainEvent').val(),
+        level: $('#playerLevel').val(),
+        experience: parseInt($('#playerExperience').val()) || 0,
+        achievements: $('#playerAchievements').val().trim(),
+        emergencyName: $('#emergencyName').val().trim(),
+        emergencyRelation: $('#emergencyRelation').val(),
+        emergencyPhone: $('#emergencyPhone').val().trim(),
+        notes: $('#playerNotes').val().trim(),
+        status: 'completed'
+    };
+    
+    // 验证身份证号
+    const idCardRegex = /^[1-9]\d{5}(18|19|20)\d{2}((0[1-9])|(1[0-2]))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$/;
+    if (!idCardRegex.test(playerData.idCard)) {
+        showMessage('请输入正确的身份证号格式', 'error');
+        return;
+    }
+    
+    // 验证手机号
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    if (!phoneRegex.test(playerData.phone)) {
+        showMessage('请输入正确的手机号格式', 'error');
+        return;
+    }
+    
+    if (!phoneRegex.test(playerData.emergencyPhone)) {
+        showMessage('请输入正确的紧急联系人电话格式', 'error');
+        return;
+    }
+    
+    if (currentEditId) {
+        // 编辑现有选手
+        const index = playersList.findIndex(p => p.id === currentEditId);
+        if (index !== -1) {
+            playersList[index] = { ...playersList[index], ...playerData };
+        }
+        showMessage('选手信息更新成功！', 'success');
+    } else {
+        // 添加新选手
+        playerData.id = Date.now();
+        playersList.push(playerData);
+        showMessage('选手添加成功！', 'success');
+    }
+    
+    $('#playerModal').modal('hide');
+    renderPlayersTable();
+    updateStatistics();
+}
+
+function deletePlayer(id) {
+    if (!confirm('确定要删除这个选手吗？')) {
+        return;
+    }
+    
+    const index = playersList.findIndex(p => p.id === id);
+    if (index !== -1) {
+        playersList.splice(index, 1);
+        renderPlayersTable();
+        updateStatistics();
+        showMessage('选手删除成功！', 'success');
+    }
+}
+
+function viewPlayer(id) {
+    const player = playersList.find(p => p.id === id);
+    if (!player) return;
+    
+    // 这里可以显示选手详情模态框
+    showMessage('查看选手详情功能开发中...', 'info');
+}
+
+function searchPlayers() {
+    const keyword = $('#searchInput').val().trim().toLowerCase();
+    if (!keyword) {
+        renderPlayersTable();
+        return;
+    }
+    
+    const filteredList = playersList.filter(player => 
+        player.name.toLowerCase().includes(keyword)
+    );
+    
+    renderFilteredPlayers(filteredList);
+}
+
+function filterPlayers() {
+    const status = $('#statusFilter').val();
+    if (!status) {
+        renderPlayersTable();
+        return;
+    }
+    
+    const filteredList = playersList.filter(player => player.status === status);
+    renderFilteredPlayers(filteredList);
+}
+
+function renderFilteredPlayers(filteredList) {
+    const tbody = $('#playersTableBody');
+    tbody.empty();
+    
+    if (filteredList.length === 0) {
+        tbody.append(`
+            <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                    <i class="fas fa-search me-2"></i>未找到匹配的选手
+                </td>
+            </tr>
+        `);
+        return;
+    }
+    
+    filteredList.forEach(player => {
+        const age = calculateAge(player.birthdate);
+        const row = `
+            <tr>
+                <td>${player.name}</td>
+                <td>${player.gender === 'male' ? '男' : '女'}</td>
+                <td>${age}岁</td>
+                <td>${player.phone}</td>
+                <td>${getEventText(player.mainEvent)}</td>
+                <td>${getLevelText(player.level)}</td>
+                <td>
+                    <span class="badge ${player.status === 'completed' ? 'bg-success' : 'bg-warning'}">
+                        ${player.status === 'completed' ? '已完成' : '待完善'}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="editPlayer(${player.id})" title="编辑">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-info" onclick="viewPlayer(${player.id})" title="查看详情">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-danger" onclick="deletePlayer(${player.id})" title="删除" style="padding: 0.4rem 0.8rem;">
+                            <i class="fas fa-trash" style="color: white; font-size: 1.1em;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+function calculateAge(birthdate) {
+    if (!birthdate) return 0;
+    const today = new Date();
+    const birth = new Date(birthdate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+}
+
+function getEventText(event) {
+    const events = {
+        'changquan': '长拳',
+        'taijiquan': '太极拳',
+        'nanquan': '南拳',
+        'jianshu': '剑术',
+        'daoshu': '刀术',
+        'qiangshu': '枪术',
+        'gunshu': '棍术',
+        'sanda': '散打'
+    };
+    return events[event] || event;
+}
+
+function getLevelText(level) {
+    const levels = {
+        'beginner': '初级',
+        'intermediate': '中级',
+        'advanced': '高级',
+        'professional': '专业'
+    };
+    return levels[level] || level;
+}
+
+// 从身份证号提取性别
+function extractGenderFromIdCard(idCard) {
+    const extractedGender = document.getElementById('extractedGender');
+    
+    // 检查身份证号是否为18位
+    if (idCard.length !== 18) {
+        extractedGender.textContent = '性别: -';
+        return;
+    }
+    
+    // 第17位表示性别，奇数为男，偶数为女
+    const genderDigit = idCard.charAt(16);
+    const genderNum = parseInt(genderDigit);
+    
+    if (!isNaN(genderNum)) {
+        const gender = genderNum % 2 === 1 ? '男' : '女';
+        extractedGender.textContent = `性别: ${gender}`;
+        
+        // 自动填充性别选择框
+        if (document.getElementById('playerGender')) {
+            document.getElementById('playerGender').value = gender === '男' ? 'male' : 'female';
+        }
+    } else {
+        extractedGender.textContent = '性别: -';
+    }
+}
+</script>
+{% endblock %}

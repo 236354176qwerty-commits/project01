@@ -1,0 +1,582 @@
+{% extends "base.html" %}
+
+{% block title %}通知公告 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<!-- 页面标题 -->
+<div class="page-header-card">
+    <div class="page-header-content">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="fas fa-bullhorn me-2"></i>通知公告
+                </h1>
+                <p class="page-description">
+                    查看系统通知和重要公告
+                </p>
+            </div>
+            {% if user_role == 'super_admin' %}
+            <div>
+                <button type="button" class="btn btn-primary" onclick="showCreateModal()">
+                    <i class="fas fa-plus me-1"></i>新建公告
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007bff 0%, #0056b3 50%, #007bff 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+}
+
+.page-header-content {
+    padding: 1.75rem 2rem;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.page-title i {
+    color: #007bff;
+}
+
+.page-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+}
+
+.announcement-item {
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.8rem 0;
+    transition: background-color 0.3s;
+}
+
+.announcement-item:hover {
+    background-color: #f8f9fa;
+}
+
+.announcement-title {
+    color: #2c3e50;
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.announcement-title:hover {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.announcement-date {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.announcement-meta {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.pagination-info {
+    font-size: 0.9rem;
+    color: #6c757d;
+    text-align: center;
+    margin: 1rem 0;
+}
+
+.file-icon {
+    color: #dc3545;
+    margin-right: 0.5rem;
+}
+
+/* 修复公告详情模态框显示问题 */
+#announcementDetailModal {
+    z-index: 1050 !important;
+    background: transparent !important;  /* 完全透明背景 */
+}
+
+#announcementDetailModal.show {
+    display: block !important;
+    background: transparent !important;
+}
+
+#announcementDetailModal .modal-dialog {
+    max-height: 90vh;
+    margin: 5vh auto;  /* 调整为垂直居中 */
+    z-index: 1060 !important;
+    position: relative !important;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 10vh);  /* 确保垂直居中 */
+}
+
+#announcementDetailModal .modal-content {
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    background: white !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+#announcementDetailModal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(90vh - 120px); /* 减去header和footer的高度 */
+    padding: 1.5rem;
+}
+
+#announcementDetailModal .modal-header {
+    flex-shrink: 0;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem 1.5rem;
+}
+
+#announcementDetailModal .modal-footer {
+    flex-shrink: 0;
+    border-top: 1px solid #dee2e6;
+    padding: 1rem 1.5rem;
+}
+
+/* 确保内容在小屏幕上也能正常显示 */
+@media (max-width: 576px) {
+    #announcementDetailModal .modal-dialog {
+        margin: 2vh 0.5rem;  /* 小屏幕上也保持居中 */
+        max-height: 95vh;
+        min-height: calc(100vh - 4vh);
+    }
+    
+    #announcementDetailModal .modal-body {
+        max-height: calc(95vh - 100px);
+        padding: 1rem;
+    }
+}
+</style>
+
+<!-- 公告列表 -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body">
+        <!-- 加载状态 -->
+        <div id="loading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="mt-3 text-muted">正在加载公告...</p>
+        </div>
+
+        <!-- 公告列表 -->
+        <div id="announcement-list" style="display: none;">
+            <!-- 动态生成内容 -->
+        </div>
+
+        <!-- 无数据提示 -->
+        <div id="no-data" class="text-center py-5" style="display: none;">
+            <i class="fas fa-bullhorn fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">暂无公告</h5>
+            <p class="text-muted">系统还没有发布任何公告</p>
+        </div>
+
+        <!-- 分页 -->
+        <div id="pagination-container" style="display: none;">
+            <div class="pagination-info" id="pagination-info"></div>
+            <nav>
+                <ul class="pagination justify-content-center" id="pagination">
+                    <!-- 动态生成分页按钮 -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- 创建公告模态框 -->
+{% if user_role == 'super_admin' %}
+<div class="modal fade" id="createAnnouncementModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>发布新公告
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createAnnouncementForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="announcementTitle" class="form-label">公告标题 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="announcementTitle" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="announcementContent" class="form-label">公告内容</label>
+                        <textarea class="form-control" id="announcementContent" name="content" rows="3" 
+                                  placeholder="可选：输入纯文本公告内容"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="announcementFile" class="form-label">附件文件</label>
+                        <input type="file" class="form-control" id="announcementFile" name="file"
+                               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png">
+                        <div class="form-text">支持的文件类型：PDF、Word、Excel、PowerPoint、图片等</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-1"></i>发布公告
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 公告详情模态框 -->
+<div class="modal fade" id="announcementDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailTitle">
+                    <i class="fas fa-bullhorn me-2"></i>公告详情
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailContent">
+                <!-- 动态生成内容 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="downloadBtn" style="display: none;">
+                    <i class="fas fa-download me-1"></i>下载附件
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentPage = 1;
+let totalPages = 1;
+
+$(document).ready(function() {
+    loadAnnouncements();
+    
+    // 创建公告表单提交
+    $('#createAnnouncementForm').on('submit', function(e) {
+        e.preventDefault();
+        createAnnouncement();
+    });
+});
+
+function loadAnnouncements(page = 1) {
+    currentPage = page;
+    
+    showLoading();
+    
+    $.ajax({
+        url: '/api/announcements',
+        method: 'GET',
+        data: { page: page, per_page: 15 },
+        success: function(response) {
+            if (response.success) {
+                if (response.data.length > 0) {
+                    displayAnnouncements(response.data);
+                    displayPagination(response.pagination);
+                    showAnnouncementList();
+                } else {
+                    showNoData();
+                }
+            } else {
+                showMessage(response.message || '加载失败', 'error');
+                showNoData();
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 401) {
+                showMessage('请先登录', 'warning');
+                setTimeout(() => window.location.href = '/login', 2000);
+            }
+            showNoData();
+        },
+        complete: function() {
+            hideLoading();
+        }
+    });
+}
+
+function displayAnnouncements(announcements) {
+    let html = '';
+    
+    announcements.forEach(function(announcement) {
+        let dateStr = formatDate(announcement.created_at);
+        let hasFile = !!announcement.file_name;
+        let fileIcon = hasFile ? '<i class="fas fa-paperclip file-icon"></i>' : '';
+        
+        html += `
+            <div class="announcement-item" onclick="showAnnouncementDetail(${announcement.id})">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="flex-grow-1">
+                        <div class="announcement-title">
+                            ${fileIcon}${announcement.title}
+                        </div>
+                        ${announcement.content ? `<div class="announcement-meta mt-1">${truncateText(announcement.content, 80)}</div>` : ''}
+                    </div>
+                    <div class="text-end">
+                        <div class="announcement-date">${dateStr}</div>
+                        ${announcement.view_count > 0 ? `<div class="announcement-meta">查看 ${announcement.view_count} 次</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    $('#announcement-list').html(html);
+}
+
+function displayPagination(pagination) {
+    totalPages = pagination.total_pages;
+    
+    // 分页信息
+    let startRecord = (pagination.current_page - 1) * pagination.per_page + 1;
+    let endRecord = Math.min(pagination.current_page * pagination.per_page, pagination.total);
+    let paginationInfo = `第${startRecord}-${endRecord}记录 共计${pagination.total}记录 第一页 `;
+    
+    // 分页按钮
+    let paginationHTML = '';
+    
+    // 首页
+    if (pagination.current_page > 1) {
+        paginationHTML += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="loadAnnouncements(1)">首页</a></li>`;
+    }
+    
+    // 上一页
+    if (pagination.has_prev) {
+        paginationHTML += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="loadAnnouncements(${pagination.current_page - 1})">&lt;&lt;上一页</a></li>`;
+    }
+    
+    // 页码
+    let startPage = Math.max(1, pagination.current_page - 2);
+    let endPage = Math.min(totalPages, pagination.current_page + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        let activeClass = i === pagination.current_page ? 'active' : '';
+        paginationHTML += `<li class="page-item ${activeClass}"><a class="page-link" href="javascript:void(0)" onclick="loadAnnouncements(${i})">${i}</a></li>`;
+    }
+    
+    // 下一页
+    if (pagination.has_next) {
+        paginationHTML += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="loadAnnouncements(${pagination.current_page + 1})">下一页&gt;&gt;</a></li>`;
+    }
+    
+    // 尾页
+    if (pagination.current_page < totalPages) {
+        paginationHTML += `<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="loadAnnouncements(${totalPages})">尾页</a></li>`;
+    }
+    
+    paginationInfo += ` 每页${pagination.per_page}`;
+    
+    $('#pagination-info').text(paginationInfo);
+    $('#pagination').html(paginationHTML);
+    $('#pagination-container').show();
+}
+
+function showAnnouncementDetail(announcementId) {
+    // 这里可以扩展为显示公告详情
+    // 目前简单实现为如果有文件就下载，否则显示内容
+    
+    $.ajax({
+        url: '/api/announcements',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                let announcement = response.data.find(a => a.id === announcementId);
+                if (announcement) {
+                    let content = `
+                        <div class="mb-3">
+                            <h6>发布时间：</h6>
+                            <p>${formatDateTime(announcement.created_at)}</p>
+                        </div>
+                    `;
+                    
+                    if (announcement.content) {
+                        content += `
+                            <div class="mb-3">
+                                <h6>公告内容：</h6>
+                                <p>${announcement.content.replace(/\n/g, '<br>')}</p>
+                            </div>
+                        `;
+                    }
+                    
+                    if (announcement.file_name) {
+                        content += `
+                            <div class="mb-3">
+                                <h6>附件文件：</h6>
+                                <p><i class="fas fa-paperclip me-1"></i>${announcement.file_name}</p>
+                            </div>
+                        `;
+                        $('#downloadBtn').show().off('click').on('click', function() {
+                            downloadFile(announcementId);
+                        });
+                    } else {
+                        $('#downloadBtn').hide();
+                    }
+                    
+                    $('#detailTitle').html(`<i class="fas fa-bullhorn me-2"></i>${announcement.title}`);
+                    $('#detailContent').html(content);
+
+                    const detailModalEl = document.getElementById('announcementDetailModal');
+                    if (detailModalEl) {
+                        let detailModal = bootstrap.Modal.getInstance(detailModalEl);
+                        if (!detailModal) {
+                            detailModal = new bootstrap.Modal(detailModalEl, {
+                                backdrop: false,
+                                keyboard: true,
+                                focus: true
+                            });
+                        }
+                        detailModal.show();
+                    }
+                }
+            }
+        }
+    });
+}
+
+function downloadFile(announcementId) {
+    window.open(`/api/announcements/${announcementId}/download`, '_blank');
+}
+
+function showCreateModal() {
+    const formEl = document.getElementById('createAnnouncementForm');
+    if (formEl) {
+        formEl.reset();
+    }
+
+    const modalEl = document.getElementById('createAnnouncementModal');
+    if (modalEl) {
+        let createModal = bootstrap.Modal.getInstance(modalEl);
+        if (!createModal) {
+            createModal = new bootstrap.Modal(modalEl, {
+                backdrop: 'static',
+                keyboard: false
+            });
+        }
+        createModal.show();
+    }
+}
+
+function createAnnouncement() {
+    let formData = new FormData($('#createAnnouncementForm')[0]);
+    
+    $.ajax({
+        url: '/api/announcements',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                showMessage('公告发布成功', 'success');
+                const modalEl = document.getElementById('createAnnouncementModal');
+                if (modalEl) {
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                }
+                loadAnnouncements(1); // 重新加载第一页
+            } else {
+                showMessage(response.message || '发布失败', 'error');
+            }
+        },
+        error: function(xhr) {
+            let message = '发布失败';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            }
+            showMessage(message, 'error');
+        }
+    });
+}
+
+function showLoading() {
+    $('#loading').show();
+    $('#announcement-list, #no-data, #pagination-container').hide();
+}
+
+function hideLoading() {
+    $('#loading').hide();
+}
+
+function showAnnouncementList() {
+    $('#announcement-list').show();
+    $('#no-data').hide();
+}
+
+function showNoData() {
+    $('#no-data').show();
+    $('#announcement-list, #pagination-container').hide();
+}
+
+function formatDate(dateString) {
+    let date = new Date(dateString);
+    let year = date.getFullYear();
+    let month = String(date.getMonth() + 1).padStart(2, '0');
+    let day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatDateTime(dateString) {
+    let date = new Date(dateString);
+    return date.toLocaleString('zh-CN');
+}
+
+function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
+function showMessage(message, type) {
+    // 这里可以使用你现有的消息提示系统
+    if (type === 'success') {
+        alert('✓ ' + message);
+    } else if (type === 'error') {
+        alert('✗ ' + message);
+    } else {
+        alert(message);
+    }
+}
+</script>
+{% endblock %}

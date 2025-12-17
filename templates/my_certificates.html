@@ -1,0 +1,1662 @@
+{% extends "base.html" %}
+
+{% block title %}选手信息审核 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="events-page">
+        <!-- 队伍容器 -->
+        <div class="card teams-container">
+        <div class="card-header">
+            <button class="btn back-btn" onclick="goBackToHome()">
+                <i class="fas fa-arrow-left me-1"></i>返回首页
+            </button>
+            <h4><i class="fas fa-users me-2"></i>我创建的队伍</h4>
+        </div>
+        
+        <!-- 筛选区域 -->
+        <div class="card-body border-bottom" style="padding: 1.5rem 2rem 1rem 2rem; background: rgba(248, 249, 250, 0.8); border-radius: 0;">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="searchInput" class="form-label">
+                        <i class="fas fa-search me-1"></i>搜索队伍
+                    </label>
+                    <input type="text" class="form-control" id="searchInput" 
+                           placeholder="输入队伍名称或赛事名称进行搜索..." 
+                           oninput="filterTeams()" style="border-radius: 0;">
+                </div>
+                <div class="col-md-3">
+                    <label for="statusFilter" class="form-label">
+                        <i class="fas fa-filter me-1"></i>申请状态
+                    </label>
+                    <select class="form-select" id="statusFilter" onchange="filterTeams()" style="border-radius: 0;">
+                        <option value="">全部队伍</option>
+                        <option value="pending">有待审核申请</option>
+                        <option value="no-applications">无申请</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-light w-100" onclick="clearSearch()" style="border-radius: 0; background-color: white; border: 1px solid #ced4da; height: calc(1.5em + 1.5rem + 2px); padding: 0.75rem 0.75rem; line-height: 1.5;">
+                        <i class="fas fa-times me-2"></i>清除筛选
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body teams-list">
+            <!-- 队伍列表 -->
+            <div class="row g-3" id="teamsContainer">
+                <!-- 队伍卡片将通过JavaScript动态加载 -->
+            </div>
+            
+            <!-- 无数据提示 -->
+            <div id="noTeams" class="text-center py-5" style="display: none;">
+                <i class="fas fa-users fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无队伍信息</h5>
+                <p class="text-muted">您还没有创建任何队伍</p>
+            </div>
+            
+            <!-- 分页控件 -->
+            <div id="paginationContainer" class="d-flex justify-content-center mt-4" style="display: none;">
+                <nav aria-label="队伍列表分页">
+                    <ul class="pagination">
+                        <li class="page-item" id="prevPage">
+                            <a class="page-link" href="#" onclick="changePage(currentPage - 1)">
+                                <i class="fas fa-chevron-left"></i> 上一页
+                            </a>
+                        </li>
+                        <li class="page-item active" id="currentPageItem">
+                            <span class="page-link" id="currentPageText">1</span>
+                        </li>
+                        <li class="page-item" id="nextPage">
+                            <a class="page-link" href="#" onclick="changePage(currentPage + 1)">
+                                下一页 <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 去掉所有模态框的背景遮罩 */
+.modal-backdrop {
+    display: none !important;
+}
+
+/* 页面容器样式 */
+.events-page {
+    min-height: 100vh;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 1rem 1rem 1rem 1rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* 队伍容器样式 */
+.teams-container {
+    background: transparent;
+    border: none;
+    padding: 0;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    border-radius: 15px;
+    min-height: 45vh;
+    width: 100%;
+}
+
+.teams-container .card-header {
+    background: linear-gradient(135deg, #0b5ed7) !important;
+    color: white;
+    border: none;
+    border-radius: 15px 15px 0 0;
+    padding: 1.5rem 2rem;
+    text-align: center;
+    margin-bottom: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.teams-container .card-header h4 {
+    margin: 0;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    text-align: center;
+    font-weight: 600;
+}
+
+.teams-container .card-body {
+    background: rgba(255,255,255,0.95);
+    border-radius: 0 0 15px 15px;
+    padding: 2rem;
+}
+
+.teams-list {
+    min-height: 400px;
+}
+
+/* 筛选区域样式 */
+.form-control:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.25);
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+/* 可点击卡片样式 */
+.clickable-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* 队伍详情页面样式 */
+.team-detail-section {
+    margin-bottom: 2rem;
+}
+
+.section-title {
+    color: #4f46e5;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.detail-item {
+    display: flex;
+    margin-bottom: 0.75rem;
+    align-items: flex-start;
+}
+
+.detail-item label {
+    font-weight: 600;
+    color: #374151;
+    min-width: 120px;
+    margin-right: 1rem;
+    margin-bottom: 0;
+}
+
+.detail-item span {
+    color: #6b7280;
+    flex: 1;
+    word-break: break-word;
+}
+
+/* 返回按钮样式 */
+.team-back-btn {
+    background: #ffffff;
+    border: 2px solid rgba(255,255,255,1);
+    color: #4facfe;
+    border-radius: 25px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    min-width: 120px;
+}
+
+.team-back-btn:hover {
+    background: #f8f9fa;
+    color: #4facfe;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: white;
+}
+
+/* 头部间隔元素 */
+.header-spacer {
+    width: 120px;
+}
+
+/* 返回首页按钮样式 */
+.back-btn {
+    position: absolute;
+    left: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #4facfe;
+    border-radius: 25px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-left: 0;
+    z-index: 10;
+}
+
+.back-btn:hover {
+    background: white;
+    color: #4facfe;
+    transform: translateY(calc(-50% - 2px));
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 红点提示样式 */
+.notification-dot {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 12px;
+    height: 12px;
+    background-color: #dc3545;
+    border-radius: 50%;
+    border: 2px solid white;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* 队伍详情容器 */
+.team-details-container {
+    width: 75%;
+    margin: 0 auto;
+}
+
+/* 队伍详情页面头部 */
+.team-details-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.team-details-header .team-back-btn {
+    position: absolute;
+    left: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.team-details-header h4 {
+    margin: 0;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    text-align: center;
+    font-weight: 600;
+}
+
+.team-details-header .header-spacer {
+    display: none;
+}
+
+.team-card {
+    position: relative;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+    min-height: 100px;
+    background: white;
+}
+
+.team-card .card-body {
+    padding: 1.5rem;
+}
+
+.team-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.team-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    flex-shrink: 0;
+}
+
+.team-meta {
+    margin-top: 15px;
+    font-size: 0.85rem;
+}
+
+.team-card .card-title {
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.team-card .card-text {
+    color: #7f8c8d;
+    margin-bottom: 15px;
+}
+
+.team-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.team-status.active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.team-status.draft {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* 分页样式 */
+.pagination {
+    margin-bottom: 0;
+}
+
+.pagination .page-link {
+    color: #fff;
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    padding: 0.75rem 1rem;
+}
+
+.pagination .page-link:hover {
+    color: #fff;
+    background-color: #0b5ed7;
+    border-color: #0b5ed7;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #fff;
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    opacity: 0.5;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .team-card {
+        margin-bottom: 20px;
+    }
+    
+    .pagination .page-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 分页相关变量
+let allTeams = [];
+let filteredTeams = [];
+let currentPage = 1;
+const teamsPerPage = 4;
+
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取当前用户信息
+    getCurrentUserInfo();
+    
+    // 调试：显示所有localStorage中的队伍相关数据
+    debugLocalStorageData();
+    
+    loadTeams();
+});
+
+// 将英文队伍类型转换为中文
+function getChineseTeamType(englishType) {
+    const typeMap = {
+        'school': '学校队伍',
+        'club': '俱乐部',
+        'professional': '专业队',
+        'individual': '个人组队',
+        'company': '企业',
+        'organization': '组织机构',
+        'other': '其他'
+    };
+    return typeMap[englishType] || englishType;
+}
+
+// 将英文职位转换为中文
+function getChinesePosition(englishPosition) {
+    const positionMap = {
+        'leader': '领队',
+        'coach': '教练',
+        'manager': '经理',
+        'captain': '队长',
+        'assistant': '助理',
+        'teacher': '老师',
+        'director': '主任',
+        'president': '会长',
+        'vice_president': '副会长',
+        'secretary': '秘书',
+        'other': '其他'
+    };
+    return positionMap[englishPosition] || englishPosition;
+}
+
+// 调试函数：显示localStorage中的所有队伍数据
+function debugLocalStorageData() {
+    console.log('=== localStorage 调试信息 ===');
+    
+    // 显示所有以 'createdTeams' 开头的键
+    const teamKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('createdTeams')) {
+            teamKeys.push(key);
+        }
+    }
+    
+    console.log('找到的队伍存储键:', teamKeys);
+    
+    teamKeys.forEach(key => {
+        try {
+            const data = JSON.parse(localStorage.getItem(key) || '[]');
+            console.log(`${key}:`, data);
+        } catch (error) {
+            console.error(`解析 ${key} 时出错:`, error);
+        }
+    });
+    
+    console.log('当前用户信息:', currentUserInfo);
+    console.log('=== 调试信息结束 ===');
+}
+
+// 当前用户信息
+let currentUserInfo = {
+    username: null,
+    displayName: null
+};
+
+// 获取当前用户信息
+function getCurrentUserInfo() {
+    // 从模板变量获取当前用户信息
+    currentUserInfo.displayName = '{{ current_user }}';
+    // 从session获取用户名（用于权限判断）
+    currentUserInfo.username = '{{ session.get("username", "") }}';
+    
+    console.log('当前用户信息:', currentUserInfo);
+    
+    // 数据迁移：为现有队伍添加创建者信息
+    migrateExistingTeamData();
+}
+
+// 数据迁移：为现有队伍添加创建者信息
+function migrateExistingTeamData() {
+    // 检查是否有旧的全局队伍数据需要迁移
+    const oldTeams = JSON.parse(localStorage.getItem('createdTeams') || '[]');
+    
+    if (oldTeams.length > 0) {
+        console.log('发现旧的队伍数据，开始迁移...');
+        
+        // 获取当前用户信息
+        const currentUser = currentUserInfo.username || currentUserInfo.displayName;
+        
+        if (currentUser) {
+            // 为当前用户创建专属的存储键
+            const userTeamsKey = `createdTeams_${currentUser}`;
+            const existingUserTeams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+            
+            // 筛选属于当前用户的队伍（基于领队姓名匹配）
+            const userTeams = oldTeams.filter(team => {
+                return team.leaderName === currentUser || team.createdBy === currentUser;
+            });
+            
+            if (userTeams.length > 0) {
+                // 为队伍添加创建者信息
+                userTeams.forEach(team => {
+                    if (!team.createdBy) {
+                        team.createdBy = currentUser;
+                        team.createdByDisplay = currentUser;
+                    }
+                });
+                
+                // 合并到用户专属存储中
+                const mergedTeams = [...existingUserTeams, ...userTeams];
+                localStorage.setItem(userTeamsKey, JSON.stringify(mergedTeams));
+                
+                console.log(`为用户 ${currentUser} 迁移了 ${userTeams.length} 个队伍`);
+            }
+        }
+        
+        // 迁移完成后，可以选择清除旧数据（注释掉以保持兼容性）
+        // localStorage.removeItem('createdTeams');
+    }
+}
+
+// 加载队伍列表（优先从后端获取我创建的队伍，再与本地缓存合并）
+async function loadTeams() {
+    const currentUser = currentUserInfo.username || currentUserInfo.displayName;
+    if (!currentUser) {
+        console.error('无法获取当前用户信息');
+        allTeams = [];
+        filteredTeams = [];
+        renderCurrentPage();
+        updatePagination();
+        return;
+    }
+
+    console.log('当前用户标识:', currentUser);
+
+    // 1. 尝试从后端获取我创建的队伍
+    let backendTeams = [];
+    try {
+        const resp = await fetch('/api/teams/my');
+        if (resp.ok) {
+            const json = await resp.json();
+            if (json && json.success && Array.isArray(json.teams)) {
+                backendTeams = json.teams.map(t => ({
+                    id: String(t.id),
+                    eventId: t.eventId,
+                    eventName: t.eventName,
+                    teamName: t.teamName,
+                    teamType: t.teamType,
+                    teamAddress: t.teamAddress,
+                    teamDescription: t.teamDescription,
+                    leaderName: t.leaderName,
+                    leaderPosition: t.leaderPosition || '领队',
+                    leaderPhone: t.leaderPhone,
+                    leaderEmail: t.leaderEmail,
+                    status: t.status,
+                    isCreated: true,
+                    // 创建者统一使用当前用户，避免因历史数据缺失导致匹配失败
+                    createdBy: currentUser,
+                    createdByDisplay: currentUserInfo.displayName || currentUser,
+                    createdAt: t.createdAt,
+                    updatedAt: t.updatedAt
+                }));
+                console.log('从后端加载的我创建的队伍:', backendTeams);
+
+                // 将后端队伍同步写入本地 createdTeams_<user>，便于其他页面复用
+                const userKey = `createdTeams_${currentUser}`;
+                const localList = JSON.parse(localStorage.getItem(userKey) || '[]');
+                const merged = [...backendTeams];
+                const seenIds = new Set(backendTeams.map(t => t.id));
+                localList.forEach(t => {
+                    const hasSameCanonicalTeam = backendTeams.some(bt => 
+                        String(bt.eventId) === String(t.eventId) &&
+                        (bt.teamName || '').trim() === (t.teamName || '').trim()
+                    );
+                    if (hasSameCanonicalTeam) {
+                        return; // 后端已存在同名同赛事的队伍，忽略旧缓存
+                    }
+                    if (!seenIds.has(String(t.id))) {
+                        merged.push(t);
+                    }
+                });
+                localStorage.setItem(userKey, JSON.stringify(merged));
+            } else {
+                console.log('后端返回的我创建的队伍为空或失败:', json);
+            }
+        } else {
+            console.warn('获取后端我创建的队伍失败，HTTP状态:', resp.status);
+        }
+    } catch (e) {
+        console.warn('从后端获取我创建的队伍异常，将回退到本地缓存:', e);
+    }
+
+    // 2. 合并本地 createdTeams_* 数据
+    let allUserTeams = backendTeams.slice();
+    const possibleKeys = [
+        `createdTeams_${currentUser}`,
+        `createdTeams_${currentUserInfo.username}`,
+        `createdTeams_${currentUserInfo.displayName}`
+    ];
+
+    const uniqueKeys = [...new Set(possibleKeys.filter(key => key && !key.endsWith('_')))]
+    console.log('尝试的存储键:', uniqueKeys);
+
+    uniqueKeys.forEach(key => {
+        const teams = JSON.parse(localStorage.getItem(key) || '[]');
+        if (teams.length > 0) {
+            console.log(`从 ${key} 加载了 ${teams.length} 个队伍:`, teams);
+            allUserTeams = allUserTeams.concat(teams);
+        }
+    });
+
+    const oldTeams = JSON.parse(localStorage.getItem('createdTeams') || '[]');
+    if (oldTeams.length > 0) {
+        console.log('从旧存储加载队伍:', oldTeams.length);
+        const userOldTeams = oldTeams.filter(team => {
+            return team.createdBy === currentUser ||
+                   team.createdBy === currentUserInfo.username ||
+                   team.createdBy === currentUserInfo.displayName ||
+                   team.leaderName === currentUser ||
+                   team.leaderName === currentUserInfo.username ||
+                   team.leaderName === currentUserInfo.displayName;
+        });
+        allUserTeams = allUserTeams.concat(userOldTeams);
+    }
+
+    // 3. 去重并筛选真正属于当前用户的已创建队伍
+    const uniqueTeams = [];
+    const seenIds = new Set();
+    allUserTeams.forEach(team => {
+        const id = String(team.id);
+        if (!seenIds.has(id)) {
+            seenIds.add(id);
+            uniqueTeams.push(team);
+        }
+    });
+
+    console.log('合并后的队伍数据:', uniqueTeams);
+
+    allTeams = uniqueTeams.filter(team => {
+        const isCreated = team.isCreated !== false;
+        if (!isCreated) {
+            return false;
+        }
+
+        const isOwner = team.createdBy === currentUser ||
+               team.createdBy === currentUserInfo.username ||
+               team.createdBy === currentUserInfo.displayName ||
+               team.leaderName === currentUser ||
+               team.leaderName === currentUserInfo.username ||
+               team.leaderName === currentUserInfo.displayName;
+
+        return isOwner;
+    });
+
+    // 4. 排序并渲染
+    sortTeamsByPriority();
+    filteredTeams = [...allTeams];
+
+    console.log('===== 最终显示的队伍数量:', allTeams.length, '=====');
+    if (allTeams.length === 0) {
+        console.warn('⚠️ 没有找到任何队伍！');
+        console.log('提示：');
+        console.log('1. 检查是否已经创建队伍');
+        console.log('2. 检查队伍的 isCreated 字段是否为 true');
+        console.log('3. 检查队伍的 createdBy 或 leaderName 是否匹配当前用户');
+        console.log('当前用户标识:', currentUser);
+        console.log('所有队伍数据:', uniqueTeams);
+    }
+
+    currentPage = 1;
+    renderCurrentPage();
+    updatePagination();
+}
+
+// 按优先级排序队伍
+function sortTeamsByPriority() {
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    
+    allTeams.sort((teamA, teamB) => {
+        // 获取每个队伍的待审核申请数量
+        const pendingA = applications.filter(app => app.teamId === teamA.id && app.status === 'pending').length;
+        const pendingB = applications.filter(app => app.teamId === teamB.id && app.status === 'pending').length;
+        
+        // 有待审核申请的队伍优先
+        if (pendingA > 0 && pendingB === 0) return -1;
+        if (pendingA === 0 && pendingB > 0) return 1;
+        
+        // 如果都有待审核申请，按申请数量降序排列
+        if (pendingA > 0 && pendingB > 0) {
+            return pendingB - pendingA;
+        }
+        
+        // 如果都没有待审核申请，按创建时间降序排列（最新创建的在前）
+        const timeA = new Date(teamA.createdAt || 0).getTime();
+        const timeB = new Date(teamB.createdAt || 0).getTime();
+        return timeB - timeA;
+    });
+}
+
+// 渲染当前页的队伍
+function renderCurrentPage() {
+    const container = document.getElementById('teamsContainer');
+    const noData = document.getElementById('noTeams');
+    
+    // 清空容器
+    container.innerHTML = '';
+    
+    if (filteredTeams.length === 0) {
+        noData.style.display = 'block';
+        document.getElementById('paginationContainer').style.display = 'none';
+        
+        // 如果是搜索结果为空，显示不同的提示
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput.value.trim() !== '') {
+            noData.innerHTML = `
+                <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">未找到匹配的队伍</h5>
+                <p class="text-muted">请尝试其他搜索关键词</p>
+            `;
+        } else {
+            noData.innerHTML = `
+                <i class="fas fa-users fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无队伍信息</h5>
+                <p class="text-muted">您还没有创建任何队伍</p>
+            `;
+        }
+        return;
+    }
+    
+    noData.style.display = 'none';
+    
+    // 计算当前页的队伍范围
+    const startIndex = (currentPage - 1) * teamsPerPage;
+    const endIndex = Math.min(startIndex + teamsPerPage, filteredTeams.length);
+    const currentTeams = filteredTeams.slice(startIndex, endIndex);
+    
+    // 渲染当前页的队伍卡片
+    currentTeams.forEach(team => {
+        const card = createTeamCard(team);
+        container.appendChild(card);
+    });
+}
+
+// 更新分页控件
+function updatePagination() {
+    const totalPages = Math.ceil(filteredTeams.length / teamsPerPage);
+    const paginationContainer = document.getElementById('paginationContainer');
+    const prevPage = document.getElementById('prevPage');
+    const nextPage = document.getElementById('nextPage');
+    const currentPageText = document.getElementById('currentPageText');
+    
+    if (totalPages <= 1) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
+    
+    paginationContainer.style.display = 'flex';
+    
+    // 更新页码显示
+    currentPageText.textContent = `${currentPage} / ${totalPages}`;
+    
+    // 更新上一页按钮状态
+    if (currentPage <= 1) {
+        prevPage.classList.add('disabled');
+    } else {
+        prevPage.classList.remove('disabled');
+    }
+    
+    // 更新下一页按钮状态
+    if (currentPage >= totalPages) {
+        nextPage.classList.add('disabled');
+    } else {
+        nextPage.classList.remove('disabled');
+    }
+}
+
+// 切换页面
+function changePage(newPage) {
+    const totalPages = Math.ceil(filteredTeams.length / teamsPerPage);
+    
+    if (newPage < 1 || newPage > totalPages) {
+        return;
+    }
+    
+    currentPage = newPage;
+    renderCurrentPage();
+    updatePagination();
+    
+    // 滚动到页面顶部
+    document.querySelector('#teamsContainer').scrollIntoView({ behavior: 'smooth' });
+}
+
+// 筛选队伍
+function filterTeams() {
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    const statusFilter_value = statusFilter.value;
+    
+    // 获取申请信息用于状态筛选
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    
+    filteredTeams = allTeams.filter(team => {
+        // 文本搜索筛选
+        let matchesSearch = true;
+        if (searchTerm !== '') {
+            const teamName = (team.teamName || '').toLowerCase();
+            const eventName = (team.eventName || '').toLowerCase();
+            matchesSearch = teamName.includes(searchTerm) || eventName.includes(searchTerm);
+        }
+        
+        // 申请状态筛选
+        let matchesStatus = true;
+        if (statusFilter_value !== '') {
+            const teamApplications = applications.filter(app => app.teamId === team.id);
+            const pendingApplications = teamApplications.filter(app => app.status === 'pending');
+            
+            if (statusFilter_value === 'pending') {
+                matchesStatus = pendingApplications.length > 0;
+            } else if (statusFilter_value === 'no-applications') {
+                matchesStatus = teamApplications.length === 0;
+            }
+        }
+        
+        return matchesSearch && matchesStatus;
+    });
+    
+    // 对筛选结果也进行优先级排序
+    sortFilteredTeamsByPriority();
+    
+    // 重置到第一页
+    currentPage = 1;
+    
+    // 重新渲染
+    renderCurrentPage();
+    updatePagination();
+}
+
+// 对筛选结果按优先级排序
+function sortFilteredTeamsByPriority() {
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    
+    filteredTeams.sort((teamA, teamB) => {
+        // 获取每个队伍的待审核申请数量
+        const pendingA = applications.filter(app => app.teamId === teamA.id && app.status === 'pending').length;
+        const pendingB = applications.filter(app => app.teamId === teamB.id && app.status === 'pending').length;
+        
+        // 有待审核申请的队伍优先
+        if (pendingA > 0 && pendingB === 0) return -1;
+        if (pendingA === 0 && pendingB > 0) return 1;
+        
+        // 如果都有待审核申请，按申请数量降序排列
+        if (pendingA > 0 && pendingB > 0) {
+            return pendingB - pendingA;
+        }
+        
+        // 如果都没有待审核申请，按创建时间降序排列（最新创建的在前）
+        const timeA = new Date(teamA.createdAt || 0).getTime();
+        const timeB = new Date(teamB.createdAt || 0).getTime();
+        return timeB - timeA;
+    });
+}
+
+// 清除搜索
+function clearSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    searchInput.value = '';
+    statusFilter.value = '';
+    filterTeams();
+}
+
+// 创建队伍卡片HTML
+function createTeamCard(team) {
+    const col = document.createElement('div');
+    col.className = 'col-12 mb-3';
+    
+    // 获取赛事名称
+    const eventName = team.eventName || '未知赛事';
+    
+    // 队伍类型显示（转换为中文）
+    const teamTypeText = getChineseTeamType(team.teamType) || '未设置';
+    
+    // 创建时间格式化
+    const createdDate = team.createdAt ? new Date(team.createdAt).toLocaleDateString('zh-CN') : '未知';
+    
+    // 检查是否有待审核申请（只有创建者才能看到）
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const pendingApplications = applications.filter(app => app.teamId === team.id && app.status === 'pending');
+    const hasPendingApplications = pendingApplications.length > 0 && verifyTeamOwnership(team.id);
+    
+    col.innerHTML = `
+        <div class="card team-card clickable-card" onclick="goToTeamDetails('${team.id}')" style="cursor: pointer;">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <div class="team-badge me-3 position-relative">
+                                <i class="fas fa-users"></i>
+                                ${hasPendingApplications ? '<div class="notification-dot"></div>' : ''}
+                            </div>
+                            <div>
+                                <h5 class="card-title mb-1">
+                                    ${team.teamName}
+                                    ${hasPendingApplications ? '<span class="badge bg-danger ms-2 small">有新申请</span>' : ''}
+                                </h5>
+                                <p class="card-text text-muted mb-0">${teamTypeText}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="team-info">
+                            <div class="mb-1">
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-trophy me-1"></i> ${eventName}
+                                </span>
+                                ${hasPendingApplications ? `<span class="badge bg-warning ms-1">${pendingApplications.length}个待审核</span>` : ''}
+                            </div>
+                            <div class="text-muted small">
+                                <i class="fas fa-user-tie me-1"></i> 负责人: ${team.leaderName || '未设置'}
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <i class="fas fa-calendar me-1"></i> 创建: ${createdDate}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return col;
+}
+
+// 跳转到队伍详情页面
+function goToTeamDetails(teamId) {
+    // 将队伍ID存储到sessionStorage，用于详情页面获取
+    sessionStorage.setItem('selectedTeamId', teamId);
+    
+    // 隐藏当前页面，显示队伍详情页面
+    document.querySelector('.events-page').style.display = 'none';
+    
+    // 显示队伍详情页面
+    showTeamDetailsPage(teamId);
+}
+
+// 显示队伍详情页面
+function showTeamDetailsPage(teamId) {
+    console.log('查找队伍详情，队伍ID:', teamId);
+    
+    // 获取当前用户信息
+    const currentUser = currentUserInfo.username || currentUserInfo.displayName;
+    
+    if (!currentUser) {
+        console.error('无法获取当前用户信息');
+        showCenterMessage('用户信息获取失败', 'error');
+        return;
+    }
+    
+    // 使用与 loadTeams() 相同的逻辑来查找队伍
+    let allUserTeams = [];
+    const possibleKeys = [
+        `createdTeams_${currentUser}`,
+        `createdTeams_${currentUserInfo.username}`,
+        `createdTeams_${currentUserInfo.displayName}`
+    ];
+    
+    // 去重
+    const uniqueKeys = [...new Set(possibleKeys.filter(key => key && !key.endsWith('_')))];
+    
+    console.log('查找队伍详情，尝试的存储键:', uniqueKeys);
+    
+    // 从所有可能的键中获取队伍数据
+    uniqueKeys.forEach(key => {
+        const teams = JSON.parse(localStorage.getItem(key) || '[]');
+        if (teams.length > 0) {
+            console.log(`从 ${key} 加载了 ${teams.length} 个队伍进行详情查找`);
+            allUserTeams = allUserTeams.concat(teams);
+        }
+    });
+    
+    // 也检查旧的全局存储（用于兼容性）
+    const oldTeams = JSON.parse(localStorage.getItem('createdTeams') || '[]');
+    if (oldTeams.length > 0) {
+        console.log('从旧存储加载队伍进行详情查找:', oldTeams.length);
+        // 筛选属于当前用户的队伍
+        const userOldTeams = oldTeams.filter(team => {
+            return team.createdBy === currentUser || 
+                   team.createdBy === currentUserInfo.username ||
+                   team.createdBy === currentUserInfo.displayName ||
+                   team.leaderName === currentUser ||
+                   team.leaderName === currentUserInfo.username ||
+                   team.leaderName === currentUserInfo.displayName;
+        });
+        allUserTeams = allUserTeams.concat(userOldTeams);
+    }
+    
+    // 查找指定ID的队伍
+    const team = allUserTeams.find(t => t.id === teamId);
+    
+    console.log('找到的队伍:', team);
+    
+    if (!team) {
+        showCenterMessage('队伍信息不存在', 'error');
+        return;
+    }
+    
+    // 创建详情页面HTML
+    const detailsPageHtml = `
+        <div class="events-page" id="teamDetailsPage">
+            <div class="team-details-container">
+                <div class="card teams-container">
+                    <div class="card-header team-details-header">
+                        <button class="btn team-back-btn" onclick="goBackToTeamsList()">
+                            <i class="fas fa-arrow-left me-2"></i>返回队伍列表
+                        </button>
+                        <h4><i class="fas fa-info-circle me-2"></i>队伍详情</h4>
+                        <div class="header-spacer"></div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="team-detail-section">
+                                    <h5 class="section-title"><i class="fas fa-users me-2"></i>基本信息</h5>
+                                    <div class="detail-item">
+                                        <label>队伍名称:</label>
+                                        <span>${team.teamName}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>队伍类型:</label>
+                                        <span>${getChineseTeamType(team.teamType) || '未设置'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>所属赛事:</label>
+                                        <span>${team.eventName || '未知赛事'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>创建时间:</label>
+                                        <span>${team.createdAt ? new Date(team.createdAt).toLocaleString('zh-CN') : '未知'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="team-detail-section">
+                                    <h5 class="section-title"><i class="fas fa-user-tie me-2"></i>负责人信息</h5>
+                                    <div class="detail-item">
+                                        <label>负责人姓名:</label>
+                                        <span>${team.leaderName || '未设置'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>职务:</label>
+                                        <span>${getChinesePosition(team.leaderPosition) || '未设置'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>联系电话:</label>
+                                        <span>${team.leaderPhone || '未设置'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>电子邮箱:</label>
+                                        <span>${team.leaderEmail || '未设置'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="team-detail-section">
+                                    <h5 class="section-title"><i class="fas fa-map-marker-alt me-2"></i>其他信息</h5>
+                                    <div class="detail-item">
+                                        <label>队伍地址:</label>
+                                        <span>${team.teamAddress || '未设置'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <label>队伍简介:</label>
+                                        <span>${team.teamDescription || '未设置'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="team-detail-section">
+                                    <h5 class="section-title"><i class="fas fa-user-plus me-2"></i>申请信息</h5>
+                                    <div id="applicationsContainer">
+                                        <!-- 申请信息将通过JavaScript动态加载 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 将详情页面添加到body
+    document.body.insertAdjacentHTML('beforeend', detailsPageHtml);
+    
+    // 加载申请信息
+    loadTeamApplications(teamId);
+}
+
+// 加载队伍申请信息
+function loadTeamApplications(teamId) {
+    const container = document.getElementById('applicationsContainer');
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    
+    // 验证当前用户是否为队伍创建者
+    if (!verifyTeamOwnership(teamId)) {
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                您没有权限查看该队伍的申请信息。只有队伍创建者才能审核申请。
+            </div>
+        `;
+        return;
+    }
+    
+    // 筛选当前队伍的申请
+    const teamApplications = applications.filter(app => app.teamId === teamId);
+    
+    if (teamApplications.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                暂无队员申请信息。队员可通过"队伍资料"选择"我是队员"申请加入此队伍。
+            </div>
+        `;
+        return;
+    }
+    
+    // 渲染申请信息
+    let applicationsHtml = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>申请人</th>
+                        <th>职务</th>
+                        <th>联系电话</th>
+                        <th>身份证号</th>
+                        <th>申请时间</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    teamApplications.forEach((app, index) => {
+        const statusClass = app.status === 'pending' ? 'warning' : 
+                           app.status === 'approved' ? 'success' : 'danger';
+        const statusText = app.status === 'pending' ? '待审核' : 
+                          app.status === 'approved' ? '已通过' : '已拒绝';
+        
+        // 格式化身份证号（显示前6位和后4位，中间用*代替）
+        const formatIdCard = (idCard) => {
+            if (!idCard || idCard.length < 10) return idCard || '未提供';
+            return idCard.substring(0, 6) + '****' + idCard.substring(idCard.length - 4);
+        };
+        
+        // 确定职务显示
+        let positionText = '队员';
+        if (app.type === 'staff') {
+            // 随行人员申请，显示具体职务
+            const positionMap = {
+                'coach': '教练',
+                'medical': '医务人员',
+                'staff': '随行人员'
+            };
+            positionText = positionMap[app.position] || app.position || '随行人员';
+        } else {
+            // 队员申请
+            positionText = '队员';
+        }
+        
+        // 格式化申请时间
+        let timeText = '未知时间';
+        if (app.submittedAt) {
+            try {
+                timeText = new Date(app.submittedAt).toLocaleString('zh-CN');
+            } catch (e) {
+                console.error('时间格式化错误:', e);
+            }
+        } else if (app.appliedAt) {
+            try {
+                timeText = new Date(app.appliedAt).toLocaleString('zh-CN');
+            } catch (e) {
+                console.error('时间格式化错误:', e);
+            }
+        }
+        
+        applicationsHtml += `
+            <tr>
+                <td>
+                    <strong>${app.applicantName}</strong>
+                </td>
+                <td>${positionText}</td>
+                <td>${app.applicantPhone}</td>
+                <td><code>${formatIdCard(app.applicantIdCard)}</code></td>
+                <td>${timeText}</td>
+                <td>
+                    <span class="badge bg-${statusClass}">${statusText}</span>
+                </td>
+                <td>
+                    ${app.status === 'pending' && verifyTeamOwnership(teamId) ? `
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-success" onclick="approveApplication('${app.id}')" title="通过申请">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="rejectApplication('${app.id}')" title="拒绝申请">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    ` : app.status === 'pending' ? `
+                        <small class="text-muted">
+                            <i class="fas fa-lock me-1"></i>仅创建者可操作
+                        </small>
+                    ` : `
+                        <span class="text-muted">-</span>
+                    `}
+                </td>
+            </tr>
+        `;
+    });
+    
+    applicationsHtml += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    container.innerHTML = applicationsHtml;
+}
+
+// 验证队伍所有权
+function verifyTeamOwnership(teamId) {
+    console.log('验证队伍所有权，队伍ID:', teamId);
+    
+    // 获取当前用户信息
+    const currentUser = currentUserInfo.username || currentUserInfo.displayName;
+    
+    if (!currentUser) {
+        console.error('无法获取当前用户信息');
+        return false;
+    }
+    
+    // 使用与队伍详情页面相同的查找逻辑
+    let allUserTeams = [];
+    const possibleKeys = [
+        `createdTeams_${currentUser}`,
+        `createdTeams_${currentUserInfo.username}`,
+        `createdTeams_${currentUserInfo.displayName}`
+    ];
+    
+    // 去重
+    const uniqueKeys = [...new Set(possibleKeys.filter(key => key && !key.endsWith('_')))];
+    
+    console.log('权限验证，尝试的存储键:', uniqueKeys);
+    
+    // 从所有可能的键中获取队伍数据
+    uniqueKeys.forEach(key => {
+        const teams = JSON.parse(localStorage.getItem(key) || '[]');
+        if (teams.length > 0) {
+            allUserTeams = allUserTeams.concat(teams);
+        }
+    });
+    
+    // 也检查旧的全局存储（用于兼容性）
+    const oldTeams = JSON.parse(localStorage.getItem('createdTeams') || '[]');
+    if (oldTeams.length > 0) {
+        const userOldTeams = oldTeams.filter(team => {
+            return team.createdBy === currentUser || 
+                   team.createdBy === currentUserInfo.username ||
+                   team.createdBy === currentUserInfo.displayName ||
+                   team.leaderName === currentUser ||
+                   team.leaderName === currentUserInfo.username ||
+                   team.leaderName === currentUserInfo.displayName;
+        });
+        allUserTeams = allUserTeams.concat(userOldTeams);
+    }
+    
+    // 查找指定ID的队伍
+    const team = allUserTeams.find(t => t.id === teamId);
+    
+    if (!team) {
+        console.error('权限验证失败：队伍不存在:', teamId);
+        return false;
+    }
+    
+    console.log('权限验证 - 队伍创建者:', team.createdBy, '领队:', team.leaderName, '当前用户:', currentUser);
+    
+    // 验证队伍创建者是否为当前用户（多种匹配方式）
+    const isOwner = team.createdBy === currentUser || 
+                   team.createdBy === currentUserInfo.username ||
+                   team.createdBy === currentUserInfo.displayName ||
+                   team.leaderName === currentUser ||
+                   team.leaderName === currentUserInfo.username ||
+                   team.leaderName === currentUserInfo.displayName;
+    
+    console.log('权限验证结果:', isOwner);
+    return isOwner;
+}
+
+// 通过申请
+function approveApplication(applicationId) {
+    // 验证权限
+    if (!verifyApplicationPermission(applicationId)) {
+        showMessage('您没有权限审核该申请！', 'error');
+        return;
+    }
+    updateApplicationStatus(applicationId, 'approved');
+}
+
+// 拒绝申请
+function rejectApplication(applicationId) {
+    // 验证权限
+    if (!verifyApplicationPermission(applicationId)) {
+        showMessage('您没有权限审核该申请！', 'error');
+        return;
+    }
+    updateApplicationStatus(applicationId, 'rejected');
+}
+
+// 验证申请审核权限
+function verifyApplicationPermission(applicationId) {
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const application = applications.find(app => app.id === applicationId);
+    
+    if (!application) {
+        console.error('申请不存在:', applicationId);
+        return false;
+    }
+    
+    return verifyTeamOwnership(application.teamId);
+}
+
+// 更新申请状态
+function updateApplicationStatus(applicationId, newStatus) {
+    const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
+    const applicationIndex = applications.findIndex(app => app.id === applicationId);
+    
+    if (applicationIndex !== -1) {
+        const application = applications[applicationIndex];
+        application.status = newStatus;
+
+        // 如果审核通过，优先调用后端 API 将队员写入 team_players + participants
+        if (newStatus === 'approved' && application.type !== 'staff') {
+            const teamId = application.teamId;
+
+            // 尝试多种方式获取可靠的赛事ID，避免 event_id 为空导致后端报错
+            let eventId = application.eventId;
+            if (!eventId) {
+                try {
+                    // 1) 从本地 allUserTeams / createdTeams_* 中按 teamId 查找
+                    let allUserTeams = JSON.parse(localStorage.getItem('allUserTeams') || '[]');
+                    if (!allUserTeams || allUserTeams.length === 0) {
+                        const possibleKeys = [];
+                        if (window.currentUserInfo) {
+                            if (currentUserInfo.username) possibleKeys.push(`createdTeams_${currentUserInfo.username}`);
+                            if (currentUserInfo.displayName) possibleKeys.push(`createdTeams_${currentUserInfo.displayName}`);
+                        }
+                        const uniqueKeys = [...new Set(possibleKeys.filter(key => key && !key.endsWith('_')))]
+                        uniqueKeys.forEach(key => {
+                            const teams = JSON.parse(localStorage.getItem(key) || '[]');
+                            if (teams.length > 0) {
+                                allUserTeams = allUserTeams.concat(teams);
+                            }
+                        });
+                    }
+                    const foundTeam = allUserTeams.find(t => String(t.id) === String(teamId));
+                    if (foundTeam && foundTeam.eventId) {
+                        eventId = foundTeam.eventId;
+                    }
+                } catch (e) {
+                    console.warn('根据队伍信息兜底获取eventId失败:', e);
+                }
+
+                // 2) 如果仍然没有，则尝试从sessionStorage中获取当前赛事ID
+                if (!eventId) {
+                    const ssEventId = sessionStorage.getItem('selectedEventId');
+                    if (ssEventId) {
+                        eventId = ssEventId;
+                    }
+                }
+            }
+            const payload = {
+                event_id: eventId,
+                real_name: application.applicantName,
+                name: application.applicantName,
+                phone: application.applicantPhone,
+                registration_number: application.applicantIdCard || application.applicantPhone,
+                id_card: application.applicantIdCard,
+                gender: application.applicantGender || application.gender || '',
+                age: application.applicantAge || application.age || '',
+                competition_event: application.competitionEvent || application.category || '',
+                selected_events: Array.isArray(application.selectedEvents) ? application.selectedEvents : undefined,
+                status: 'registered'
+            };
+
+            fetch(`/api/team/${teamId}/players`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(res => res.json())
+                .then(res => {
+                    if (!res || res.success === false) {
+                        console.error('调用 /api/team/<team_id>/players 失败:', res);
+                        showMessage(res && res.message ? res.message : '将队员写入数据库失败，请稍后在“参赛选手信息管理”页检查', 'error');
+                    }
+                })
+                .catch(err => {
+                    console.error('调用 /api/teams/<team_id>/players 异常:', err);
+                    showMessage('将队员写入数据库时发生异常，请稍后在“参赛选手信息管理”页检查', 'error');
+                });
+        }
+
+        // 原有本地列表更新逻辑保留，确保旧页面行为兼容
+        if (newStatus === 'approved') {
+            if (application.type === 'staff') {
+                // 随行人员申请 - 添加到随行人员列表
+                addApprovedStaffToList(application);
+            } else {
+                // 队员申请 - 添加到队员列表
+                addApprovedPlayerToList(application);
+                
+                // 发送系统通知给队员
+                sendMemberApprovedNotification(application);
+            }
+        }
+
+        localStorage.setItem('teamApplications', JSON.stringify(applications));
+        
+        // 重新加载申请信息
+        const teamId = sessionStorage.getItem('selectedTeamId');
+        if (teamId) {
+            loadTeamApplications(teamId);
+        }
+        
+        const statusText = newStatus === 'approved' ? '已通过' : '已拒绝';
+        showMessage(`申请${statusText}！`, newStatus === 'approved' ? 'success' : 'info');
+        
+        // 触发队伍列表页面的更新（如果需要的话）
+        // 这样当用户返回队伍列表时，红点提示会更新
+        window.teamListNeedsUpdate = true;
+    }
+}
+
+// 发送队员审核通过通知
+function sendMemberApprovedNotification(application) {
+    if (!application.userId) {
+        console.log('队员没有userId，无法发送通知');
+        return;
+    }
+    
+    console.log('[队员审核通知] application对象:', application);
+    
+    // 从localStorage获取队伍详细信息
+    const allUserTeams = JSON.parse(localStorage.getItem('allUserTeams') || '[]');
+    const team = allUserTeams.find(t => t.id === application.teamId);
+    
+    // 准备发送的数据，包含完整的队伍和赛事信息
+    const requestData = {
+        user_id: application.userId,
+        team_name: application.teamName || (team ? team.teamName : '队伍'),
+        member_name: application.applicantName || '',
+        event_id: application.eventId || (team ? team.eventId : null),
+        event_name: application.eventName || (team ? team.eventName : null),
+        leader_name: application.leaderName || (team ? team.leaderName : null),
+        category: application.category || application.competitionEvent || null
+    };
+    
+    console.log('[队员审核通知] 发送数据:', requestData);
+    
+    $.ajax({
+        url: '/api/team/approve-member',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(requestData),
+        success: function(response) {
+            console.log('队员审核通知发送成功:', response);
+        },
+        error: function(xhr) {
+            console.error('队员审核通知发送失败:', xhr);
+        }
+    });
+}
+
+// 将通过审核的随行人员添加到随行人员列表
+function addApprovedStaffToList(application) {
+    console.log('添加通过审核的随行人员到列表:', application);
+    
+    const staffList = JSON.parse(localStorage.getItem('staffList') || '[]');
+    
+    // 检查是否已存在（避免重复添加）
+    const exists = staffList.some(staff => 
+        staff.idCard === application.applicantIdCard && 
+        staff.teamId === application.teamId
+    );
+    
+    if (exists) {
+        console.log('随行人员已存在于列表中，跳过添加');
+        return;
+    }
+    
+    // 创建随行人员记录
+    const staffMember = {
+        id: application.id || 'staff_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        teamId: application.teamId,
+        teamName: application.teamName,
+        eventId: application.eventId,
+        name: application.applicantName,
+        phone: application.applicantPhone,
+        idCard: application.applicantIdCard,
+        position: application.position || 'staff',
+        gender: application.staffData?.gender || '',
+        notes: application.staffData?.notes || '',
+        status: 'approved',
+        submittedBy: application.submittedBy,
+        submittedAt: application.submittedAt,
+        approvedAt: new Date().toISOString(),
+        userId: application.userId
+    };
+    
+    staffList.push(staffMember);
+    localStorage.setItem('staffList', JSON.stringify(staffList));
+    console.log('随行人员已添加到列表:', staffMember);
+}
+
+// 将通过审核的队员添加到队员列表
+function addApprovedPlayerToList(application) {
+    console.log('添加通过审核的队员到列表:', application);
+    
+    const playerList = JSON.parse(localStorage.getItem('playerList') || '[]');
+    
+    // 检查是否已存在（避免重复添加）
+    const exists = playerList.some(player => 
+        player.idCard === application.applicantIdCard && 
+        player.teamId === application.teamId
+    );
+    
+    if (exists) {
+        console.log('队员已存在于列表中，跳过添加');
+        return;
+    }
+    
+    // 创建队员记录
+    const player = {
+        id: application.id || 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        teamId: application.teamId,
+        teamName: application.teamName,
+        eventId: application.eventId,
+        name: application.applicantName,
+        phone: application.applicantPhone,
+        idCard: application.applicantIdCard,
+        gender: '',
+        birthDate: '',
+        category: '',
+        weightClass: '',
+        status: 'approved',
+        submittedBy: application.submittedBy,
+        submittedAt: application.submittedAt,
+        approvedAt: new Date().toISOString(),
+        userId: application.userId
+    };
+    
+    playerList.push(player);
+    localStorage.setItem('playerList', JSON.stringify(playerList));
+    console.log('队员已添加到列表:', player);
+}
+
+// 返回队伍列表
+function goBackToTeamsList() {
+    // 移除详情页面
+    const detailsPage = document.getElementById('teamDetailsPage');
+    if (detailsPage) {
+        detailsPage.remove();
+    }
+    
+    // 显示队伍列表页面
+    document.querySelector('.events-page').style.display = 'flex';
+    
+    // 如果需要更新队伍列表，重新排序并渲染
+    if (window.teamListNeedsUpdate) {
+        sortTeamsByPriority();
+        filteredTeams = [...allTeams];
+        sortFilteredTeamsByPriority();
+        renderCurrentPage();
+        updatePagination();
+        window.teamListNeedsUpdate = false;
+    }
+    
+    // 清除sessionStorage
+    sessionStorage.removeItem('selectedTeamId');
+}
+
+// 返回首页
+function goBackToHome() {
+    window.location.href = '/';
+}
+
+// 使用全局弹窗函数（定义在base.html中）
+function showMessage(message, type = 'info') {
+    if (typeof showCenterMessage === 'function') {
+        showCenterMessage(message, type);
+    } else {
+        console.error('全局弹窗函数 showCenterMessage 未定义');
+        alert(message);
+    }
+}
+
+</script>
+{% endblock %}

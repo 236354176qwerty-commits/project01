@@ -1,0 +1,229 @@
+<!-- 共用的创建/编辑赛事模态框 -->
+<div class="modal fade" id="eventModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventModalTitle">
+                    <i class="fas fa-plus me-2"></i>创建赛事
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="eventForm">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="eventName" class="form-label">赛事名称 *</label>
+                                <input type="text" class="form-control" id="eventName" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="maxParticipants" class="form-label">最大参赛人数</label>
+                                <input type="number" class="form-control" id="maxParticipants" min="1" value="100" placeholder="100">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="eventLocation" class="form-label">比赛地点</label>
+                                <input type="text" class="form-control" id="eventLocation">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="contactPhone" class="form-label">联系电话</label>
+                                <input type="tel" class="form-control" id="contactPhone" placeholder="请输入联系电话">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="organizer" class="form-label">主办单位</label>
+                                <input type="text" class="form-control" id="organizer" placeholder="请输入主办单位">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="coOrganizer" class="form-label">承办单位</label>
+                                <input type="text" class="form-control" id="coOrganizer" placeholder="请输入承办单位">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="registrationStartDate" class="form-label">报名开始时间</label>
+                                <input type="datetime-local" class="form-control" id="registrationStartDate">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="registrationDeadline" class="form-label">报名截止时间</label>
+                                <input type="datetime-local" class="form-control" id="registrationDeadline">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="startDate" class="form-label">比赛开始时间 *</label>
+                                <input type="datetime-local" class="form-control" id="startDate" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="endDate" class="form-label">比赛结束时间 *</label>
+                                <input type="datetime-local" class="form-control" id="endDate" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                                        <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">报名状态</label>
+                                <div class="form-control-plaintext">
+                                    <span id="registrationStatusPreview" class="badge bg-secondary">未设置</span>
+                                    <small class="text-muted d-block">根据报名时间自动计算</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">赛事状态</label>
+                                <div class="form-control-plaintext">
+                                    <span id="eventStatusPreview" class="badge bg-secondary">未开始</span>
+                                    <small class="text-muted d-block">根据比赛时间自动计算</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="eventDescription" class="form-label">赛事描述</label>
+                        <textarea class="form-control" id="eventDescription" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="individualFee" class="form-label">个人赛报名费用</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">¥</span>
+                                    <input type="number" class="form-control" id="individualFee" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="pairPracticeFee" class="form-label">对练报名费用</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">¥</span>
+                                    <input type="number" class="form-control" id="pairPracticeFee" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="teamCompetitionFee" class="form-label">团体赛报名费用</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">¥</span>
+                                    <input type="number" class="form-control" id="teamCompetitionFee" min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const registrationStartDateInput = document.getElementById('registrationStartDate');
+    const registrationDeadlineInput = document.getElementById('registrationDeadline');
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+
+    const registrationStatusPreview = document.getElementById('registrationStatusPreview');
+    const eventStatusPreview = document.getElementById('eventStatusPreview');
+
+    function updateStatusPreviews() {
+        const now = new Date();
+
+        // 更新报名状态
+        const regStart = registrationStartDateInput.value ? new Date(registrationStartDateInput.value) : null;
+        const regEnd = registrationDeadlineInput.value ? new Date(registrationDeadlineInput.value) : null;
+
+        if (regStart && regEnd) {
+            if (now < regStart) {
+                updateBadge(registrationStatusPreview, '未开始', 'bg-secondary');
+            } else if (now >= regStart && now <= regEnd) {
+                updateBadge(registrationStatusPreview, '进行中', 'bg-success');
+            } else {
+                updateBadge(registrationStatusPreview, '已截止', 'bg-danger');
+            }
+        } else {
+            updateBadge(registrationStatusPreview, '未设置', 'bg-secondary');
+        }
+
+        // 更新赛事状态
+        const eventStart = startDateInput.value ? new Date(startDateInput.value) : null;
+        const eventEnd = endDateInput.value ? new Date(endDateInput.value) : null;
+
+        if (eventStart && eventEnd) {
+            if (now < eventStart) {
+                updateBadge(eventStatusPreview, '未开始', 'bg-warning');
+            } else if (now >= eventStart && now <= eventEnd) {
+                updateBadge(eventStatusPreview, '进行中', 'bg-success');
+            } else {
+                updateBadge(eventStatusPreview, '已结束', 'bg-danger');
+            }
+        } else {
+             updateBadge(eventStatusPreview, '未设置', 'bg-secondary');
+        }
+    }
+
+    function updateBadge(element, text, bgColor) {
+        element.textContent = text;
+        element.className = 'badge ' + bgColor;
+    }
+
+    // 监听所有日期输入框的变化
+    [registrationStartDateInput, registrationDeadlineInput, startDateInput, endDateInput].forEach(input => {
+        if (input) {
+            input.addEventListener('change', updateStatusPreviews);
+        }
+    });
+
+    // 在模态框显示时也更新一次状态
+    const eventModal = document.getElementById('eventModal');
+    if (eventModal) {
+        eventModal.addEventListener('shown.bs.modal', function () {
+            updateStatusPreviews();
+            // 启动一个定时器，每分钟更新一次状态，确保状态的实时性
+            if (window.statusUpdateInterval) {
+                clearInterval(window.statusUpdateInterval);
+            }
+            window.statusUpdateInterval = setInterval(updateStatusPreviews, 60000);
+        });
+        // 模态框关闭时清除定时器
+        eventModal.addEventListener('hidden.bs.modal', function () {
+            if (window.statusUpdateInterval) {
+                clearInterval(window.statusUpdateInterval);
+            }
+        });
+    }
+});
+</script>                    <input type="hidden" id="eventId">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="eventModalSubmitBtn" onclick="submitEventForm()">
+                    <i class="fas fa-save me-2"></i>创建
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

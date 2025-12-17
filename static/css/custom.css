@@ -1,0 +1,5 @@
+/* 覆盖按钮样式 */
+.join-team-btn-primary {
+    background: #0b5ed7 !important;
+    background-image: none !important;
+}

@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+
+{% block title %}评分系统 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<!-- 页面标题 - 统一优雅设计 -->
+<div class="page-header-card">
+    <div class="page-header-content">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="fas fa-star me-2"></i>评分系统
+                </h1>
+                <p class="page-description">
+                    为参赛者进行专业评分
+                </p>
+            </div>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-info" onclick="showScoringConfig()">
+                    <i class="fas fa-cog me-1"></i>评分规则
+                </button>
+                <button type="button" class="btn btn-outline-primary" onclick="refreshScoring()">
+                    <i class="fas fa-sync-alt me-1"></i>刷新
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.page-header-card {
+    background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.98) 100%);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #28a745 0%, #20c997 50%, #28a745 100%);
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+}
+
+.page-header-content {
+    padding: 1.75rem 2rem;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.page-title i {
+    color: #28a745;
+}
+
+.page-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    padding-left: 2rem;
+}
+</style>
+
+<!-- 赛事和参赛者选择 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">选择赛事</h6>
+                <select class="form-select" id="eventSelect" onchange="loadParticipants()">
+                    <option value="">请选择赛事</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">选择参赛者</h6>
+                <select class="form-select" id="participantSelect" onchange="loadParticipantScores()">
+                    <option value="">请先选择赛事</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评分区域 -->
+<div class="row g-4">
+    <!-- 左侧评分表单 -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-edit me-2"></i>评分表单
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="scoring-form-container">
+                    <div class="text-center py-5">
+                        <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">请选择参赛者开始评分</h5>
+                        <p class="text-muted">选择赛事和参赛者后，评分表单将在此显示</p>
+                    </div>
+                </div>
+                
+                <!-- 评分表单 -->
+                <form id="scoringForm" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="techniqueScore" class="form-label">
+                                    技术分 <span class="text-muted">(0-10分)</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control form-control-lg" 
+                                           id="techniqueScore" min="0" max="10" step="0.1" 
+                                           placeholder="0.0" onchange="calculateTotal()">
+                                    <span class="input-group-text">分</span>
+                                </div>
+                                <div class="form-text">评价选手的技术动作标准程度</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="performanceScore" class="form-label">
+                                    表现分 <span class="text-muted">(0-10分)</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control form-control-lg" 
+                                           id="performanceScore" min="0" max="10" step="0.1" 
+                                           placeholder="0.0" onchange="calculateTotal()">
+                                    <span class="input-group-text">分</span>
+                                </div>
+                                <div class="form-text">评价选手的整体表现和精神面貌</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="deduction" class="form-label">
+                                    扣分 <span class="text-muted">(0-5分)</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control form-control-lg" 
+                                           id="deduction" min="0" max="5" step="0.1" 
+                                           placeholder="0.0" onchange="calculateTotal()">
+                                    <span class="input-group-text">分</span>
+                                </div>
+                                <div class="form-text">因违规或失误需要扣除的分数</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="roundNumber" class="form-label">轮次</label>
+                                <select class="form-select form-select-lg" id="roundNumber">
+                                    <option value="1">第一轮</option>
+                                    <option value="2">第二轮</option>
+                                    <option value="3">第三轮</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 总分显示 -->
+                    <div class="alert alert-info d-flex justify-content-between align-items-center mb-3">
+                        <span>总分计算：</span>
+                        <span class="fs-4 fw-bold" id="totalScoreDisplay">0.0 分</span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="scoreNotes" class="form-label">评分备注</label>
+                        <textarea class="form-control" id="scoreNotes" rows="3" 
+                                  placeholder="请输入评分备注或说明（可选）"></textarea>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-outline-secondary me-md-2" onclick="resetScoringForm()">
+                            <i class="fas fa-undo me-1"></i>重置
+                        </button>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save me-1"></i>提交评分
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧信息面板 -->
+    <div class="col-lg-4">
+        <!-- 参赛者信息 -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-user me-2"></i>参赛者信息
+                </h6>
+            </div>
+            <div class="card-body" id="participant-info">
+                <div class="text-center py-3">
+                    <i class="fas fa-user-circle fa-2x text-muted mb-2"></i>
+                    <p class="text-muted small mb-0">请选择参赛者</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 历史评分 -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>历史评分
+                </h6>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadParticipantScores()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-body" id="historical-scores">
+                <div class="text-center py-3">
+                    <i class="fas fa-chart-line fa-2x text-muted mb-2"></i>
+                    <p class="text-muted small mb-0">暂无评分记录</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评分规则模态框 -->
+<div class="modal fade" id="scoringConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cog me-2"></i>评分规则说明
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>评分标准</h6>
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <strong>技术分 (0-10分)</strong>
+                                <p class="text-muted small mb-0">评价选手的技术动作标准程度、完成质量</p>
+                            </li>
+                            <li class="mb-2">
+                                <strong>表现分 (0-10分)</strong>
+                                <p class="text-muted small mb-0">评价选手的整体表现、精神面貌、节奏感</p>
+                            </li>
+                            <li class="mb-2">
+                                <strong>扣分 (0-5分)</strong>
+                                <p class="text-muted small mb-0">因违规、失误、超时等需要扣除的分数</p>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>计分规则</h6>
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <strong>总分计算</strong>
+                                <p class="text-muted small mb-0">总分 = 技术分 + 表现分 - 扣分</p>
+                            </li>
+                            <li class="mb-2">
+                                <strong>最终成绩</strong>
+                                <p class="text-muted small mb-0">去掉最高分和最低分后计算平均分</p>
+                            </li>
+                            <li class="mb-2">
+                                <strong>精确度</strong>
+                                <p class="text-muted small mb-0">分数精确到小数点后一位</p>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>注意事项：</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>评分一旦提交将无法修改，请仔细核对后再提交</li>
+                        <li>每位裁判对同一选手同一轮次只能评分一次</li>
+                        <li>请保持评分的公正性和一致性</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                    <i class="fas fa-check me-1"></i>我已了解
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/scoring.js') }}"></script>
+<script>
+let currentEvent = null;
+let currentParticipant = null;
+let scoringConfig = {};
+
+$(document).ready(function() {
+    // 加载赛事列表
+    loadEvents();
+    
+    // 加载评分配置
+    loadScoringConfig();
+    
+    // 评分表单提交
+    $('#scoringForm').on('submit', function(e) {
+        e.preventDefault();
+        submitScore();
+    });
+});
+
+function loadEvents() {
+    $.ajax({
+        url: '/api/events/',
+        method: 'GET',
+        data: { status: 'published,ongoing' },
+        success: function(response) {
+            if (response.success) {
+                const eventSelect = $('#eventSelect');
+                eventSelect.empty().append('<option value="">请选择赛事</option>');
+                
+                response.events.forEach(function(event) {
+                    eventSelect.append(`<option value="${event.event_id}">${event.name}</option>`);
+                });
+            }
+        },
+        error: function() {
+            showCenterMessage('加载赛事列表失败', 'error');
+        }
+    });
+}
+
+function loadParticipants() {
+    const eventId = $('#eventSelect').val();
+    if (!eventId) {
+        $('#participantSelect').empty().append('<option value="">请先选择赛事</option>');
+        return;
+    }
+    
+    currentEvent = eventId;
+    
+    $.ajax({
+        url: `/api/events/${eventId}/participants`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const participantSelect = $('#participantSelect');
+                participantSelect.empty().append('<option value="">请选择参赛者</option>');
+                
+                response.participants.forEach(function(participant) {
+                    participantSelect.append(`
+                        <option value="${participant.participant_id}">
+                            ${participant.registration_number} - ${participant.real_name || participant.username}
+                        </option>
+                    `);
+                });
+            }
+        },
+        error: function() {
+            showCenterMessage('加载参赛者列表失败', 'error');
+        }
+    });
+}
+
+function loadParticipantScores() {
+    const participantId = $('#participantSelect').val();
+    if (!participantId) {
+        resetParticipantInfo();
+        return;
+    }
+    
+    currentParticipant = participantId;
+    
+    // 加载参赛者信息
+    loadParticipantInfo(participantId);
+    
+    // 加载历史评分
+    $.ajax({
+        url: `/api/scoring/participant/${participantId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                displayHistoricalScores(response.scores, response.average_score);
+                showScoringForm();
+            }
+        },
+        error: function() {
+            showCenterMessage('加载评分记录失败', 'error');
+        }
+    });
+}
+
+function loadParticipantInfo(participantId) {
+    // 从参赛者列表中获取信息
+    $.ajax({
+        url: `/api/events/${currentEvent}/participants`,
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const participant = response.participants.find(p => p.participant_id == participantId);
+                if (participant) {
+                    displayParticipantInfo(participant);
+                }
+            }
+        }
+    });
+}
+
+function displayParticipantInfo(participant) {
+    const infoHtml = `
+        <div class="text-center mb-3">
+            <div class="participant-avatar bg-primary text-white rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center" 
+                 style="width: 60px; height: 60px; font-size: 1.5rem;">
+                ${(participant.real_name || participant.username).charAt(0)}
+            </div>
+            <h6 class="mb-1">${participant.real_name || participant.username}</h6>
+            <span class="badge bg-primary">${participant.registration_number}</span>
+        </div>
+        
+        <table class="table table-sm">
+            <tr><td>参赛项目:</td><td>${participant.category || '-'}</td></tr>
+            <tr><td>级别:</td><td>${participant.weight_class || '-'}</td></tr>
+            <tr><td>状态:</td><td>
+                <span class="badge bg-${participant.status === 'checked_in' ? 'success' : 'warning'}">
+                    ${participant.status === 'checked_in' ? '已签到' : '未签到'}
+                </span>
+            </td></tr>
+        </table>
+    `;
+    
+    $('#participant-info').html(infoHtml);
+}
+
+function displayHistoricalScores(scores, averageScore) {
+    if (scores.length === 0) {
+        $('#historical-scores').html(`
+            <div class="text-center py-3">
+                <i class="fas fa-chart-line fa-2x text-muted mb-2"></i>
+                <p class="text-muted small mb-0">暂无评分记录</p>
+            </div>
+        `);
+        return;
+    }
+    
+    let scoresHtml = `
+        <div class="mb-3 text-center">
+            <h5 class="text-primary mb-0">${averageScore}</h5>
+            <small class="text-muted">平均分</small>
+        </div>
+        <div class="scores-list">
+    `;
+    
+    scores.forEach(function(score) {
+        scoresHtml += `
+            <div class="score-item border-bottom pb-2 mb-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${score.judge_name || '裁判'}</strong>
+                        <small class="text-muted">第${score.round_number}轮</small>
+                    </div>
+                    <span class="badge bg-success">${score.total_score}</span>
+                </div>
+                <div class="small text-muted">
+                    技术: ${score.technique_score} | 表现: ${score.performance_score} | 扣分: ${score.deduction}
+                </div>
+                ${score.notes ? `<div class="small text-muted mt-1">${score.notes}</div>` : ''}
+            </div>
+        `;
+    });
+    
+    scoresHtml += '</div>';
+    $('#historical-scores').html(scoresHtml);
+}
+
+function showScoringForm() {
+    $('#scoring-form-container').hide();
+    $('#scoringForm').show();
+}
+
+function resetParticipantInfo() {
+    $('#participant-info').html(`
+        <div class="text-center py-3">
+            <i class="fas fa-user-circle fa-2x text-muted mb-2"></i>
+            <p class="text-muted small mb-0">请选择参赛者</p>
+        </div>
+    `);
+    
+    $('#historical-scores').html(`
+        <div class="text-center py-3">
+            <i class="fas fa-chart-line fa-2x text-muted mb-2"></i>
+            <p class="text-muted small mb-0">暂无评分记录</p>
+        </div>
+    `);
+    
+    $('#scoring-form-container').show();
+    $('#scoringForm').hide();
+}
+
+function calculateTotal() {
+    const techniqueScore = parseFloat($('#techniqueScore').val()) || 0;
+    const performanceScore = parseFloat($('#performanceScore').val()) || 0;
+    const deduction = parseFloat($('#deduction').val()) || 0;
+    
+    const total = techniqueScore + performanceScore - deduction;
+    $('#totalScoreDisplay').text(total.toFixed(1) + ' 分');
+}
+
+function resetScoringForm() {
+    $('#scoringForm')[0].reset();
+    calculateTotal();
+}
+
+function submitScore() {
+    if (!currentParticipant) {
+        showCenterMessage('请先选择参赛者', 'warning');
+        return;
+    }
+    
+    const scoreData = {
+        technique_score: parseFloat($('#techniqueScore').val()) || 0,
+        performance_score: parseFloat($('#performanceScore').val()) || 0,
+        deduction: parseFloat($('#deduction').val()) || 0,
+        round_number: parseInt($('#roundNumber').val()) || 1,
+        notes: $('#scoreNotes').val().trim()
+    };
+    
+    // 验证分数
+    if (scoreData.technique_score < 0 || scoreData.technique_score > 10) {
+        showCenterMessage('技术分必须在0-10分之间', 'error');
+        return;
+    }
+    
+    if (scoreData.performance_score < 0 || scoreData.performance_score > 10) {
+        showCenterMessage('表现分必须在0-10分之间', 'error');
+        return;
+    }
+    
+    if (scoreData.deduction < 0 || scoreData.deduction > 5) {
+        showCenterMessage('扣分必须在0-5分之间', 'error');
+        return;
+    }
+    
+    $.ajax({
+        url: `/api/scoring/participant/${currentParticipant}`,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(scoreData),
+        success: function(response) {
+            if (response.success) {
+                showCenterMessage('评分提交成功！', 'success');
+                resetScoringForm();
+                loadParticipantScores();
+            } else {
+                showCenterMessage(response.message, 'error');
+            }
+        },
+        error: function(xhr) {
+            let message = '评分提交失败，请稍后重试';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            }
+            showCenterMessage(message, 'error');
+        }
+    });
+}
+
+function loadScoringConfig() {
+    $.ajax({
+        url: '/api/scoring/config',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                scoringConfig = response.config;
+                updateScoringFormLimits();
+            }
+        }
+    });
+}
+
+function updateScoringFormLimits() {
+    if (scoringConfig.technique_max) {
+        $('#techniqueScore').attr('max', scoringConfig.technique_max);
+    }
+    if (scoringConfig.performance_max) {
+        $('#performanceScore').attr('max', scoringConfig.performance_max);
+    }
+    if (scoringConfig.deduction_max) {
+        $('#deduction').attr('max', scoringConfig.deduction_max);
+    }
+}
+
+function showScoringConfig() {
+    $('#scoringConfigModal').modal('show');
+}
+
+function refreshScoring() {
+    showCenterMessage('正在刷新评分信息...', 'info');
+    if (currentParticipant) {
+        loadParticipantScores();
+    }
+}
+</script>
+{% endblock %}

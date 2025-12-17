@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}队伍审核列表 - 武术赛事管理系统{% endblock %}
+
+{% block content %}
+<div class="events-page">
+    <!-- 队伍容器 -->
+    <div class="card teams-container">
+        <div class="card-header">
+            <button class="btn back-btn" onclick="goBackToSelectEvent()">
+                <i class="fas fa-arrow-left me-1"></i>返回选择赛事
+            </button>
+            <h4><i class="fas fa-clipboard-list me-2"></i>队伍列表</h4>
+        </div>
+        
+        <!-- 筛选区域 -->
+        <div class="card-body border-bottom" style="padding: 1.5rem 2rem 1rem 2rem; background: rgba(248, 249, 250, 0.8); border-radius: 0;">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="searchInput" class="form-label">
+                        <i class="fas fa-search me-1"></i>搜索队伍
+                    </label>
+                    <input type="text" class="form-control" id="searchInput" 
+                           placeholder="输入队伍名称或领队姓名进行搜索..." 
+                           oninput="filterTeams()" style="border-radius: 0;">
+                </div>
+                <div class="col-md-3">
+                    <label for="statusFilter" class="form-label">
+                        <i class="fas fa-filter me-1"></i>提交状态
+                    </label>
+                    <select class="form-select" id="statusFilter" onchange="filterTeams()" style="border-radius: 0;">
+                        <option value="">全部队伍</option>
+                        <option value="submitted">已提交</option>
+                        <option value="not_submitted">未提交</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-light w-100" onclick="clearSearch()" style="border-radius: 0; background-color: white; border: 1px solid #ced4da; height: calc(1.5em + 1.5rem + 2px); padding: 0.75rem 0.75rem; line-height: 1.5;">
+                        <i class="fas fa-times me-2"></i>清除筛选
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body teams-list">
+            <!-- 队伍列表 -->
+            <div class="row g-3" id="teamsContainer">
+                <!-- 队伍卡片将通过JavaScript动态加载 -->
+            </div>
+            
+            <!-- 无数据提示 -->
+            <div id="noTeams" class="text-center py-5" style="display: none;">
+                <i class="fas fa-users fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无队伍信息</h5>
+                <p class="text-muted">该赛事暂无队伍信息</p>
+            </div>
+            
+            <!-- 分页控件 -->
+            <div id="paginationContainer" class="d-flex justify-content-center mt-4" style="display: none;">
+                <nav aria-label="队伍列表分页">
+                    <ul class="pagination">
+                        <li class="page-item" id="prevPage">
+                            <a class="page-link" href="#" onclick="changePage(currentPage - 1)">
+                                <i class="fas fa-chevron-left"></i> 上一页
+                            </a>
+                        </li>
+                        <li class="page-item active" id="currentPageItem">
+                            <span class="page-link" id="currentPageText">1</span>
+                        </li>
+                        <li class="page-item" id="nextPage">
+                            <a class="page-link" href="#" onclick="changePage(currentPage + 1)">
+                                下一页 <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 页面容器样式 */
+.events-page {
+    min-height: 100vh;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 1rem 1rem 1rem 1rem;
+}
+
+/* 队伍容器 */
+.teams-container {
+    width: 100%;
+    max-width: 1400px;
+    margin-top: 1rem;
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    background: white;
+}
+
+.teams-container .card-header {
+    background: linear-gradient(135deg, #0b5ed7) !important;
+    border-bottom: none;
+    padding: 1.5rem 2rem;
+    border-radius: 15px 15px 0 0;
+    position: relative;
+}
+
+.teams-container .card-header h4 {
+    color: white;
+    margin: 0;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    text-align: center;
+    font-weight: 600;
+}
+
+.teams-list {
+    padding: 2rem;
+    min-height: 300px;
+}
+
+/* 返回按钮样式 */
+.back-btn {
+    position: absolute;
+    left: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #4facfe;
+    border-radius: 25px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-left: 0;
+    z-index: 10;
+}
+
+.back-btn:hover {
+    background: white;
+    color: #4facfe;
+    transform: translateY(calc(-50% - 2px));
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 队伍卡片样式 */
+.team-card {
+    position: relative;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
+    min-height: 100px;
+    background: white;
+}
+
+.team-card .card-body {
+    padding: 1.5rem;
+}
+
+.team-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.team-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    flex-shrink: 0;
+}
+
+/* 分页样式 */
+.pagination .page-link {
+    background-color: #0b5ed7;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    margin: 0 0.25rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0a52c6;
+    color: white;
+    font-weight: 600;
+}
+
+.pagination .page-link:hover {
+    background-color: #0a52c6;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(11, 94, 215, 0.4);
+}
+
+.pagination .page-item.disabled .page-link {
+    background-color: #cbd5e0;
+    color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.pagination .page-item.disabled .page-link:hover {
+    transform: none;
+    box-shadow: none;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 全局变量
+let allTeams = [];
+let filteredTeams = [];
+let currentPage = 1;
+const teamsPerPage = 10;
+let currentEventId = null;
+let currentEventName = null;
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 从URL参数获取赛事信息
+    const urlParams = new URLSearchParams(window.location.search);
+    currentEventId = urlParams.get('event_id');
+    currentEventName = urlParams.get('event_name');
+    
+    console.log('当前赛事ID:', currentEventId);
+    console.log('当前赛事名称:', currentEventName);
+    
+    if (!currentEventId) {
+        alert('缺少赛事信息');
+        window.location.href = '/event_selection?source=summary';
+        return;
+    }
+    
+    // 加载队伍列表
+    loadTeams();
+});
+
+// 加载队伍列表
+function loadTeams() {
+    console.log('=== 开始加载队伍列表（从后端API） ===');
+
+    fetch(`/api/teams/${currentEventId}?visibility=all`, {
+        credentials: 'include',
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+        .then(resp => resp.json())
+        .then(data => {
+            if (!data || data.success === false) {
+                console.warn('加载队伍列表失败:', data && data.message);
+                allTeams = [];
+            } else {
+                const teams = Array.isArray(data.teams) ? data.teams : [];
+                allTeams = teams.map(t => ({
+                    id: t.id,
+                    teamName: t.name,
+                    teamType: t.type,
+                    leaderName: t.leader,
+                    leaderPhone: '',
+                    eventId: currentEventId,
+                    eventName: currentEventName,
+                    submittedForReview: t.submittedForReview === true,
+                    submittedAt: t.submittedAt || null,
+                    createdAt: null,
+                    isCreated: true
+                }));
+            }
+
+            console.log('✅ 当前赛事队伍数量:', allTeams.length);
+
+            filteredTeams = [...allTeams];
+
+            // 重置到第一页
+            currentPage = 1;
+
+            // 渲染当前页
+            renderCurrentPage();
+            updatePagination();
+        })
+        .catch(err => {
+            console.error('加载队伍列表异常:', err);
+            allTeams = [];
+            filteredTeams = [];
+            currentPage = 1;
+            renderCurrentPage();
+            updatePagination();
+        });
+}
+
+// 筛选队伍
+function filterTeams() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    
+    filteredTeams = allTeams.filter(team => {
+        // 搜索条件
+        const matchesSearch = !searchTerm || 
+            (team.teamName && team.teamName.toLowerCase().includes(searchTerm)) ||
+            (team.leaderName && team.leaderName.toLowerCase().includes(searchTerm));
+        
+        // 状态条件（这里可以根据实际的提交状态字段进行筛选）
+        let matchesStatus = true;
+        if (statusFilter) {
+            // 假设有 submittedForReview 字段表示是否已提交
+            matchesStatus = statusFilter === 'submitted' ? team.submittedForReview === true : team.submittedForReview !== true;
+        }
+        
+        return matchesSearch && matchesStatus;
+    });
+    
+    // 重置到第一页
+    currentPage = 1;
+    
+    // 重新渲染
+    renderCurrentPage();
+    updatePagination();
+}
+
+// 清除搜索
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = '';
+    filterTeams();
+}
+
+// 渲染当前页
+function renderCurrentPage() {
+    const container = document.getElementById('teamsContainer');
+    const noTeamsDiv = document.getElementById('noTeams');
+    
+    // 清空容器
+    container.innerHTML = '';
+    
+    // 如果没有队伍，显示提示
+    if (filteredTeams.length === 0) {
+        noTeamsDiv.style.display = 'block';
+        return;
+    } else {
+        noTeamsDiv.style.display = 'none';
+    }
+    
+    // 计算当前页显示的队伍
+    const start = (currentPage - 1) * teamsPerPage;
+    const end = start + teamsPerPage;
+    const teamsToShow = filteredTeams.slice(start, end);
+    
+    // 渲染队伍卡片
+    teamsToShow.forEach(team => {
+        container.appendChild(createTeamCard(team));
+    });
+}
+
+// 创建队伍卡片
+function createTeamCard(team) {
+    const col = document.createElement('div');
+    col.className = 'col-12 mb-3';
+    
+    // 队伍类型显示
+    const teamTypeMap = {
+        'school': '学校队伍',
+        'club': '俱乐部',
+        'professional': '专业队',
+        'individual': '个人组队'
+    };
+    const teamTypeText = teamTypeMap[team.teamType] || team.teamType || '未设置';
+    
+    // 创建时间格式化
+    const createdDate = team.createdAt ? new Date(team.createdAt).toLocaleDateString('zh-CN') : '未知';
+    
+    // 提交状态
+    const isSubmitted = team.submittedForReview === true;
+    const statusBadge = isSubmitted ? 
+        '<span class="badge bg-success">已提交</span>' : 
+        '<span class="badge bg-secondary">未提交</span>';
+    
+    col.innerHTML = `
+        <div class="card team-card clickable-card" onclick="viewTeamSummary('${team.id}')" style="cursor: pointer;">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <div class="team-badge me-3">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div>
+                                <h5 class="card-title mb-1">
+                                    ${team.teamName}
+                                    ${statusBadge}
+                                </h5>
+                                <p class="card-text text-muted mb-0">${teamTypeText}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="team-info">
+                            <div class="text-muted small">
+                                <i class="fas fa-user-tie me-1"></i> 领队: ${team.leaderName || '未设置'}
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <i class="fas fa-phone me-1"></i> 电话: ${team.leaderPhone || '未设置'}
+                            </div>
+                            <div class="text-muted small mt-1">
+                                <i class="fas fa-calendar me-1"></i> 创建: ${createdDate}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return col;
+}
+
+// 查看队伍资料汇总
+function viewTeamSummary(teamId) {
+    // 跳转到资料汇总页面，带上队伍ID和赛事ID
+    window.location.href = `/data_summary?event_id=${currentEventId}&event_name=${encodeURIComponent(currentEventName)}&team_id=${teamId}&admin_view=true`;
+}
+
+// 更新分页控件
+function updatePagination() {
+    const paginationContainer = document.getElementById('paginationContainer');
+    const totalPages = Math.ceil(filteredTeams.length / teamsPerPage);
+    
+    if (totalPages <= 1) {
+        paginationContainer.style.display = 'none';
+        return;
+    }
+    
+    paginationContainer.style.display = 'flex';
+    
+    // 更新页码
+    document.getElementById('currentPageText').textContent = currentPage;
+    
+    // 更新上一页按钮状态
+    const prevPage = document.getElementById('prevPage');
+    if (currentPage <= 1) {
+        prevPage.classList.add('disabled');
+    } else {
+        prevPage.classList.remove('disabled');
+    }
+    
+    // 更新下一页按钮状态
+    const nextPage = document.getElementById('nextPage');
+    if (currentPage >= totalPages) {
+        nextPage.classList.add('disabled');
+    } else {
+        nextPage.classList.remove('disabled');
+    }
+}
+
+// 切换页面
+function changePage(newPage) {
+    const totalPages = Math.ceil(filteredTeams.length / teamsPerPage);
+    
+    if (newPage < 1 || newPage > totalPages) {
+        return;
+    }
+    
+    currentPage = newPage;
+    renderCurrentPage();
+    updatePagination();
+}
+
+// 返回选择赛事页面
+function goBackToSelectEvent() {
+    window.location.href = '/event_selection?source=summary';
+}
+</script>
+{% endblock %}

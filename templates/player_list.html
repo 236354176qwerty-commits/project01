@@ -297,14 +297,6 @@
                     <h5 class="mb-0">
                         <i class="fas fa-list me-2"></i>人员列表
                     </h5>
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="project-hint" style="color: #dc3545;">
-                            <strong>点击添加人员来添加队伍的队员</strong><i class="fas fa-arrow-right ms-2"></i>
-                        </span>
-                        <a href="/add_player" class="btn btn-primary action-button" id="addPlayerBtn">
-                            <i class="fas fa-plus me-2"></i>添加人员
-                        </a>
-                    </div>
                 </div>
                 <div class="card-body">
                     <!-- 搜索栏 -->
@@ -386,12 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // 更新添加人员按钮的链接（稍后在加载数据后设置，因为需要队伍ID）
-    const addPlayerBtn = document.getElementById('addPlayerBtn');
-    if (addPlayerBtn && eventId && eventName) {
-        // 暂时设置基本链接，完整链接在 loadPlayerData 中设置
-        addPlayerBtn.href = `/add_player?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}`;
-    }
+    
     
     if (eventId && eventName) {
         // 保存赛事信息到sessionStorage
@@ -581,16 +568,6 @@ async function loadPlayerData() {
         // 仅在前端通过 adminView 粗略区分
         const isTeamLeader = !adminView; // 精确控制依赖后端权限
         window.isTeamLeader = isTeamLeader;
-
-        // 更新“添加人员”按钮链接
-        const addPlayerBtn = document.getElementById('addPlayerBtn');
-        if (addPlayerBtn) {
-            let href = `/add_player?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}`;
-            if (resolvedTeam && resolvedTeam.id) {
-                href += `&team_id=${resolvedTeam.id}`;
-            }
-            addPlayerBtn.href = href;
-        }
 
         // 标准化后端选手数据为前端表格结构
         const players = playersFromBackend.map(p => normalizeBackendPlayer(p, inferredTeamName));
@@ -817,7 +794,7 @@ function renderPlayerTable(players) {
         const eventParts = [];
         
         // 1. 个人赛项目 - 优先使用selected_events（JSON字段）
-        let individualEvent = '武术比赛';
+        let individualEvent = '';
         if (player.selected_events) {
             try {
                 const selectedEvents = typeof player.selected_events === 'string' ? JSON.parse(player.selected_events) : player.selected_events;
@@ -841,7 +818,9 @@ function renderPlayerTable(players) {
         } else if (Array.isArray(player.events) && player.events.length > 0) {
             individualEvent = player.events.join('、');
         }
-        eventParts.push(individualEvent);
+        if (individualEvent) {
+            eventParts.push(individualEvent);
+        }
         
         // 2. 团体赛 - 从competition_event中提取完整的团体赛项目（格式：团体赛-项目名称）
         if (player.competition_event && player.competition_event.includes('团体赛')) {
@@ -1129,7 +1108,7 @@ function showEditModal(player) {
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">所属队伍</label>
-                                    <input type="text" class="form-control" id="editTeam" value="${window.currentEventTeam?.teamName || player.team_name || player.event_name || ''}">
+                                    <input type="text" class="form-control" id="editTeam" value="${window.currentEventTeam?.teamName || player.team_name || player.event_name || ''}" readonly disabled>
                                 </div>
                             </div>
                         </div>
@@ -1146,111 +1125,6 @@ function showEditModal(player) {
                                 <div class="mb-3">
                                     <label class="form-label">联系电话</label>
                                     <input type="tel" class="form-control" id="editPhone" value="${player.phone || player.user_phone || ''}" maxlength="11" required>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label class="form-label">个人赛项目 <small class="text-muted">（可以选择多个项目）</small></label>
-                                    
-                                    <!-- 搜索框 -->
-                                    <div class="mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text bg-primary text-white border-0">
-                                                <i class="fas fa-search"></i>
-                                            </span>
-                                            <input type="text" 
-                                                   class="form-control" 
-                                                   id="editCategorySearchInput" 
-                                                   placeholder="搜索项目名称，如：太极拳、剑术..."
-                                                   onkeyup="performEditCategorySearch()">
-                                            <button class="btn btn-sm" 
-                                                    id="editClearSearchBtn" 
-                                                    onclick="clearEditCategorySearch()"
-                                                    style="display: none; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: #999; z-index: 10; cursor: pointer;"
-                                                    title="清除搜索">
-                                                <i class="fas fa-times-circle"></i>
-                                            </button>
-                                        </div>
-                                        <div id="editSearchResultInfo" style="display: none; margin-top: 8px; padding: 8px; border-radius: 6px; font-size: 0.875rem;">
-                                            <i class="fas fa-info-circle me-1"></i>
-                                            <span id="editSearchResultText">找到 0 个匹配项目</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="card" style="max-height: 400px; overflow-y: auto;">
-                                        <div class="card-body p-3">
-                                            <div id="editEventCategories">
-                                                <!-- 项目分类将通过API动态加载 -->
-                                                <div class="text-center py-3">
-                                                    <div class="spinner-border text-primary" role="status">
-                                                        <span class="visually-hidden">加载中...</span>
-                                                    </div>
-                                                    <p class="text-muted mt-2">正在加载项目分类...</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="mb-3">
-                                    <label class="form-label">非个人赛项目</label>
-                                    <div class="border rounded p-2" style="min-height: 60px; background-color: #f8f9fa;">
-                                        ${(function() {
-                                            const items = [];
-                                            
-                                            // 团体赛 - 从competition_event中提取完整的团体赛项目名称
-                                            if (player.teamRegistered || (player.competition_event && player.competition_event.includes('团体赛'))) {
-                                                let teamProjectName = '团体赛';
-                                                // 优先匹配"团体赛-XXX"格式
-                                                if (player.competition_event) {
-                                                    const teamMatch = player.competition_event.match(/团体赛-[^、]+/);
-                                                    if (teamMatch) {
-                                                        teamProjectName = teamMatch[0];
-                                                    }
-                                                }
-                                                items.push(`
-                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <span>${teamProjectName}</span>
-                                                        <button type="button" class="btn btn-sm btn-cancel-registration" 
-                                                                onclick="cancelEventRegistration('${player.player_id}', 'team', '${player.id_card || player.registration_number || player.idCard}')">
-                                                            <i class="fas fa-times me-1"></i>取消报名
-                                                        </button>
-                                                    </div>
-                                                `);
-                                            }
-                                            
-                                            // 对练 - 从competition_event中提取所有对练项目
-                                            // 统一识别规则：
-                                            // 1) 形如 "XXX对练（对手）" 的形式
-                                            // 2) 形如 "徒手...（对手）" 或 "器械...（对手）" 的形式
-                                            if (player.competition_event) {
-                                                const pairTokenRegex = /(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)/g;
-                                                const pairMatches = player.competition_event.match(pairTokenRegex);
-                                                if (pairMatches && pairMatches.length > 0) {
-                                                    pairMatches.forEach(pairProject => {
-                                                        items.push(`
-                                                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                                                <span>${pairProject}</span>
-                                                                <button type="button" class="btn btn-sm btn-cancel-registration" 
-                                                                        onclick="cancelEventRegistration('${player.player_id}', 'pair', '${player.id_card || player.registration_number || player.idCard}', '${pairProject.replace(/'/g, "\\'")}')">
-                                                                    <i class="fas fa-times me-1"></i>取消报名
-                                                                </button>
-                                                            </div>
-                                                        `);
-                                                    });
-                                                }
-                                            }
-                                            
-                                            return items.length > 0 ? items.join('') : '<div class="text-muted text-center py-2">无</div>';
-                                        })()}
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1286,26 +1160,7 @@ function showEditModal(player) {
     setTimeout(async () => {
         console.log('开始初始化模态框...');
         
-        // 1. 先加载项目分类
-        try {
-            await renderCompetitionCategories('editEventCategories', {
-                mode: 'edit',
-                enableSelection: true,
-                enableToggle: true
-            });
-            console.log('项目分类加载完成');
-            
-            // 绑定多选事件监听器（不再限制单选）
-            const categoryCheckboxes = document.querySelectorAll('#editEventCategories input[type="checkbox"]');
-            console.log('绑定编辑模态框多选事件监听器，复选框数量:', categoryCheckboxes.length);
-            // 不再限制单选，允许多选
-        } catch (error) {
-            console.error('加载项目分类失败:', error);
-            document.getElementById('editEventCategories').innerHTML = 
-                '<div class="alert alert-danger">加载项目分类失败，请刷新页面重试</div>';
-        }
-        
-        // 2. 绑定保存按钮的点击事件
+        // 1. 绑定保存按钮的点击事件
         const saveBtn = document.getElementById('savePlayerBtn');
         console.log('查找保存按钮，元素:', saveBtn);
         
@@ -1329,32 +1184,6 @@ function showEditModal(player) {
         } else {
             console.error('错误：未找到保存按钮！');
         }
-        
-        // 3. 回显已选择的项目（适配新API字段：selected_events）
-        let selectedEvents = [];
-        if (player.selected_events) {
-            try {
-                selectedEvents = typeof player.selected_events === 'string' ? JSON.parse(player.selected_events) : player.selected_events;
-            } catch (e) {
-                console.warn('解析selected_events失败:', e);
-                selectedEvents = [];
-            }
-        }
-        
-        if (Array.isArray(selectedEvents) && selectedEvents.length > 0) {
-            // 获取所有复选框
-            const allCheckboxes = document.querySelectorAll('#editEventCategories input[type="checkbox"]');
-            
-            selectedEvents.forEach(eventName => {
-                // 遍历所有复选框，找到匹配的标签
-                allCheckboxes.forEach(checkbox => {
-                    const label = document.querySelector(`label[for="${checkbox.id}"]`);
-                    if (label && label.textContent.trim() === eventName) {
-                        checkbox.checked = true;
-                    }
-                });
-            });
-        }
     }, 100);
 }
 
@@ -1365,40 +1194,12 @@ function savePlayerEdit(playerId, originalIdCard) {
     console.log('originalIdCard:', originalIdCard);
     
     const name = document.getElementById('editName').value.trim();
-    const team = document.getElementById('editTeam').value.trim();
     const idCard = document.getElementById('editIdCard').value.trim();
     const phone = document.getElementById('editPhone').value.trim();
     
     console.log('表单数据 - 姓名:', name, '身份证:', idCard, '电话:', phone);
     
-    // 获取所有勾选的赛事项目（使用动态加载的复选框选择器）
-    const selectedEvents = [];
-    const checkedBoxes = document.querySelectorAll('#editEventCategories input[type="checkbox"]:checked');
-    console.log('选中的复选框数量:', checkedBoxes.length);
-    
-    checkedBoxes.forEach(checkbox => {
-        const label = document.querySelector(`label[for="${checkbox.id}"]`);
-        if (label) {
-            let eventName = label.textContent.trim();
-            
-            // 如果是"其他"选项，检查是否有填写内容
-            if (checkbox.id.includes('-other') || eventName.includes('其他')) {
-                const inputId = checkbox.id.replace('category-', 'input-');
-                const input = document.getElementById(inputId);
-                if (input && input.value.trim()) {
-                    // 保存完整格式：类别名称：用户输入内容
-                    eventName = eventName + '：' + input.value.trim();
-                }
-            }
-            
-            console.log('选中的项目:', eventName);
-            selectedEvents.push(eventName);
-        }
-    });
-    
-    console.log('最终选中的项目列表:', selectedEvents);
-    
-    const competitionEvent = selectedEvents.join('、') || '武术比赛';
+    console.log('编辑基础信息 - 姓名/身份证/电话');
     
     // 1. 验证必填字段
     if (!name) {
@@ -1419,12 +1220,6 @@ function savePlayerEdit(playerId, originalIdCard) {
     
     if (!phone) {
         showMessage('请输入联系电话', 'error');
-        return;
-    }
-    
-    // 验证是否至少选择了一个参赛项目
-    if (selectedEvents.length === 0) {
-        showMessage('请至少选择一个参赛项目', 'error');
         return;
     }
     
@@ -1465,12 +1260,13 @@ function savePlayerEdit(playerId, originalIdCard) {
     }
 
     const payload = {
-        competition_event: competitionEvent,
-        selected_events: selectedEvents,
+        name,
+        phone,
+        id_card: idCard,
+        registration_number: idCard,
+        gender,
+        age,
     };
-
-    // 如果需要同步更新姓名/电话/证件号，可扩展后端 update_team_player 接口；
-    // 目前我们仅更新项目相关字段，人员基础信息保持以 add_player/后台管理为准。
 
     fetch(`/api/team/${teamId}/players/${playerId}`, {
         method: 'PUT',
@@ -1913,78 +1709,6 @@ function updateTableColumns() {
     }
     
     console.log('更新表格列和按钮显示，isTeamLeader:', window.isTeamLeader);
-}
-
-// 编辑模态框的分类展开折叠功能
-function toggleCategoryEdit(element) {
-    element.classList.toggle('active');
-    const icon = element.querySelector('.category-icon');
-    const nextElement = element.nextElementSibling;
-    
-    if (nextElement && (nextElement.classList.contains('category-level-2') || 
-                        nextElement.classList.contains('category-level-3'))) {
-        const isHidden = nextElement.style.display === 'none';
-        nextElement.style.display = isHidden ? 'block' : 'none';
-        
-        if (icon) {
-            if (icon.classList.contains('fa-chevron-right')) {
-                icon.classList.remove('fa-chevron-right');
-                icon.classList.add('fa-chevron-down');
-            } else if (icon.classList.contains('fa-chevron-down')) {
-                icon.classList.remove('fa-chevron-down');
-                icon.classList.add('fa-chevron-right');
-            }
-        }
-    }
-}
-
-// 编辑模态框：切换"其他拳术"输入框的显示/隐藏
-function toggleOtherMartialArtEdit(checkbox) {
-    const input = document.getElementById('editOtherMartialArtInput');
-    if (checkbox.checked) {
-        input.style.display = 'block';
-        input.focus();
-    } else {
-        input.style.display = 'none';
-        input.value = '';
-    }
-    // 不再限制单选，允许多选
-}
-
-// 编辑模态框：切换"其他器械"输入框的显示/隐藏
-function toggleOtherWeaponEdit(checkbox) {
-    const input = document.getElementById('editOtherWeaponInput');
-    if (checkbox.checked) {
-        input.style.display = 'block';
-        input.focus();
-    } else {
-        input.style.display = 'none';
-        input.value = '';
-    }
-    // 不再限制单选，允许多选
-}
-
-// 编辑模态框：已移除单选限制，现在支持多选
-// 如果需要限制选择数量，可以在这里添加逻辑
-function limitCategorySelectionEdit(checkbox) {
-    // 允许多选，不再限制
-    // 可选：添加最大选择数量限制
-    // const maxSelections = 5; // 例如最多选5个
-    // const checkedBoxes = document.querySelectorAll('#editEventCategories input[type="checkbox"]:checked');
-    // if (checkedBoxes.length > maxSelections) {
-    //     checkbox.checked = false;
-    //     showMessage(`最多只能选择 ${maxSelections} 个项目`, 'warning');
-    // }
-}
-
-// 编辑模态框：执行项目分类搜索
-function performEditCategorySearch() {
-    searchCompetitionCategories('editEventCategories', 'editCategorySearchInput', 'editSearchResultInfo', 'editClearSearchBtn');
-}
-
-// 编辑模态框：清除项目分类搜索
-function clearEditCategorySearch() {
-    clearCompetitionSearch('editEventCategories', 'editCategorySearchInput', 'editSearchResultInfo', 'editClearSearchBtn');
 }
 
 // 使用全局的 showMessage 函数（在 main.js 中定义）

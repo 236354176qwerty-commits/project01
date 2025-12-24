@@ -45,9 +45,51 @@ def api_update_team_player(team_id, player_id):
             fields = []
             params = []
 
+            # 身份证号唯一性校验：同一 event_id + team_id 下不允许重复
+            if 'id_card' in data and data.get('id_card'):
+                new_id_card = str(data.get('id_card')).strip()
+                old_id_card = (player.get('id_card') or '').strip()
+                if new_id_card and new_id_card != old_id_card:
+                    cursor.execute(
+                        """
+                        SELECT player_id FROM team_players
+                        WHERE team_id = %s AND event_id = %s AND id_card = %s AND player_id <> %s
+                        LIMIT 1
+                        """,
+                        (team_id, player.get('event_id'), new_id_card, player_id),
+                    )
+                    dup = cursor.fetchone()
+                    if dup:
+                        cursor.close()
+                        return jsonify({'success': False, 'message': '该身份证号在本队中已存在'}), 400
+
             if 'competition_event' in data:
                 fields.append("competition_event = %s")
                 params.append(data.get('competition_event'))
+
+            if 'name' in data:
+                fields.append("name = %s")
+                params.append(data.get('name'))
+
+            if 'phone' in data:
+                fields.append("phone = %s")
+                params.append(data.get('phone'))
+
+            if 'id_card' in data:
+                fields.append("id_card = %s")
+                params.append(data.get('id_card'))
+
+            if 'registration_number' in data:
+                fields.append("registration_number = %s")
+                params.append(data.get('registration_number'))
+
+            if 'gender' in data:
+                fields.append("gender = %s")
+                params.append(data.get('gender'))
+
+            if 'age' in data:
+                fields.append("age = %s")
+                params.append(data.get('age'))
 
             if 'selected_events' in data:
                 selected_events = data.get('selected_events')

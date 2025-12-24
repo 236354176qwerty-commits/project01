@@ -66,7 +66,7 @@ class DatabaseManager(
             'charset': 'utf8mb4',
             'collation': 'utf8mb4_unicode_ci',
             'autocommit': False,
-            'raise_on_warnings': True,
+            'raise_on_warnings': False,
             'pool_size': 5,  # 减少连接池大小以避免超过限制
             'pool_reset_session': True,
             'connection_timeout': 30

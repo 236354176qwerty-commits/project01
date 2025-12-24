@@ -3,6 +3,7 @@ from flask import request, jsonify, session
 from models import User, UserRole
 from utils.decorators import validate_json, log_action, handle_db_errors
 from utils.helpers import validate_phone
+from utils.sms_service import sms_provider
 
 from . import auth_bp, db_manager, logger
 
@@ -51,33 +52,14 @@ def register():
             'success': False,
             'message': '请输入短信验证码'
         }), 400
-    
-    session_sms_code = session.get('sms_verification_code', '')
-    session_sms_phone = session.get('sms_verification_phone', '')
-    
-    logger.info(f"验证短信验证码 - 提交值: {sms_code}, Session值: {session_sms_code}, 手机号: {phone}")
-    
-    if not session_sms_code or not session_sms_phone:
-        logger.warning("短信验证码不存在或已过期")
+
+    logger.info(f"验证短信验证码 - 手机号: {phone}")
+    sms_ok, sms_msg = sms_provider.verify_code(phone, sms_code)
+    if not sms_ok:
+        logger.warning(f"短信验证码验证失败 - 手机号: {phone}, 原因: {sms_msg}")
         return jsonify({
             'success': False,
-            'message': '短信验证码已过期，请重新获取'
-        }), 400
-    
-    # 验证手机号是否匹配
-    if phone != session_sms_phone:
-        logger.warning(f"手机号不匹配 - 注册手机号: {phone}, Session手机号: {session_sms_phone}")
-        return jsonify({
-            'success': False,
-            'message': '手机号与验证码不匹配，请重新获取验证码'
-        }), 400
-    
-    # 验证短信验证码是否正确
-    if sms_code != session_sms_code:
-        logger.warning(f"短信验证码不匹配 - 提交值: {sms_code}, 期望值: {session_sms_code}")
-        return jsonify({
-            'success': False,
-            'message': '短信验证码错误，请重新输入'
+            'message': sms_msg
         }), 400
     
     
@@ -176,8 +158,6 @@ def register():
         
         # 注册成功，移除session中的验证码
         session.pop('captcha', None)
-        session.pop('sms_verification_code', None)
-        session.pop('sms_verification_phone', None)
         logger.info(f"新用户注册成功: {username}")
         
         return jsonify({

@@ -11,8 +11,22 @@ import hashlib
 import requests
 import logging
 from datetime import datetime, timedelta
+import os
+import json
 
 logger = logging.getLogger(__name__)
+
+
+def _get_redis_client():
+    redis_url = os.getenv('REDIS_URL')
+    if not redis_url:
+        return None
+    try:
+        import redis
+        return redis.from_url(redis_url, decode_responses=True)
+    except Exception as e:
+        logger.warning(f"Redis client init failed, fallback to memory: {e}")
+        return None
 
 
 class SMSService:
@@ -20,6 +34,52 @@ class SMSService:
     
     # 验证码存储（生产环境建议使用Redis）
     verification_codes = {}
+
+    redis_client = _get_redis_client()
+
+    @staticmethod
+    def _redis_key(phone: str) -> str:
+        return f"sms_verification:{phone}"
+
+    @staticmethod
+    def _get_record(phone):
+        if SMSService.redis_client is not None:
+            try:
+                raw = SMSService.redis_client.get(SMSService._redis_key(phone))
+                if not raw:
+                    return None
+                return json.loads(raw)
+            except Exception as e:
+                logger.warning(f"Redis get failed, fallback to memory: {e}")
+
+        return SMSService.verification_codes.get(phone)
+
+    @staticmethod
+    def _set_record(phone, record, expire_seconds: int):
+        if SMSService.redis_client is not None:
+            try:
+                SMSService.redis_client.setex(
+                    SMSService._redis_key(phone),
+                    expire_seconds,
+                    json.dumps(record, ensure_ascii=False),
+                )
+                return
+            except Exception as e:
+                logger.warning(f"Redis set failed, fallback to memory: {e}")
+
+        SMSService.verification_codes[phone] = record
+
+    @staticmethod
+    def _del_record(phone):
+        if SMSService.redis_client is not None:
+            try:
+                SMSService.redis_client.delete(SMSService._redis_key(phone))
+                return
+            except Exception as e:
+                logger.warning(f"Redis delete failed, fallback to memory: {e}")
+
+        if phone in SMSService.verification_codes:
+            del SMSService.verification_codes[phone]
     
     @staticmethod
     def generate_code(length=6):
@@ -33,17 +93,15 @@ class SMSService:
         生产环境建议使用Redis，并设置过期时间
         注意：每次存储会覆盖该手机号的旧验证码，确保只有最新验证码有效
         """
-        # 如果该手机号已有验证码，先删除旧的（确保旧验证码立即失效）
-        if phone in SMSService.verification_codes:
-            del SMSService.verification_codes[phone]
-        
-        # 存储新验证码
         expire_time = datetime.now() + timedelta(minutes=expire_minutes)
-        SMSService.verification_codes[phone] = {
+        send_time = datetime.now()
+
+        record = {
             'code': code,
-            'expire_time': expire_time,
-            'send_time': datetime.now()
+            'send_time': send_time.isoformat(),
         }
+
+        SMSService._set_record(phone, record, expire_seconds=int(expire_minutes * 60))
         logger.info(f"验证码已存储 - 手机: {phone}, 过期时间: {expire_time}")
     
     @staticmethod
@@ -53,19 +111,14 @@ class SMSService:
         用于预验证，避免因重复提交导致验证码被提前删除
         返回: (是否成功, 错误消息)
         """
-        if phone not in SMSService.verification_codes:
+        stored = SMSService._get_record(phone)
+        if not stored:
             return False, '验证码不存在或已过期'
-        
-        stored = SMSService.verification_codes[phone]
-        
-        # 检查是否过期
-        if datetime.now() > stored['expire_time']:
-            return False, '验证码已过期'
-        
-        # 验证码是否正确
-        if stored['code'] != code:
+
+        stored_code = stored.get('code')
+        if stored_code != code:
             return False, '验证码错误'
-        
+
         return True, '验证成功'
     
     @staticmethod
@@ -78,16 +131,8 @@ class SMSService:
         success, message = SMSService.check_code(phone, code)
         
         if success:
-            # 验证成功，删除验证码
-            if phone in SMSService.verification_codes:
-                del SMSService.verification_codes[phone]
-        else:
-            # 验证失败，如果是过期则删除
-            if phone in SMSService.verification_codes:
-                stored = SMSService.verification_codes[phone]
-                if datetime.now() > stored['expire_time']:
-                    del SMSService.verification_codes[phone]
-        
+            SMSService._del_record(phone)
+
         return success, message
     
     @staticmethod
@@ -97,11 +142,19 @@ class SMSService:
         防止频繁发送
         默认间隔30秒（与前端倒计时一致）
         """
-        if phone not in SMSService.verification_codes:
+        stored = SMSService._get_record(phone)
+        if not stored:
             return True, None
-        
-        stored = SMSService.verification_codes[phone]
-        send_time = stored['send_time']
+
+        send_time_raw = stored.get('send_time')
+        try:
+            send_time = datetime.fromisoformat(send_time_raw) if send_time_raw else None
+        except Exception:
+            send_time = None
+
+        if not send_time:
+            return True, None
+
         elapsed = (datetime.now() - send_time).total_seconds()
         
         if elapsed < interval_seconds:

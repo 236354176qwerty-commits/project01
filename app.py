@@ -9,10 +9,11 @@ import re
 from dotenv import load_dotenv
 from utils.excel_handler import ExcelHandler
 from io import BytesIO
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 load_dotenv()
 
-from config import Config
+from config import config as config_map
 from models import UserRole, UserStatus
 from database import DatabaseManager
 
@@ -25,7 +26,13 @@ from api.dashboard import dashboard_bp
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object(Config)
+    env_name = os.environ.get('APP_ENV', 'default').lower()
+    app.config.from_object(config_map.get(env_name, config_map['default']))
+
+    if env_name == 'production' and not app.config.get('SECRET_KEY'):
+        raise RuntimeError('SECRET_KEY environment variable is required in production')
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # 应用启动时进行一次数据库结构检查与迁移（只增量修复，不重建）
     try:

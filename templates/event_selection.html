@@ -463,7 +463,6 @@
 
 .enhanced-role-card:hover .role-icon-bg i {
     /* 移除缩放效果，避免卡片变形 */
-    transform: none;
 }
 
 .role-title {
@@ -1514,9 +1513,7 @@ $(document).ready(function() {
         selectedEventId = eventId;
         selectedEventName = '当前赛事'; // 临时名称，后续可以通过API获取真实名称
         
-        // 存储到sessionStorage（兼容其它页面读取）
-        sessionStorage.setItem('selectedEventId', String(selectedEventId));
-        sessionStorage.setItem('selectedEventName', String(selectedEventName || ''));
+        // 存储到sessionStorage
         sessionStorage.setItem('selectedEvent', JSON.stringify({
             id: selectedEventId,
             name: selectedEventName
@@ -1530,8 +1527,6 @@ $(document).ready(function() {
         // 从第二步进入并且URL已带赛事，直接显示身份选择页
         selectedEventId = eventId;
         selectedEventName = '当前赛事';
-        sessionStorage.setItem('selectedEventId', String(selectedEventId));
-        sessionStorage.setItem('selectedEventName', String(selectedEventName || ''));
         sessionStorage.setItem('selectedEvent', JSON.stringify({ id: selectedEventId, name: selectedEventName }));
         $('#eventsListPage').hide();
         $('#staffRoleSelection').show();
@@ -1541,8 +1536,6 @@ $(document).ready(function() {
         selectedEventId = eventId;
         selectedEventName = '当前赛事';
         
-        sessionStorage.setItem('selectedEventId', String(selectedEventId));
-        sessionStorage.setItem('selectedEventName', String(selectedEventName || ''));
         sessionStorage.setItem('selectedEvent', JSON.stringify({
             id: selectedEventId,
             name: selectedEventName
@@ -2173,8 +2166,6 @@ function confirmSelection() {
     } else if (source === 'team' || !source || (source && source.startsWith('step'))) {
         // 第一步入口（或无来源，或从首页四个步骤入口进来）：统一从“队伍资料”开始
         console.log('准备直接进入领队表单');
-        sessionStorage.setItem('selectedEventId', String(selectedEventId));
-        sessionStorage.setItem('selectedEventName', String(selectedEventName || ''));
         sessionStorage.setItem('selectedEvent', JSON.stringify({
             id: selectedEventId,
             name: selectedEventName
@@ -2208,7 +2199,7 @@ function chooseStaffRole(role) {
 }
 
 // 从队伍资料页面进入“队员报名人员列表”
-function goToPlayerRegistrationList() {
+async function goToPlayerRegistrationList() {
     // 优先使用全局变量，其次使用 sessionStorage
     let eventId = selectedEventId;
     let eventName = selectedEventName;
@@ -2227,11 +2218,17 @@ function goToPlayerRegistrationList() {
     }
 
     if (!eventName) {
-        eventName = sessionStorage.getItem('selectedEventName') || eventName;
+        const sname = sessionStorage.getItem('selectedEventName');
+        if (sname) {
+            eventName = sname;
+        }
     }
 
-    if (!eventName) {
-        eventName = '当前赛事';
+    if (!eventName && eventId && Array.isArray(eventsData)) {
+        const evt = eventsData.find(e => String(e.event_id) === String(eventId));
+        if (evt && evt.name) {
+            eventName = evt.name;
+        }
     }
 
     if (!eventId) {
@@ -2240,7 +2237,41 @@ function goToPlayerRegistrationList() {
         return;
     }
 
-    const existingTeam = getExistingTeam(eventId);
+    let existingTeam = getExistingTeam(eventId);
+
+    // 兼容：历史数据可能创建成功但本地缓存缺少 id，导致无法进入下一步。
+    // 此时尝试从后端同步一次当前用户在该赛事创建的队伍。
+    if (eventId && (!existingTeam || !existingTeam.id)) {
+        try {
+            const resp = await fetch(`/api/teams/${encodeURIComponent(eventId)}`);
+            const json = await resp.json().catch(() => null);
+            if (resp.ok && json && json.success && Array.isArray(json.teams) && json.teams.length > 0) {
+                const t = json.teams[0];
+                const synced = {
+                    id: t.id,
+                    teamId: t.id,
+                    teamName: t.teamName || t.team_name || t.name || '',
+                    name: t.teamName || t.team_name || t.name || '',
+                    eventId: String(eventId),
+                    eventName: eventName || (t.eventName || t.event_name || ''),
+                    isCreated: true,
+                    isLeader: true,
+                };
+                const currentUser = getCurrentUser();
+                if (currentUser) {
+                    const userTeamsKey = `createdTeams_${currentUser}`;
+                    let teams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+                    teams = teams.filter(team => String(team.eventId) !== String(eventId));
+                    teams.push(synced);
+                    localStorage.setItem(userTeamsKey, JSON.stringify(teams));
+                }
+                existingTeam = synced;
+            }
+        } catch (e) {
+            console.warn('从后端同步队伍ID失败:', e);
+        }
+    }
+
     if (!existingTeam || !existingTeam.id) {
         showMessage('请先创建队伍', 'warning');
         return;
@@ -2248,7 +2279,7 @@ function goToPlayerRegistrationList() {
 
     const params = new URLSearchParams();
     params.set('event_id', eventId);
-    params.set('event_name', eventName);
+    params.set('event_name', eventName || '');
 
     window.location.href = `/player_registration_list?${params.toString()}`;
 }
@@ -2298,7 +2329,7 @@ function showMessage(message, type = 'info') {
 // 显示领队表单
 function showTeamLeaderForm() {
     // 检查用户是否已经加入队伍（作为队员）
-    const currentUserId = Number('{{ session.get("user_id") or 0 }}');
+    const currentUserId = {{ session.get("user_id") | tojson }};
     const currentUser = getCurrentUser();
     const applications = JSON.parse(localStorage.getItem('teamApplications') || '[]');
     
@@ -3511,24 +3542,6 @@ async function createTeam() {
         showMessage('用户未登录，无法创建队伍', 'error');
         return;
     }
-
-    // 兜底：确保赛事上下文已写入 sessionStorage，避免下一步页面判定“未选择赛事”
-    try {
-        if (currentEventId) {
-            sessionStorage.setItem('selectedEventId', String(currentEventId));
-        }
-        if (selectedEventName) {
-            sessionStorage.setItem('selectedEventName', String(selectedEventName));
-        }
-        if (currentEventId || selectedEventName) {
-            sessionStorage.setItem('selectedEvent', JSON.stringify({
-                id: currentEventId || selectedEventId,
-                name: selectedEventName || ''
-            }));
-        }
-    } catch (e) {
-        console.warn('创建队伍时写入赛事上下文到 sessionStorage 失败:', e);
-    }
     
     const userTeamsKey = `createdTeams_${currentUser}`;
     let teams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
@@ -3565,6 +3578,26 @@ async function createTeam() {
             showMessage(msg, 'error');
             return;
         }
+
+        // 后端创建成功后，将 team_id 写回本地 createdTeams_，否则“下一步”无法识别已创建队伍
+        try {
+            const createdTeam = res.team || {};
+            const returnedId = createdTeam.id || createdTeam.team_id || createdTeam.teamId;
+            if (returnedId) {
+                teamData.id = returnedId;
+                teamData.teamId = returnedId;
+            }
+            teamData.eventId = teamData.eventId || currentEventId;
+            teamData.eventName = teamData.eventName || (createdTeam.event_name || selectedEventName || '');
+
+            const userTeamsKey = `createdTeams_${currentUser}`;
+            let teams = JSON.parse(localStorage.getItem(userTeamsKey) || '[]');
+            teams = teams.filter(t => String(t.eventId) !== String(currentEventId));
+            teams.push(teamData);
+            localStorage.setItem(userTeamsKey, JSON.stringify(teams));
+        } catch (e) {
+            console.warn('写回本地队伍ID失败（不影响后端创建）:', e);
+        }
     } catch (error) {
         console.warn('创建队伍到后端异常:', error);
         showMessage('创建队伍写入数据库失败，请检查网络或稍后重试', 'error');
@@ -3580,11 +3613,6 @@ async function createTeam() {
     setTimeout(() => {
         loadExistingTeamData(teamData);
         setModifyMode();
-        
-        // 自动跳转回角色选择页面
-        setTimeout(() => {
-            goBackToRoleSelection();
-        }, 1000);
     }, 100);
 }
 

@@ -15,18 +15,16 @@
                     管理所有参赛者信息和状态
                 </p>
             </div>
-            <div class="btn-group" role="group">
+            <div class="header-actions">
                 <button type="button" class="btn btn-success" onclick="exportParticipants()">
                     <i class="fas fa-download me-1"></i>导出赛事人员编排表
                 </button>
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-primary" onclick="exportTeamFees()">
-                        <i class="fas fa-download me-1"></i>导出队伍费用统计表
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="refreshParticipants()">
-                        <i class="fas fa-sync-alt me-1"></i>刷新
-                    </button>
-                </div>
+                <button type="button" class="btn btn-primary" onclick="exportTeamFees()">
+                    <i class="fas fa-download me-1"></i>导出队伍费用统计表
+                </button>
+                <button type="button" class="btn btn-primary" onclick="refreshParticipants()">
+                    <i class="fas fa-sync-alt me-1"></i>刷新
+                </button>
             </div>
         </div>
     </div>
@@ -82,6 +80,21 @@
     font-size: 0.95rem;
     margin-bottom: 0;
     padding-left: 2rem;
+}
+
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.header-actions .btn {
+    white-space: nowrap;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
 }
 
 /* 年龄组徽章样式 */
@@ -1882,7 +1895,9 @@ function extractPairEvents(competition_event) {
 function extractTeamEvent(competition_event) {
     if (!competition_event) return null;
     const teamMatch = competition_event.match(/团体赛-[^、]+/);
-    return teamMatch ? teamMatch[0] : (competition_event.includes('团体赛') ? '团体赛' : null);
+    const raw = teamMatch ? teamMatch[0] : (competition_event.includes('团体赛') ? '团体赛' : null);
+    if (!raw) return null;
+    return raw.replace(/^团体赛-/, '');
 }
 
 // 数组随机打乱函数（Fisher-Yates洗牌算法）

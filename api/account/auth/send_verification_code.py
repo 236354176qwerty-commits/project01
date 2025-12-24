@@ -1,4 +1,6 @@
-from flask import request, jsonify, session
+import os
+
+from flask import request, jsonify
 
 from utils.decorators import validate_json, log_action, handle_db_errors
 from utils.helpers import validate_phone
@@ -46,15 +48,15 @@ def send_verification_code():
         success, result = sms_provider.send_verification_code(phone)
         
         if success:
-            # 将验证码存储到session中（用于后续验证）
-            session['sms_verification_code'] = result if isinstance(result, str) else None
-            session['sms_verification_phone'] = phone
-            
-            logger.info(f"验证码发送成功: {phone}, 用途: {purpose}, 已存储到session")
+            logger.info(f"验证码发送成功: {phone}, 用途: {purpose}")
+
+            provider_type = os.getenv('SMS_PROVIDER', 'demo').lower()
+            debug_enabled = os.getenv('DEBUG', 'False').lower() == 'true'
+            return_code = result if (provider_type == 'demo' and debug_enabled and isinstance(result, str)) else None
             return jsonify({
                 'success': True,
                 'message': '验证码已发送，请查收短信',
-                'code': result if isinstance(result, str) else None  # 仅在演示模式下返回验证码
+                'code': return_code
             })
         else:
             logger.error(f"验证码发送失败: {phone}, 原因: {result}")

@@ -342,7 +342,7 @@
                 </div>
             </div>
             <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">取消</button>
                 <button type="button" class="btn btn-primary" onclick="confirmSingleProject()">
                     <i class="fas fa-check me-2"></i>保存报名
                 </button>
@@ -413,6 +413,7 @@ const showSelectionCheckbox = eventType === 'pair_practice' || eventType === 'te
 let singleProjectModalInstance = null;
 let currentSinglePlayer = null;
 let singleCategoriesLoaded = false;
+let singlePreviewListenerBound = false;
 const singlePageSize = 20;
 let singleCurrentPage = 1;
 
@@ -442,6 +443,25 @@ function loadCompetitionCategoriesIfNeeded() {
         enableToggle: true
     }).then(() => {
         singleCategoriesLoaded = true;
+
+        if (!singlePreviewListenerBound) {
+            singlePreviewListenerBound = true;
+            const container = document.getElementById('singleEventCategories');
+            if (container) {
+                container.addEventListener('change', (e) => {
+                    const target = e.target;
+                    if (target && target.matches && target.matches('input[type="checkbox"]')) {
+                        refreshSingleSelectedPreview();
+                    }
+                });
+                container.addEventListener('input', (e) => {
+                    const target = e.target;
+                    if (target && target.id && target.id.startsWith('input-')) {
+                        refreshSingleSelectedPreview();
+                    }
+                });
+            }
+        }
     }).catch(error => {
         console.error('单人赛项目分类加载失败:', error);
         throw error;
@@ -1765,7 +1785,7 @@ function updatePlayerPairData(applications, playerList, playerId, playerName, pa
 
             // 组合显示项目：个人赛 + 团体赛 + 对练（支持多个对练项目）
             const eventParts = [];
-            let individualEvent = '武术比赛';
+            let individualEvent = '';
             let teamProject = '';
 
             const competitionText = app.competition_event || '';
@@ -1784,7 +1804,9 @@ function updatePlayerPairData(applications, playerList, playerId, playerName, pa
                 individualEvent = app.competitionEvent;
             }
 
-            eventParts.push(individualEvent);
+            if (individualEvent) {
+                eventParts.push(individualEvent);
+            }
 
             if (teamProject) {
                 eventParts.push(teamProject);
@@ -1815,7 +1837,7 @@ function updatePlayerPairData(applications, playerList, playerId, playerName, pa
 
             // 组合显示项目：个人赛 + 团体赛 + 对练（支持多个对练项目）
             const eventParts = [];
-            let individualEvent = '武术比赛';
+            let individualEvent = '';
             let teamProject = '';
 
             const competitionText = player.competition_event || '';
@@ -1834,7 +1856,9 @@ function updatePlayerPairData(applications, playerList, playerId, playerName, pa
                 individualEvent = player.competitionEvent;
             }
 
-            eventParts.push(individualEvent);
+            if (individualEvent) {
+                eventParts.push(individualEvent);
+            }
 
             if (teamProject) {
                 eventParts.push(teamProject);
@@ -1927,7 +1951,7 @@ function submitTeamCompetitionRegistration(projectName) {
             updatedPlayerNames.add(appName);
             
             const eventParts = [];
-            let individualEvent = '武术比赛';
+            let individualEvent = '';
             let pairProjects = [];
             
             if (app.competition_event) {
@@ -1948,7 +1972,9 @@ function submitTeamCompetitionRegistration(projectName) {
                 individualEvent = app.competitionEvent;
             }
             
-            eventParts.push(individualEvent);
+            if (individualEvent) {
+                eventParts.push(individualEvent);
+            }
             eventParts.push(`团体赛-${projectName}`);
             
             // 添回对练项目
@@ -1960,7 +1986,7 @@ function submitTeamCompetitionRegistration(projectName) {
             clearedPlayerNames.add(appName);
             
             const eventParts = [];
-            let individualEvent = '武术比赛';
+            let individualEvent = '';
             let pairProjects = [];
             
             if (app.competition_event) {
@@ -1980,8 +2006,10 @@ function submitTeamCompetitionRegistration(projectName) {
             } else if (app.competitionEvent) {
                 individualEvent = app.competitionEvent;
             }
-            
-            eventParts.push(individualEvent);
+
+            if (individualEvent) {
+                eventParts.push(individualEvent);
+            }
             
             // 添回对练项目
             pairProjects.forEach(p => eventParts.push(p));
@@ -2018,7 +2046,7 @@ function submitTeamCompetitionRegistration(projectName) {
             
             // 组合显示项目：个人赛 + 团体赛 + 对练
             const eventParts = [];
-            let individualEvent = '武术比赛';
+            let individualEvent = '';
             let pairProjects = [];
             
             if (player.competition_event) {
@@ -2039,7 +2067,9 @@ function submitTeamCompetitionRegistration(projectName) {
                 individualEvent = player.competitionEvent;
             }
             
-            eventParts.push(individualEvent);
+            if (individualEvent) {
+                eventParts.push(individualEvent);
+            }
             eventParts.push(`团体赛-${projectName}`);
             
             // 添回对练项目
@@ -2052,7 +2082,7 @@ function submitTeamCompetitionRegistration(projectName) {
             
             // 组合显示项目：个人赛 + 对练（如果有）
             const eventParts = [];
-            let individualEvent = '武术比赛';
+            let individualEvent = '';
             let pairProjects = [];
             
             if (player.competition_event) {
@@ -2072,8 +2102,10 @@ function submitTeamCompetitionRegistration(projectName) {
             } else if (player.competitionEvent) {
                 individualEvent = player.competitionEvent;
             }
-            
-            eventParts.push(individualEvent);
+
+            if (individualEvent) {
+                eventParts.push(individualEvent);
+            }
             
             // 添回对练项目
             pairProjects.forEach(p => eventParts.push(p));
@@ -2317,7 +2349,7 @@ function submitPairPracticeRegistrationDb(pairMode, projectName) {
 
 function buildTeamCompetitionEventForDb(player, projectName, isSelected) {
     const eventParts = [];
-    let individualEvent = '武术比赛';
+    let individualEvent = '';
     let pairProjects = [];
     const competitionEvent = player.competition_event || '';
     if (competitionEvent) {
@@ -2336,7 +2368,9 @@ function buildTeamCompetitionEventForDb(player, projectName, isSelected) {
     } else if (player.competitionEvent) {
         individualEvent = player.competitionEvent;
     }
-    eventParts.push(individualEvent);
+    if (individualEvent) {
+        eventParts.push(individualEvent);
+    }
     if (isSelected) {
         eventParts.push(`团体赛-${projectName}`);
     }

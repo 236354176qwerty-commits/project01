@@ -15,7 +15,7 @@ class Config:
     """应用配置类"""
     
     # Flask 基础配置
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'wushu-competition-system-2024-secret-key'
+    SECRET_KEY = os.environ.get('SECRET_KEY')
     
     # 数据库配置
     DB_HOST = os.environ.get('DB_HOST') or 'mysql2.sqlpub.com'
@@ -30,7 +30,7 @@ class Config:
     # 服务器配置
     HOST = os.environ.get('HOST') or '0.0.0.0'
     PORT = int(os.environ.get('PORT') or 5000)
-    DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+    DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
     
     # Session 配置
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
@@ -150,6 +150,7 @@ class Config:
 class DevelopmentConfig(Config):
     """开发环境配置"""
     DEBUG = True
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'wushu-competition-system-2024-secret-key'
     DB_NAME = 'wushu_competition_dev'
 
 class ProductionConfig(Config):
@@ -157,6 +158,7 @@ class ProductionConfig(Config):
     DEBUG = False
     SESSION_COOKIE_SECURE = True
     WTF_CSRF_ENABLED = True
+    SECRET_KEY = os.environ.get('SECRET_KEY')
     
     # 生产环境数据库配置（从环境变量获取）
     DB_HOST = os.environ.get('PROD_DB_HOST') or 'localhost'

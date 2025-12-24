@@ -174,14 +174,6 @@
                     <h5 class="mb-0">
                         <i class="fas fa-list me-2"></i>随队人员列表
                     </h5>
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="project-hint" style="color: #dc3545;">
-                            <strong>点击添加人员来添加队伍的队员</strong><i class="fas fa-arrow-right ms-2"></i>
-                        </span>
-                        <a href="/add_staff_direct" class="btn btn-primary action-button" id="addStaffBtn">
-                            <i class="fas fa-plus me-2"></i>添加人员
-                        </a>
-                    </div>
                 </div>
                 <div class="card-body">
                     <!-- 搜索栏 -->
@@ -288,8 +280,34 @@ function loadStaffData() {
     const adminView = urlParams.get('admin_view') === 'true';
     const teamId = urlParams.get('team_id');
 
-    if (!eventId || !eventName || !teamId) {
-        showMessage('缺少赛事或队伍信息，请从资料汇总页重新进入', 'warning');
+    if (!eventId || !eventName) {
+        showMessage('缺少赛事信息，请从资料汇总页重新进入', 'warning');
+        return;
+    }
+
+    // team_id 缺失时：尝试从后端获取当前用户在该赛事的队伍，避免偶发空表
+    if (!teamId) {
+        fetch(`/api/teams/events/${eventId}/my-team`)
+            .then(res => res.json().catch(() => null).then(data => ({ res, data })))
+            .then(({ res, data }) => {
+                if (!res.ok || !data || data.success === false) {
+                    showMessage('缺少赛事或队伍信息，请从资料汇总页重新进入', 'warning');
+                    return;
+                }
+                const inferredTeamId = data.team && (data.team.id || data.team.team_id);
+                if (!inferredTeamId) {
+                    showMessage('缺少赛事或队伍信息，请从资料汇总页重新进入', 'warning');
+                    return;
+                }
+
+                // 使用推导出的 team_id 重新进入当前页面（保留原参数）
+                const newParams = new URLSearchParams(window.location.search);
+                newParams.set('team_id', String(inferredTeamId));
+                window.location.href = `${window.location.pathname}?${newParams.toString()}`;
+            })
+            .catch(() => {
+                showMessage('缺少赛事或队伍信息，请从资料汇总页重新进入', 'warning');
+            });
         return;
     }
 
@@ -311,17 +329,6 @@ function loadStaffData() {
 
     console.log('当前队伍 ID:', teamId);
     console.log('用户角色:', isTeamLeader ? '领队（可编辑）' : '查看模式');
-
-    // 配置“添加人员”按钮 URL
-    const addStaffBtn = document.getElementById('addStaffBtn');
-    if (addStaffBtn) {
-        let addStaffUrl = `/add_staff_direct?event_id=${eventId}&event_name=${encodeURIComponent(eventName)}&team_id=${teamId}`;
-        const source = urlParams.get('source');
-        if (source) {
-            addStaffUrl += `&source=${source}`;
-        }
-        addStaffBtn.href = addStaffUrl;
-    }
 
     const apiUrl = `/api/team/${teamId}/staff`;
     fetch(apiUrl)

@@ -14,6 +14,9 @@ WTForms>=3.0.0
 Flask-Login>=0.6.0
 Flask-Session>=0.4.0
 
+# Production WSGI server (Linux)
+gunicorn>=21.2.0
+
 # Password encryption
 bcrypt>=4.0.0
 
@@ -40,6 +43,9 @@ marshmallow>=3.20.0
 
 # HTTP request processing
 requests>=2.31.0
+
+# Redis client (for OTP/session/caching)
+redis>=5.0.0
 
 # Time processing
 pytz>=2023.3

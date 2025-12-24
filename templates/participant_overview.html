@@ -648,10 +648,15 @@ function performDelete() {
                 return;
             }
 
-            participants = participants.filter(player => player.id !== playerId);
-            renderParticipantTable();
-            showMessage('人员已删除', 'success');
+            // 删除成功后立即从后端重新拉取队员列表，确保对练对象等联动清理实时反映到“参赛项目”列
             pendingDelete = null;
+            if (currentEventId) {
+                loadParticipants(currentEventId);
+            } else {
+                participants = participants.filter(player => player.id !== playerId);
+                renderParticipantTable();
+            }
+            showMessage('人员已删除', 'success');
         })
         .catch(err => {
             console.error('调用删除参赛人员接口异常:', err);
@@ -735,6 +740,34 @@ function buildCompetitionEventDisplay(player) {
     const events = [];
     const pairTokenRegex = /^(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)$/;
     const pairRemovalRegex = /、?(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)/g;
+
+    const pushIndividualTokens = (text) => {
+        if (!text) return;
+        const tokens = smartSplitEvents(text)
+            .map(item => item.trim())
+            .filter(Boolean)
+            .filter(item => !pairTokenRegex.test(item))
+            .filter(item => !item.startsWith('团体赛'));
+        events.push(...tokens);
+    };
+
+    const sortCompetitionTokens = (list) => {
+        const weight = (tok) => {
+            const t = (tok || '').trim();
+            if (!t) return 99;
+            if (t.startsWith('团体赛')) return 40;
+            if (t.startsWith('徒手')) return 20;
+            if (t.startsWith('器械')) return 30;
+            if (t.includes('对练') || t.startsWith('对练')) return 35;
+            return 10; // 单人赛
+        };
+        return [...list].sort((a, b) => {
+            const wa = weight(a);
+            const wb = weight(b);
+            if (wa !== wb) return wa - wb;
+            return String(a).localeCompare(String(b), 'zh-Hans-CN');
+        });
+    };
     const selected = Array.isArray(player.selectedEvents)
         ? player.selectedEvents.filter(item => item && !pairTokenRegex.test(item))
         : [];
@@ -744,16 +777,13 @@ function buildCompetitionEventDisplay(player) {
 
     const raw = (player.competition_event || player.competitionEvent || '').trim();
     if (!selected.length && raw) {
-        const base = smartSplitEvents(raw);
         const individual = raw
             .replace(/、?团体赛-[^、]+/g, '')
             .replace(/、?团体赛/g, '')
             .replace(pairRemovalRegex, '')
             .trim();
         if (individual) {
-            events.push(individual);
-        } else if (base.length) {
-            events.push(...base.filter(item => !pairTokenRegex.test(item)));
+            pushIndividualTokens(individual);
         }
     }
 
@@ -798,7 +828,7 @@ function buildCompetitionEventDisplay(player) {
 
     appendTeamAndPair();
 
-    const uniqueEvents = Array.from(new Set(events.filter(Boolean)));
+    const uniqueEvents = sortCompetitionTokens(Array.from(new Set(events.filter(Boolean))));
     if (!uniqueEvents.length) {
         return '<span class="text-muted">未填写</span>';
     }

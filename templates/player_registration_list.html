@@ -170,9 +170,17 @@ let deletePlayerModal = null;
 document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const eventId = urlParams.get('event_id');
-    const eventName = urlParams.get('event_name');
+    let eventName = urlParams.get('event_name');
 
-    if (!eventId || !eventName) {
+    // 兼容：部分入口（如创建队伍后“下一步”）可能只带 event_id，event_name 需从 sessionStorage 回填
+    if (eventId && (!eventName || !String(eventName).trim())) {
+        const storedName = sessionStorage.getItem('selectedEventName');
+        if (storedName) {
+            eventName = storedName;
+        }
+    }
+
+    if (!eventId) {
         showMessage('请先选择赛事', 'warning');
         setTimeout(() => {
             window.location.href = '/event_selection?source=player_registration';
@@ -180,10 +188,12 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    const decodedName = decodeURIComponent(eventName);
+    const decodedName = eventName ? decodeURIComponent(eventName) : '';
     document.getElementById('currentEventName').textContent = decodedName;
     sessionStorage.setItem('selectedEventId', eventId);
-    sessionStorage.setItem('selectedEventName', decodedName);
+    if (decodedName) {
+        sessionStorage.setItem('selectedEventName', decodedName);
+    }
 
     const modalElement = document.getElementById('deletePlayerModal');
     if (modalElement && window.bootstrap) {

@@ -13,6 +13,9 @@ import logging
 from datetime import datetime, timedelta
 import os
 import json
+import hmac
+import base64
+from urllib.parse import quote, urlencode
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +217,21 @@ class AliyunSMSProvider(SMSService):
         self.template_code = template_code  # 短信模板CODE
         self.endpoint = 'https://dysmsapi.aliyuncs.com/'
     
+    @staticmethod
+    def _percent_encode(value):
+        return quote(str(value), safe='-_.~').replace('+', '%20').replace('*', '%2A').replace('%7E', '~')
+
+    def _sign(self, params):
+        sorted_params = sorted(params.items())
+        canonicalized = '&'.join(
+            f'{self._percent_encode(k)}={self._percent_encode(v)}' for k, v in sorted_params
+        )
+        string_to_sign = 'GET&%2F&' + self._percent_encode(canonicalized)
+        key = (self.access_key_secret + '&').encode('utf-8')
+        h = hmac.new(key, string_to_sign.encode('utf-8'), hashlib.sha1)
+        signature = base64.b64encode(h.digest()).decode('utf-8')
+        return self._percent_encode(signature)
+
     def send_verification_code(self, phone):
         """发送验证码（阿里云）"""
         try:
@@ -227,16 +245,28 @@ class AliyunSMSProvider(SMSService):
             
             # 构建请求参数
             params = {
+                'RegionId': os.getenv('ALIYUN_SMS_REGION_ID', 'cn-hangzhou'),
+                'AccessKeyId': self.access_key_id,
+                'Format': 'JSON',
+                'SignatureMethod': 'HMAC-SHA1',
+                'SignatureNonce': str(int(time.time() * 1000)),
+                'SignatureVersion': '1.0',
+                'Timestamp': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'Version': '2017-05-25',
+                'Action': 'SendSms',
                 'PhoneNumbers': phone,
                 'SignName': self.sign_name,
                 'TemplateCode': self.template_code,
-                'TemplateParam': f'{{"code":"{code}"}}',
+                'TemplateParam': json.dumps({'code': code}, ensure_ascii=False),
                 # 其他阿里云必需参数...
             }
             
             # 发送请求
-            # response = requests.post(self.endpoint, params=params)
-            # result = response.json()
+            signature = self._sign(params)
+            query = urlencode({'Signature': signature, **params})
+            url = f'{self.endpoint}?{query}'
+            response = requests.get(url, timeout=5)
+            result = response.json()
             
             # if result.get('Code') == 'OK':
             #     # 存储验证码
@@ -248,8 +278,13 @@ class AliyunSMSProvider(SMSService):
             #     return False, '发送失败，请稍后重试'
             
             # 临时：使用演示模式
-            logger.warning("阿里云SMS未配置，使用演示模式")
-            return DemoSMSProvider.send_verification_code(phone)
+            if result.get('Code') == 'OK':
+                SMSService.store_code(phone, code)
+                logger.info(f"阿里云短信发送成功: {phone}")
+                return True, '验证码已发送'
+            else:
+                logger.error(f"阿里云短信发送失败: {result}")
+                return False, result.get('Message', '发送失败，请稍后重试')
             
         except Exception as e:
             logger.error(f"发送验证码失败: {str(e)}")

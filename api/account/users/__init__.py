@@ -15,6 +15,7 @@ from . import (
     reset_user_password,
     update_user_role_and_status,
     check_username,
+    upload,
 )
 
 __all__ = ['users_bp']

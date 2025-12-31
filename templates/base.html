@@ -876,7 +876,7 @@
         
         // 发送退出登录请求
         $.ajax({
-            url: '/api/logout',
+            url: '/api/auth/logout',
             method: 'POST',
             timeout: 5000,
             success: function(response) {

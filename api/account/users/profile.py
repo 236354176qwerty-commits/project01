@@ -39,8 +39,15 @@ def api_profile():
         nickname = data.get('nickname', '').strip()
         phone = data.get('phone', '').strip()
 
-        if not all([full_name, nickname, phone]):
-            return jsonify({'success': False, 'message': '请填写完整的姓名、昵称和手机号'})
+        if not all([nickname, phone]):
+            return jsonify({'success': False, 'message': '请填写完整的昵称和手机号'})
+
+        if not full_name:
+            user = user_manager.get_user_by_username(username)
+            if user:
+                full_name = (getattr(user, 'real_name', None) or '').strip()
+            if not full_name:
+                full_name = nickname or username
 
         phone_regex = r'^[0-9]{11}$'
         if not re.match(phone_regex, phone):

@@ -27,6 +27,7 @@ from . import (
     submit_team_info,
     add_team_staff,
     update_team_staff,
+    export_team_info,
 )
 
 __all__ = ['teams_bp']

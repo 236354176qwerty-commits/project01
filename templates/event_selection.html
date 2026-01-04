@@ -1363,23 +1363,14 @@
                                     <i class="fas fa-info-circle me-2"></i>队伍基本信息
                                 </h5>
                                 <div class="row g-3">
-                                    <div class="col-md-6">
+                                    <div class="col-12">
                                         <div class="form-group">
                                             <label for="teamName" class="form-label">队伍名称 *</label>
                                             <input type="text" class="form-control" id="teamName">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="teamType" class="form-label">队伍类型 *</label>
-                                            <select class="form-select" id="teamType">
-                                                <option value="">请选择队伍类型</option>
-                                                <option value="school">学校队伍</option>
-                                                <option value="club">俱乐部</option>
-                                                <option value="professional">专业队</option>
-                                                <option value="individual">个人组队</option>
-                                            </select>
-                                        </div>
+                                        <input type="hidden" id="teamType" value="club">
                                     </div>
                                     <div class="col-md-12">
                                         <div class="form-group">
@@ -2842,7 +2833,7 @@ async function loadTeamProfile() {
 // 清空队伍表单
 function clearTeamForm() {
     $('#teamName').val('');
-    $('#teamType').val('');
+    $('#teamType').val('club');
     $('#teamAddress').val('');
     $('#teamDescription').val('');
     $('#leaderName').val('');
@@ -3180,7 +3171,6 @@ function isDraftEmpty(draft) {
     // 只检查关键字段是否都为空，如果关键字段都为空则认为草稿无效
     const isEmpty = (
         (!draft.teamName || draft.teamName.trim() === '') &&
-        (!draft.teamType || draft.teamType === '') &&
         (!draft.leaderName || draft.leaderName.trim() === '') &&
         (!draft.leaderPosition || draft.leaderPosition === '') &&
         (!draft.leaderPhone || draft.leaderPhone.trim() === '')
@@ -3192,12 +3182,11 @@ function isDraftEmpty(draft) {
 // 检查队伍资料是否完整（创建队伍需要的必填字段）
 function isTeamDataComplete() {
     const teamName = $('#teamName').val().trim();
-    const teamType = $('#teamType').val();
     const leaderName = $('#leaderName').val().trim();
     const leaderPosition = $('#leaderPosition').val();
     const leaderPhone = $('#leaderPhone').val().trim();
     
-    return teamName && teamType && leaderName && leaderPosition && leaderPhone;
+    return teamName && leaderName && leaderPosition && leaderPhone;
 }
 
 
@@ -3229,7 +3218,7 @@ function normalizeTeamSnapshot(raw) {
 function loadExistingTeamData(team) {
     const normalized = normalizeTeamSnapshot(team) || {};
     $('#teamName').val(normalized.teamName || '');
-    $('#teamType').val(normalized.teamType || '');
+    $('#teamType').val(normalized.teamType || 'club');
     $('#teamAddress').val(normalized.teamAddress || '');
     $('#teamDescription').val(normalized.teamDescription || '');
     $('#leaderName').val(normalized.leaderName || '');
@@ -3288,7 +3277,7 @@ function persistTeamToLocalCache(team) {
 // 加载草稿数据
 function loadDraftData(draft) {
     $('#teamName').val(draft.teamName || '');
-    $('#teamType').val(draft.teamType || '');
+    $('#teamType').val(draft.teamType || 'club');
     $('#teamAddress').val(draft.teamAddress || '');
     $('#teamDescription').val(draft.teamDescription || '');
     $('#leaderName').val(draft.leaderName || '');
@@ -3465,7 +3454,7 @@ function modifyTeamProfile() {
     fetch(`/api/teams/${existingTeam.id}`, {
         method: 'PUT',
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload),
     })
@@ -3723,7 +3712,6 @@ function validateFormData(teamData, isForCreation = false) {
         const missingFields = [];
         
         if (!teamData.teamName) missingFields.push('队伍名称');
-        if (!teamData.teamType) missingFields.push('队伍类型');
         if (!teamData.leaderName) missingFields.push('负责人姓名');
         if (!teamData.leaderPosition) missingFields.push('职务');
         if (!teamData.leaderPhone) missingFields.push('联系电话');
@@ -4124,11 +4112,10 @@ function checkUserApplicationStatus() {
     console.log('所有申请记录总数:', applications.length);
     
     const userEventApplications = applications.filter(app => 
-        app.eventId && 
+        app.eventId && // 必须有 eventId 字段，忽略旧记录
         app.eventId === currentEventId && 
-        (app.userId === currentUserId || app.applicantName === currentUser)  // 兼容旧数据
+        app.userId === currentUserId  // 使用数字ID比较
     );
-    
     console.log('teamApplications中的申请:', userEventApplications);
     
     // 2. 检查 playerList（领队直接添加的记录）
@@ -4172,8 +4159,7 @@ function checkUserApplicationStatus() {
                     
                     if (team) {
                         teamName = team.teamName || team.name || teamName;
-                        console.log('找到匹配的队伍:', team);
-                        console.log('队伍名称:', teamName);
+                        console.log('找到队伍名称:', teamName);
                         break;
                     }
                 }
@@ -4236,8 +4222,15 @@ function showApplicationStatus(status, application) {
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
             if (key && key.startsWith('createdTeams_')) {
+                console.log('检查存储键:', key);
                 const teams = JSON.parse(localStorage.getItem(key) || '[]');
-                const team = teams.find(t => t.id === application.teamId);
+                console.log('该键下的队伍数量:', teams.length);
+                
+                const team = teams.find(t => {
+                    console.log(`比较 teamId: ${t.id} === ${application.teamId}`, t.id === application.teamId);
+                    return t.id === application.teamId;
+                });
+                
                 if (team) {
                     teamName = team.teamName || team.name || teamName;
                     console.log('找到队伍名称:', teamName);
@@ -4245,6 +4238,7 @@ function showApplicationStatus(status, application) {
                 }
             }
         }
+        console.log('遍历完成，最终 teamName:', teamName);
     }
     
     let statusHtml = '';
@@ -4956,10 +4950,11 @@ async function confirmDeleteTeam() {
 function clearTeamForm() {
     // 清空所有表单字段
     $('#teamName').val('');
+    $('#teamType').val('club');
     $('#teamAddress').val('');
     $('#teamDescription').val('');
     $('#leaderName').val('');
-    $('#leaderPosition').val('领队'); // 职务始终保持为"领队"
+    $('#leaderPosition').val('领队');
     $('#leaderPhone').val('');
     $('#leaderEmail').val('');
     

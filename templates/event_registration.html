@@ -10,6 +10,24 @@
         vertical-align: middle;
     }
 
+    .event-registration-hint {
+        color: inherit;
+    }
+
+    .event-registration-hint.is-danger {
+        color: #dc3545 !important;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    body.pair-team-mode .player-checkbox {
+        border: 2px solid #1d4ed8 !important;
+        border-radius: 4px;
+        width: 18px;
+        height: 18px;
+        accent-color: #1d4ed8;
+    }
+
     #playerTable th,
     #playerTable td {
         white-space: nowrap;
@@ -111,6 +129,14 @@
         font-weight: 500;
     }
 
+    .single-event-required-hint {
+        display: none;
+        margin-top: 0.35rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #dc3545;
+    }
+
     .single-pagination-btn {
         min-width: 120px;
         border: none;
@@ -174,7 +200,7 @@
                         <h5 class="mb-0">
                             <i class="fas fa-users me-2"></i>选手列表
                         </h5>
-                        <small class="text-muted">请勾选参加本项目的选手</small>
+                        <small id="eventRegistrationHint" class="text-muted event-registration-hint">请勾选参加本项目的选手</small>
                     </div>
                     <div id="pairPracticeTip" style="display: none;">
                     </div>
@@ -452,12 +478,14 @@ function loadCompetitionCategoriesIfNeeded() {
                     const target = e.target;
                     if (target && target.matches && target.matches('input[type="checkbox"]')) {
                         refreshSingleSelectedPreview();
+                        validateSingleEventRequiredInputs();
                     }
                 });
                 container.addEventListener('input', (e) => {
                     const target = e.target;
                     if (target && target.id && target.id.startsWith('input-')) {
                         refreshSingleSelectedPreview();
+                        validateSingleEventRequiredInputs();
                     }
                 });
             }
@@ -584,8 +612,50 @@ function clearSingleCategorySearch() {
     clearCompetitionSearch('singleEventCategories', 'singleCategorySearchInput', 'singleSearchResultInfo', 'singleClearSearchBtn');
 }
 
+function validateSingleEventRequiredInputs() {
+    let ok = true;
+    document.querySelectorAll('#singleEventCategories input[type="checkbox"]:checked').forEach(cb => {
+        if (!cb.id || !cb.id.includes('-other')) return;
+        const inputId = cb.id.replace('category-', 'input-');
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        const container = input.parentElement;
+        if (!container) return;
+
+        let hint = container.querySelector('.single-event-required-hint');
+        if (!hint) {
+            hint = document.createElement('div');
+            hint.className = 'single-event-required-hint';
+            hint.textContent = '请填写项目比赛';
+            container.appendChild(hint);
+        }
+
+        const value = (input.value || '').trim();
+        if (!value) {
+            hint.style.display = 'block';
+            ok = false;
+        } else {
+            hint.style.display = 'none';
+        }
+    });
+    return ok;
+}
+
+function clearSingleEventRequiredHints() {
+    document.querySelectorAll('#singleEventCategories .single-event-required-hint').forEach(el => {
+        el.style.display = 'none';
+    });
+}
+
 function confirmSingleProject() {
     if (!currentSinglePlayer) return;
+
+    if (!validateSingleEventRequiredInputs()) {
+        showMessage('请填写项目比赛', 'error');
+        return;
+    }
+
     const selectedEvents = collectSingleSelectedEvents();
     if (!selectedEvents.length) {
         showMessage('请至少选择一个个人赛项目', 'warning');
@@ -722,6 +792,9 @@ if (eventType === 'pair_practice') {
     document.getElementById('eventTypeText').textContent = '对练';
     document.getElementById('statusColumnHeader').textContent = '预选对练对象';
     document.getElementById('pairPracticeTip').style.display = 'block';
+    const hint = document.getElementById('eventRegistrationHint');
+    if (hint) hint.classList.add('is-danger');
+    document.body.classList.add('pair-team-mode');
     if (selectAllCheckbox) selectAllCheckbox.style.display = 'none';
     if (selectAllLabel) selectAllLabel.textContent = '序号';
     if (actionHeader) actionHeader.style.display = 'none';
@@ -730,11 +803,17 @@ if (eventType === 'pair_practice') {
     document.getElementById('eventTypeText').textContent = '团体赛';
     document.getElementById('statusColumnHeader').textContent = '当前报名状态';
     if (selectAllCheckbox) selectAllCheckbox.style.display = '';
+    const hint = document.getElementById('eventRegistrationHint');
+    if (hint) hint.classList.add('is-danger');
+    document.body.classList.add('pair-team-mode');
     if (selectAllLabel) selectAllLabel.textContent = '全选';
 } else {
     document.getElementById('eventTypeTitle').textContent = '单人赛报名';
     document.getElementById('eventTypeText').textContent = '单人赛';
     document.getElementById('statusColumnHeader').textContent = '当前参赛项目';
+    const hint = document.getElementById('eventRegistrationHint');
+    if (hint) hint.style.display = 'none';
+    document.body.classList.remove('pair-team-mode');
     if (selectAllCheckbox) selectAllCheckbox.style.display = 'none';
     if (selectAllLabel) selectAllLabel.textContent = '序号';
     if (actionHeader) actionHeader.textContent = '操作';

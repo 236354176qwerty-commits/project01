@@ -372,19 +372,12 @@
                                                 <input type="text" class="form-control form-control-sm" id="teamName" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default; font-weight: 600; color: #2c3e50;">
                                             </div>
                                             <div class="col-md-4">
-                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-tag me-1"></i>队伍类型</label>
-                                                <input type="text" class="form-control form-control-sm" id="teamTypeDisplay" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;">
-                                                <select class="form-select form-select-sm d-none" id="teamType" disabled>
-                                                    <option value="">请选择</option>
-                                                    <option value="school">学校队伍</option>
-                                                    <option value="club">俱乐部</option>
-                                                    <option value="professional">专业队</option>
-                                                    <option value="individual">个人组队</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
                                                 <label class="form-label small mb-1 text-muted"><i class="fas fa-user-tie me-1"></i>领队姓名</label>
                                                 <input type="text" class="form-control form-control-sm" id="leaderName" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-check-circle me-1"></i>提交状态</label>
+                                                <input type="text" class="form-control form-control-sm" id="teamSubmitStatus" readonly style="background-color: #e9ecef; border: none; cursor: default;" value="未提交">
                                             </div>
                                         </div>
                                         <div class="row g-2">
@@ -397,24 +390,16 @@
                                                 <input type="email" class="form-control form-control-sm" id="leaderEmail" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;">
                                             </div>
                                             <div class="col-md-4">
-                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-check-circle me-1"></i>提交状态</label>
-                                                <input type="text" class="form-control form-control-sm" id="teamSubmitStatus" readonly style="background-color: #e9ecef; border: none; cursor: default;" value="未提交">
+                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-clock me-1"></i>提交时间</label>
+                                                <input type="text" class="form-control form-control-sm" id="teamSubmitTime" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="-">
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <!-- 第二部分：地址和简介 -->
                                     <div class="col-12">
-                                        <div class="row g-2">
-                                            <div class="col-md-6">
-                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-map-marker-alt me-1"></i>队伍地址</label>
-                                                <input type="text" class="form-control form-control-sm" id="teamAddress" readonly style="background-color: #e9ecef !important; border: 1px solid #dee2e6; cursor: default;">
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label small mb-1 text-muted"><i class="fas fa-clock me-1"></i>提交时间</label>
-                                                <input type="text" class="form-control form-control-sm" id="teamSubmitTime" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default;" value="-">
-                                            </div>
-                                        </div>
+                                        <label class="form-label small mb-1 text-muted"><i class="fas fa-map-marker-alt me-1"></i>队伍地址</label>
+                                        <textarea class="form-control form-control-sm" id="teamAddress" rows="2" readonly style="background-color: #e9ecef; border: 1px solid #dee2e6; cursor: default; resize: none;"></textarea>
                                     </div>
                                     <div class="col-12">
                                         <label class="form-label small mb-1 text-muted"><i class="fas fa-align-left me-1"></i>队伍简介</label>
@@ -506,18 +491,6 @@
                         <div class="mb-3">
                             <label class="form-label">队伍名称 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="editTeamName" required>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label">队伍类型 <span class="text-danger">*</span></label>
-                            <select class="form-select" id="editTeamType" required>
-                                <option value="">请选择队伍类型</option>
-                                <option value="school">学校队伍</option>
-                                <option value="club">俱乐部</option>
-                                <option value="professional">专业队</option>
-                                <option value="individual">个人组队</option>
-                            </select>
                         </div>
                     </div>
                 </div>
@@ -2279,96 +2252,18 @@ function exportTeamInfo() {
         showMessage('暂无队伍信息可导出', 'warning');
         return;
     }
-    
+
+    const teamId = summaryData.team.id;
+    if (!teamId) {
+        showMessage('未找到队伍ID，无法导出', 'error');
+        return;
+    }
+
     try {
-        // 准备导出数据
-        const team = summaryData.team;
-        const players = summaryData.players || [];
-        const staff = summaryData.staff || [];
-        
-        // 创建CSV内容
-        let csvContent = '\uFEFF'; // UTF-8 BOM，确保Excel正确识别中文
-        
-        // 队伍基本信息
-        csvContent += '队伍基本信息\n';
-        csvContent += `队伍名称,${team.teamName || ''}\n`;
-        csvContent += `队伍类型,${getTeamTypeText(team.teamType)}\n`;
-        csvContent += `领队姓名,${team.leaderName || ''}\n`;
-        csvContent += `联系电话,${team.leaderPhone || ''}\n`;
-        csvContent += `邮箱地址,${team.leaderEmail || ''}\n`;
-        csvContent += `提交状态,${team.submittedForReview ? '已提交' : '未提交'}\n`;
-        
-        if (team.submittedAt) {
-            const submitTime = new Date(team.submittedAt);
-            const formattedTime = submitTime.toLocaleString('zh-CN');
-            csvContent += `提交时间,${formattedTime}\n`;
-        }
-        
-        csvContent += `队伍地址,${team.teamAddress || ''}\n`;
-        csvContent += `队伍简介,${team.teamDescription || ''}\n`;
-        csvContent += '\n';
-        
-        // 队伍统计信息
-        csvContent += '队伍统计信息\n';
-        csvContent += `队伍总人数,${$('#teamTotalCount').val()}\n`;
-        csvContent += `参赛人数,${$('#teamAthleteCount').val()}\n`;
-        csvContent += `医务人员人数,${$('#teamMedicalCount').val()}\n`;
-        csvContent += `教练人数,${$('#teamCoachCount').val()}\n`;
-        csvContent += `随行人员人数,${$('#teamStaffCount').val()}\n`;
-        csvContent += '\n';
-        
-        // 费用统计
-        csvContent += '费用统计\n';
-        csvContent += `合计报名费用,${$('#teamTotalFee').val()}\n`;
-        csvContent += `单人赛费用,${$('#teamIndividualFee').val()}\n`;
-        csvContent += `对练费用,${$('#teamPairPracticeFee').val()}\n`;
-        csvContent += `团体赛费用,${$('#teamCompetitionFee').val()}\n`;
-        csvContent += `其他费用,${$('#teamOtherFee').val()}\n`;
-        csvContent += '\n';
-        
-        // 参赛选手列表
-        if (players.length > 0) {
-            csvContent += '参赛选手列表\n';
-            csvContent += '姓名,身份证号,联系电话,性别,年龄,参赛项目\n';
-            
-            players.forEach(player => {
-                const events = (player.selectedEvents || []).join('、') || '-';
-                csvContent += `${player.name || ''},${player.idCard || ''},${player.phone || ''},${player.gender || ''},${player.age || ''},${events}\n`;
-            });
-            csvContent += '\n';
-        }
-        
-        // 随行人员列表
-        if (staff.length > 0) {
-            csvContent += '随行人员列表\n';
-            csvContent += '姓名,身份证号,联系电话,角色\n';
-            
-            staff.forEach(s => {
-                const role = s.role === 'coach' ? '教练' : s.role === 'medical' ? '医务人员' : '随行人员';
-                csvContent += `${s.name || ''},${s.idCard || ''},${s.phone || ''},${role}\n`;
-            });
-        }
-        
-        // 创建Blob并下载
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        
-        const fileName = `${team.teamName || '队伍'}_信息表_${new Date().getTime()}.csv`;
-        link.setAttribute('href', url);
-        link.setAttribute('download', fileName);
-        link.style.visibility = 'hidden';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        showMessage('队伍信息表格导出成功！', 'success');
-        console.log('已导出队伍信息表格:', fileName);
-        
+        window.location.href = `/api/team/${teamId}/export`;
     } catch (error) {
         console.error('导出失败:', error);
-        showMessage('导出失败：' + error.message, 'error');
+        showMessage('导出失败：' + (error && error.message ? error.message : '未知错误'), 'error');
     }
 }
 
@@ -2945,23 +2840,12 @@ function loadTeamFormData() {
     // 如果有队伍数据，填充表单
     if (summaryData.team) {
         $('#teamName').val(summaryData.team.teamName || '');
-        $('#teamType').val(summaryData.team.teamType || '');
         $('#teamAddress').val(summaryData.team.teamAddress || '');
         $('#teamDescription').val(summaryData.team.teamDescription || '');
         $('#leaderName').val(summaryData.team.leaderName || '');
         $('#leaderPosition').val('领队');
         $('#leaderPhone').val(summaryData.team.leaderPhone || '');
         $('#leaderEmail').val(summaryData.team.leaderEmail || '');
-        
-        // 显示队伍类型的中文名称
-        const teamTypeMap = {
-            'school': '学校队伍',
-            'club': '俱乐部',
-            'professional': '专业队',
-            'individual': '个人组队'
-        };
-        const teamTypeText = teamTypeMap[summaryData.team.teamType] || summaryData.team.teamType || '';
-        $('#teamTypeDisplay').val(teamTypeText);
         
         // 更新提交状态和提交时间
         if (summaryData.team.submittedForReview) {
@@ -3393,7 +3277,6 @@ function showEditTeamModal() {
     
     // 填充模态框表单数据
     $('#editTeamName').val(summaryData.team.teamName || '');
-    $('#editTeamType').val(summaryData.team.teamType || '');
     $('#editLeaderName').val(summaryData.team.leaderName || '');
     $('#editLeaderPosition').val('领队');
     $('#editLeaderPhone').val(summaryData.team.leaderPhone || '');
@@ -3412,7 +3295,6 @@ function saveTeamEdit() {
     
     // 获取表单数据
     const teamName = $('#editTeamName').val().trim();
-    const teamType = $('#editTeamType').val();
     const leaderName = $('#editLeaderName').val().trim();
     const leaderPhone = $('#editLeaderPhone').val().trim();
     const leaderEmail = $('#editLeaderEmail').val().trim();
@@ -3422,11 +3304,6 @@ function saveTeamEdit() {
     // 验证必填字段
     if (!teamName) {
         showMessage('请输入队伍名称', 'error');
-        return;
-    }
-    
-    if (!teamType) {
-        showMessage('请选择队伍类型', 'error');
         return;
     }
     
@@ -3460,7 +3337,6 @@ function saveTeamEdit() {
     const updatedTeamData = {
         ...summaryData.team,
         teamName: teamName,
-        teamType: teamType,
         leaderName: leaderName,
         leaderPosition: '领队',
         leaderPhone: leaderPhone,
@@ -3513,7 +3389,6 @@ function saveTeamEdit() {
         drafts[draftIndex] = {
             ...drafts[draftIndex],
             teamName: teamName,
-            teamType: teamType,
             leaderName: leaderName,
             leaderPosition: '领队',
             leaderPhone: leaderPhone,

@@ -114,27 +114,27 @@
       /* 弹窗动画效果 */
       @keyframes bounce {
         0%, 20%, 50%, 80%, 100% {
-          transform: translateY(0);
+          transform: translate(-50%, -50%) translateY(0);
         }
         40% {
-          transform: translateY(-10px);
+          transform: translate(-50%, -50%) translateY(-10px);
         }
         60% {
-          transform: translateY(-5px);
+          transform: translate(-50%, -50%) translateY(-5px);
         }
       }
       
       @keyframes pulse {
         0% {
-          transform: scale(1);
+          transform: translate(-50%, -50%) scale(1);
           box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
         }
         50% {
-          transform: scale(1.05);
+          transform: translate(-50%, -50%) scale(1.05);
           box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
         }
         100% {
-          transform: scale(1);
+          transform: translate(-50%, -50%) scale(1);
           box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
         }
       }
@@ -760,12 +760,6 @@
                         <div class="tab-pane fade show active" id="info-tab-pane" role="tabpanel">
                             <form id="profileForm">
                                 <div class="mb-3">
-                                    <label for="fullName" class="form-label">姓名</label>
-                                    <input type="text" class="form-control" id="fullName" required 
-                                           placeholder="请填写您的真实姓名">
-                                    <div class="form-text">请填写您的真实姓名</div>
-                                </div>
-                                <div class="mb-3">
                                     <label for="nickname" class="form-label">用户昵称</label>
                                     <input type="text" class="form-control" id="nickname" required 
                                            placeholder="初始昵称为8位随机码">
@@ -916,49 +910,7 @@
     $(document).ready(function() {
         console.log('页面加载完成，初始化导航栏功能');
         
-        // 手动初始化 Bootstrap 下拉菜单
-        const dropdownElementList = document.querySelectorAll('.dropdown-toggle');
-        const dropdownList = [...dropdownElementList].map(dropdownToggleEl => {
-            console.log('初始化下拉菜单:', dropdownToggleEl);
-            return new bootstrap.Dropdown(dropdownToggleEl, {
-                boundary: 'viewport',
-                popperConfig: null
-            });
-        });
-        
-        // 添加点击事件监听器，确保下拉菜单可以切换
-        $('.dropdown-toggle').off('click').on('click', function(e) {
-            console.log('下拉菜单被点击');
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const $this = $(this);
-            const $menu = $this.next('.dropdown-menu');
-            
-            // 切换显示/隐藏
-            if ($menu.hasClass('show')) {
-                console.log('隐藏下拉菜单');
-                $menu.removeClass('show');
-                $this.attr('aria-expanded', 'false');
-            } else {
-                console.log('显示下拉菜单');
-                // 先隐藏所有其他下拉菜单
-                $('.dropdown-menu.show').removeClass('show');
-                $('.dropdown-toggle[aria-expanded="true"]').attr('aria-expanded', 'false');
-                
-                // 显示当前下拉菜单
-                $menu.addClass('show');
-                $this.attr('aria-expanded', 'true');
-            }
-        });
-        
-        // 点击页面其他地方时关闭下拉菜单
-        $(document).on('click', function(e) {
-            if (!$(e.target).closest('.dropdown').length) {
-                $('.dropdown-menu.show').removeClass('show');
-                $('.dropdown-toggle[aria-expanded="true"]').attr('aria-expanded', 'false');
-            }
-        });
+        $('.dropdown-toggle').off('click');
         
         // 关闭模态框的函数
         function closeLogoutModal() {
@@ -1044,7 +996,7 @@
                 if (response.success) {
                     const user = response.user;
                     // 设置表单值
-                    $('#fullName').val(user.full_name || '');
+                    window.__profileFullName = user.full_name || '';
                     $('#nickname').val(user.nickname || '');
                     $('#phone').val(user.phone || '');
                 } else {
@@ -1077,12 +1029,11 @@
     
     // 更新个人资料函数
     function updateProfile() {
-        const fullName = $('#fullName').val().trim();
         const nickname = $('#nickname').val().trim();
         const phone = $('#phone').val().trim();
         
         // 基本验证
-        if (!fullName || !nickname || !phone) {
+        if (!nickname || !phone) {
             showCenterMessage('请填写所有必填字段', 'warning');
             return;
         }
@@ -1099,7 +1050,7 @@
             method: 'PUT',
             contentType: 'application/json',
             data: JSON.stringify({
-                full_name: fullName,
+                full_name: (window.__profileFullName || nickname),
                 nickname: nickname,
                 phone: phone
             }),
@@ -1139,9 +1090,9 @@
     
     // 更新密码函数
     function updatePassword() {
-        const currentPassword = $('#currentPassword').val();
-        const newPassword = $('#newPassword').val();
-        const confirmNewPassword = $('#confirmNewPassword').val();
+        const currentPassword = ($('#currentPassword').val() || '').trim();
+        const newPassword = ($('#newPassword').val() || '').trim();
+        const confirmNewPassword = ($('#confirmNewPassword').val() || '').trim();
         
         // 基本验证
         if (!currentPassword || !newPassword || !confirmNewPassword) {
@@ -1258,10 +1209,10 @@
         // 为个人资料模态框的保存按钮添加点击事件
         $(document).on('click', '#saveProfileBtn', function() {
             // 检查当前哪个选项卡是激活的
-            if ($('#info-tab-pane').hasClass('active')) {
+            if ($('#info-tab').hasClass('active')) {
                 // 如果是基本信息选项卡，调用更新个人资料函数
                 updateProfile();
-            } else if ($('#password-tab-pane').hasClass('active')) {
+            } else if ($('#password-tab').hasClass('active')) {
                 // 如果是修改密码选项卡，调用更新密码函数
                 updatePassword();
             }

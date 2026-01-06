@@ -29,25 +29,17 @@ def change_password():
             'message': '新密码至少需要6个字符'
         }), 400
     
-    try:
-        username = session.get('username')
-        success, message = user_manager.change_password(username, old_password, new_password)
-        if not success:
-            return jsonify({
-                'success': False,
-                'message': message
-            }), 400
-        
-        logger.info(f"用户 {user_id} 修改密码成功")
-        
-        return jsonify({
-            'success': True,
-            'message': message
-        })
-        
-    except Exception as e:
-        logger.error(f"修改密码失败: {str(e)}")
+    username = session.get('username')
+    success, message = user_manager.change_password(username, old_password, new_password)
+    if not success:
         return jsonify({
             'success': False,
-            'message': '修改密码失败，请稍后重试'
-        }), 500
+            'message': message
+        }), 400
+    
+    logger.info(f"用户 {user_id} 修改密码成功")
+    
+    return jsonify({
+        'success': True,
+        'message': message
+    })

@@ -5,6 +5,7 @@
 """
 
 from datetime import datetime
+import time
 from models import User, UserRole, UserStatus
 from database import DatabaseManager
 from utils.helpers import generate_password_hash, verify_password
@@ -15,6 +16,8 @@ class UserManager:
     
     def __init__(self):
         self.db_manager = DatabaseManager()
+        self._user_cache = {}
+        self._user_cache_ttl = 10
     
     def _verify_user_password(self, user, password):
         matched = False
@@ -143,8 +146,20 @@ class UserManager:
     
     def get_user(self, username):
         """获取用户信息"""
+        if not username:
+            return None
+
+        now = time.time()
+        entry = self._user_cache.get(username)
+        if entry:
+            expires_at, cached_user = entry
+            if now < expires_at:
+                return cached_user
+
         try:
-            return self.db_manager.get_user_by_username(username)
+            user = self.db_manager.get_user_by_username(username)
+            self._user_cache[username] = (now + self._user_cache_ttl, user)
+            return user
         except Exception as e:
             print(f"获取用户失败: {e}")
             return None

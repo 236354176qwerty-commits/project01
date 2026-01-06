@@ -65,6 +65,9 @@ class Config:
     SYSTEM_NAME = '武术赛事管理系统'
     SYSTEM_VERSION = '1.0.0'
     SYSTEM_AUTHOR = '武术赛事管理团队'
+
+    SLOW_QUERY_THRESHOLD_MS = int(os.environ.get('SLOW_QUERY_THRESHOLD_MS') or 50)
+    USER_STATUS_CHECK_INTERVAL = int(os.environ.get('USER_STATUS_CHECK_INTERVAL') or 30)
     
     # 用户角色权限配置（按权限级别排序）
     ROLE_PERMISSIONS = {

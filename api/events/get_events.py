@@ -1,8 +1,9 @@
 from datetime import datetime
+import time
 
 from flask import request, jsonify, session
 
-from utils.decorators import log_action, handle_db_errors
+from utils.decorators import log_action, handle_db_errors, cache_result
 
 from . import events_bp, db_manager, logger
 
@@ -10,6 +11,7 @@ from . import events_bp, db_manager, logger
 @events_bp.route('/', methods=['GET'])
 @log_action('获取赛事列表')
 @handle_db_errors
+@cache_result(timeout=15)
 def get_events():
     """获取赛事列表（支持高级筛选与分页）
     可选查询参数：
@@ -28,6 +30,7 @@ def get_events():
     - include_stats: 是否包含统计信息，默认false
     """
     try:
+        t_start = time.perf_counter()
         # 获取当前用户信息
         current_user_role = session.get('user_role')
         current_user_id = session.get('user_id')
@@ -154,6 +157,8 @@ def get_events():
         # 是否包含统计信息
         include_stats = request.args.get('include_stats', 'false').lower() == 'true'
 
+        t_after_params = time.perf_counter()
+
         # 查询总数
         total = db_manager.count_events(
             status=status_value, 
@@ -165,6 +170,8 @@ def get_events():
             min_participants=min_participants_int,
             max_participants=max_participants_int
         )
+
+        t_after_count = time.perf_counter()
 
         # 查询列表
         events = db_manager.get_all_events(
@@ -182,12 +189,17 @@ def get_events():
             offset=offset
         )
 
+        t_after_list = time.perf_counter()
+
         # 批量获取参赛人数，避免 N+1 查询
         event_ids = [event.event_id for event in events]
         participants_counts = db_manager.count_participants_by_events(event_ids) if event_ids else {}
 
+        t_after_participants = time.perf_counter()
+
         # 转换为字典格式并添加额外信息
         events_data = []
+        now = datetime.now() if include_stats else None
         for event in events:
             event_dict = event.to_dict()
             participants_count = participants_counts.get(event.event_id, 0)
@@ -207,8 +219,7 @@ def get_events():
                         event_dict['is_full'] = False
                         
                     # 添加时间相关的便利字段
-                    now = datetime.now()
-                    if event.start_date:
+                    if event.start_date and now is not None:
                         days_until_start = (event.start_date - now).days
                         event_dict['days_until_start'] = days_until_start
                         event_dict['is_upcoming'] = days_until_start > 0 and days_until_start <= 30
@@ -229,8 +240,20 @@ def get_events():
         has_next = page < total_pages
         has_prev = page > 1
 
+        t_after_python = time.perf_counter()
+        logger.info(
+            "get_events timings: params=%.1fms, count=%.1fms, list=%.1fms, participants=%.1fms, python=%.1fms, total=%.1fms",
+            (t_after_params - t_start) * 1000,
+            (t_after_count - t_after_params) * 1000,
+            (t_after_list - t_after_count) * 1000,
+            (t_after_participants - t_after_list) * 1000,
+            (t_after_python - t_after_participants) * 1000,
+            (t_after_python - t_start) * 1000,
+        )
+
         return jsonify({
             'success': True,
+            'data': events_data,
             'events': events_data,
             'pagination': {
                 'page': page,

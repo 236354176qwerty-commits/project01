@@ -2,6 +2,8 @@ from flask import request, jsonify, session, current_app
 import os
 from uuid import uuid4
 
+from utils.decorators import log_action
+
 from . import users_bp
 
 
@@ -13,6 +15,7 @@ def _allowed_file(filename: str) -> bool:
 
 
 @users_bp.route('/upload', methods=['POST'])
+@log_action('上传文件')
 def api_upload_file():
     """通用文件上传接口，仅支持图片文件。"""
     if not session.get('logged_in'):

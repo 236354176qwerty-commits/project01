@@ -16,65 +16,60 @@ def login():
     data = request.get_json()
     username = data['username'].strip()
     password = data['password']
-    
-    try:
-        user, auth_message = user_manager.authenticate_user(username, password)
 
-        if not user:
-            message = auth_message or '用户名或密码错误'
+    user, auth_message = user_manager.authenticate_user(username, password)
 
-            if message == '用户不存在':
-                logger.warning(f"用户 {username} 不存在")
-                return jsonify({
-                    'success': False,
-                    'message': '用户不存在'
-                }), 401
+    if not user:
+        message = auth_message or '用户名或密码错误'
 
-            if any(keyword in message for keyword in ['冻结', '状态异常', '状态为']):
-                logger.warning(f"用户 {username} 尝试登录失败（状态原因）: {message}")
-                return jsonify({
-                    'success': False,
-                    'message': message
-                }), 403
-
-            if '禁用' in message:
-                logger.warning(f"用户 {username} 已被禁用: {message}")
-                return jsonify({
-                    'success': False,
-                    'message': message
-                }), 401
-
-            logger.warning(f"用户 {username} 登录失败: {message}")
+        if message == '用户不存在':
+            logger.warning(f"用户 {username} 不存在")
             return jsonify({
                 'success': False,
-                'message': '用户名或密码错误'
+                'message': '用户不存在'
             }), 401
-        
-        # 设置会话
-        session['logged_in'] = True
-        session['user_id'] = user.user_id
-        session['user_name'] = user.nickname or user.username  # 优先使用昵称，没有昵称则使用用户名
-        session['username'] = user.username
-        session['user_role'] = user.role.value
-        session.permanent = True
-        
-        logger.info(f"用户 {username} 登录成功")
-        
-        return jsonify({
-            'success': True,
-            'message': '登录成功',
-            'user': {
-                'id': user.user_id,
-                'username': user.username,
-                'real_name': user.real_name,
-                'role': user.role.value,
-                'email': user.email
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"登录失败: {str(e)}")
+
+        if any(keyword in message for keyword in ['冻结', '状态异常', '状态为']):
+            logger.warning(f"用户 {username} 尝试登录失败（状态原因）: {message}")
+            return jsonify({
+                'success': False,
+                'message': message
+            }), 403
+
+        if '禁用' in message:
+            logger.warning(f"用户 {username} 已被禁用: {message}")
+            return jsonify({
+                'success': False,
+                'message': message
+            }), 401
+
+        logger.warning(f"用户 {username} 登录失败: {message}")
         return jsonify({
             'success': False,
-            'message': '登录失败，请稍后重试'
-        }), 500
+            'message': '用户名或密码错误'
+        }), 401
+
+    # 设置会话
+    session['logged_in'] = True
+    session['user_id'] = user.user_id
+    session['user_name'] = user.nickname or user.username  # 优先使用昵称，没有昵称则使用用户名
+    session['username'] = user.username
+    session['user_role'] = user.role.value
+    session.permanent = True
+
+    logger.info(f"用户 {username} 登录成功")
+
+    user_data = {
+        'id': user.user_id,
+        'username': user.username,
+        'real_name': user.real_name,
+        'role': user.role.value,
+        'email': user.email,
+    }
+
+    return jsonify({
+        'success': True,
+        'message': '登录成功',
+        'data': user_data,
+        'user': user_data,
+    })

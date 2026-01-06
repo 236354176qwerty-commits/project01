@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, g
 from werkzeug.utils import secure_filename
 import os
 import sys
 import json
 from datetime import datetime
+import time
 from user_manager import user_manager
 import re
 from dotenv import load_dotenv
@@ -34,6 +35,24 @@ def create_app():
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+    @app.before_request
+    def start_request_timer():
+        g.request_start_time = time.perf_counter()
+
+    @app.after_request
+    def log_request_time(response):
+        start_time = getattr(g, 'request_start_time', None)
+        if start_time is not None:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            app.logger.info(
+                "Request %s %s took %.2fms, status %d",
+                request.method,
+                request.path,
+                duration_ms,
+                response.status_code,
+            )
+        return response
+
     # 应用启动时进行一次数据库结构检查与迁移（只增量修复，不重建）
     try:
         db_manager = DatabaseManager()
@@ -44,7 +63,6 @@ def create_app():
         app.logger.error(f"数据库初始化检查失败: {e}")
         # 如果是连接限制错误，等待一段时间后重试
         if "max_user_connections" in str(e):
-            import time
             app.logger.warning("检测到数据库连接限制，等待30秒后重试...")
             time.sleep(30)
             try:
@@ -75,11 +93,14 @@ def create_app():
             return
 
         try:
-            db_manager = DatabaseManager()
-            user = db_manager.get_user_for_login(username)
+            last_check = session.get('user_status_last_check')
+            now_ts = time.time()
+            interval = app.config.get('USER_STATUS_CHECK_INTERVAL', 10)
+            if isinstance(last_check, (int, float)) and now_ts - last_check < interval:
+                return
 
-            if isinstance(user, list):
-                user = user[0] if user else None
+            # 使用 user_manager 复用用户缓存/管理逻辑，避免每次都直接打数据库
+            user = user_manager.get_user(username)
 
             if user and not user.can_login():
                 session.clear()
@@ -94,6 +115,9 @@ def create_app():
                 else:
                     flash('账号状态异常或被冻结，请联系管理员。', 'error')
                     return redirect(url_for('login'))
+
+            if user and user.can_login():
+                session['user_status_last_check'] = now_ts
 
         except Exception:
             session.clear()

@@ -2,11 +2,14 @@ from flask import request, jsonify, session
 from datetime import datetime
 
 from database import DatabaseManager
+from utils.decorators import log_action, handle_db_errors
 
 from . import participants_bp
 
 
 @participants_bp.route('/participants/team-fees', methods=['POST'])
+@log_action('保存队伍费用')
+@handle_db_errors
 def api_save_team_fees():
     """保存或更新队伍费用统计到 team_applications 表"""
     if not session.get('logged_in'):
@@ -36,98 +39,102 @@ def api_save_team_fees():
     except (TypeError, ValueError):
         return jsonify({'success': False, 'message': 'event_id 无效'}), 400
 
-    try:
-        db_manager = DatabaseManager()
-        with db_manager.get_connection() as conn:
-            cursor = conn.cursor(dictionary=True)
+    db_manager = DatabaseManager()
+    with db_manager.get_connection() as conn:
+        cursor = conn.cursor(dictionary=True)
 
-            # 尝试查找现有记录（同一赛事下按队名唯一）
+        # 尝试查找现有记录（同一赛事下按队名唯一）
+        cursor.execute(
+            """
+            SELECT application_id
+            FROM team_applications
+            WHERE event_id = %s AND team_name = %s
+            LIMIT 1
+            """,
+            (event_id_int, team_name),
+        )
+        row = cursor.fetchone()
+
+        now = datetime.now()
+
+        if row:
+            # 更新已有记录
             cursor.execute(
                 """
-                SELECT application_id
-                FROM team_applications
-                WHERE event_id = %s AND team_name = %s
-                LIMIT 1
+                UPDATE team_applications
+                SET 
+                    individual_fee = %s,
+                    pair_practice_fee = %s,
+                    team_competition_fee = %s,
+                    other_fee = %s,
+                    total_fee = %s,
+                    status = CASE WHEN status IN ('pending', 'approved') THEN status ELSE 'pending' END,
+                    updated_at = %s
+                WHERE application_id = %s
                 """,
-                (event_id_int, team_name),
+                (
+                    individual_fee,
+                    pair_fee,
+                    team_fee,
+                    other_fee,
+                    total_fee,
+                    now,
+                    row['application_id'],
+                ),
             )
-            row = cursor.fetchone()
+        else:
+            # 插入新记录（简化：只保存与费用相关的核心字段）
+            cursor.execute(
+                """
+                INSERT INTO team_applications (
+                    event_id,
+                    team_id,
+                    user_id,
+                    applicant_name,
+                    applicant_phone,
+                    applicant_id_card,
+                    type,
+                    role,
+                    team_name,
+                    event_name,
+                    status,
+                    submitted_by,
+                    submitted_at,
+                    individual_fee,
+                    pair_practice_fee,
+                    team_competition_fee,
+                    other_fee,
+                    total_fee,
+                    created_at,
+                    updated_at
+                ) VALUES (%s, NULL, %s, NULL, NULL, NULL, 'player', NULL, %s, NULL, 'pending', %s, %s,
+                          %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    event_id_int,
+                    session.get('user_id'),
+                    team_name,
+                    session.get('user_name') or session.get('username') or '',
+                    now,
+                    individual_fee,
+                    pair_fee,
+                    team_fee,
+                    other_fee,
+                    total_fee,
+                    now,
+                    now,
+                ),
+            )
 
-            now = datetime.now()
+        conn.commit()
+        cursor.close()
 
-            if row:
-                # 更新已有记录
-                cursor.execute(
-                    """
-                    UPDATE team_applications
-                    SET 
-                        individual_fee = %s,
-                        pair_practice_fee = %s,
-                        team_competition_fee = %s,
-                        other_fee = %s,
-                        total_fee = %s,
-                        status = CASE WHEN status IN ('pending', 'approved') THEN status ELSE 'pending' END,
-                        updated_at = %s
-                    WHERE application_id = %s
-                    """,
-                    (
-                        individual_fee,
-                        pair_fee,
-                        team_fee,
-                        other_fee,
-                        total_fee,
-                        now,
-                        row['application_id'],
-                    ),
-                )
-            else:
-                # 插入新记录（简化：只保存与费用相关的核心字段）
-                cursor.execute(
-                    """
-                    INSERT INTO team_applications (
-                        event_id,
-                        team_id,
-                        user_id,
-                        applicant_name,
-                        applicant_phone,
-                        applicant_id_card,
-                        type,
-                        role,
-                        team_name,
-                        event_name,
-                        status,
-                        submitted_by,
-                        submitted_at,
-                        individual_fee,
-                        pair_practice_fee,
-                        team_competition_fee,
-                        other_fee,
-                        total_fee,
-                        created_at,
-                        updated_at
-                    ) VALUES (%s, NULL, %s, NULL, NULL, NULL, 'player', NULL, %s, NULL, 'pending', %s, %s,
-                              %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        event_id_int,
-                        session.get('user_id'),
-                        team_name,
-                        session.get('user_name') or session.get('username') or '',
-                        now,
-                        individual_fee,
-                        pair_fee,
-                        team_fee,
-                        other_fee,
-                        total_fee,
-                        now,
-                        now,
-                    ),
-                )
-
-            conn.commit()
-            cursor.close()
-
-        return jsonify({'success': True, 'message': '队伍费用已同步到云端'})
-
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'保存队伍费用失败: {str(e)}'}), 500
+    return jsonify({
+        'success': True,
+        'message': '队伍费用已同步到云端',
+        'data': {
+            'event_id': event_id_int,
+            'team_name': team_name,
+            'total_fee': total_fee,
+        },
+    })

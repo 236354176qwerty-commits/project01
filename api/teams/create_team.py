@@ -2,11 +2,14 @@ from flask import request, jsonify, session
 from datetime import datetime
 
 from database import DatabaseManager
+from utils.decorators import log_action, handle_db_errors
 
 from . import teams_bp
 
 
 @teams_bp.route('/teams', methods=['POST'])
+@log_action('创建队伍')
+@handle_db_errors
 def api_create_team():
     """创建队伍（领队在赛事中创建自己的队伍）"""
     if not session.get('logged_in'):
@@ -32,87 +35,86 @@ def api_create_team():
 
     current_user_id = session.get('user_id')
 
-    try:
-        db_manager = DatabaseManager()
-        with db_manager.get_connection() as conn:
-            cursor = conn.cursor(dictionary=True)
+    db_manager = DatabaseManager()
+    with db_manager.get_connection() as conn:
+        cursor = conn.cursor(dictionary=True)
 
-            cursor.execute("SELECT event_id, name FROM events WHERE event_id = %s", (event_id,))
-            event = cursor.fetchone()
-            if not event:
-                cursor.close()
-                return jsonify({'success': False, 'message': '赛事不存在'}), 404
-
-            cursor.execute(
-                """
-                SELECT COUNT(*) AS cnt
-                FROM teams
-                WHERE event_id = %s AND created_by = %s AND status != 'deleted'
-                """,
-                (event_id, current_user_id),
-            )
-            row = cursor.fetchone() or {}
-            if row.get('cnt', 0) > 0:
-                cursor.close()
-                return jsonify({'success': False, 'message': '您已经在该赛事中创建过队伍了'}), 400
-
-            now = datetime.now()
-
-            cursor.execute(
-                """
-                INSERT INTO teams (
-                    event_id, team_name, team_type, team_address, team_description,
-                    leader_id, leader_name, leader_position, leader_phone, leader_email,
-                    status, submitted_for_review, submitted_at,
-                    client_team_key, created_by, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    event_id,
-                    team_name,
-                    team_type,
-                    team_address,
-                    team_description,
-                    current_user_id,
-                    leader_name,
-                    leader_position,
-                    leader_phone,
-                    leader_email,
-                    'active',
-                    0,
-                    None,
-                    None,
-                    current_user_id,
-                    now,
-                    now,
-                ),
-            )
-            team_id = cursor.lastrowid
-            conn.commit()
+        cursor.execute("SELECT event_id, name FROM events WHERE event_id = %s", (event_id,))
+        event = cursor.fetchone()
+        if not event:
             cursor.close()
+            return jsonify({'success': False, 'message': '赛事不存在'}), 404
 
-        return jsonify({
-            'success': True,
-            'team': {
-                'id': team_id,
-                'event_id': int(event_id),
-                'event_name': event.get('name'),
-                'name': team_name,
-                'team_name': team_name,
-                'team_type': team_type,
-                'address': team_address,
-                'description': team_description,
-                'leader_id': current_user_id,
-                'leader_name': leader_name,
-                'leader_position': leader_position,
-                'leader_phone': leader_phone,
-                'leader_email': leader_email,
-                'status': 'active',
-                'created_by': current_user_id,
-                'created_at': now.isoformat(),
-                'canEdit': True,
-            },
-        })
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM teams
+            WHERE event_id = %s AND created_by = %s AND status != 'deleted'
+            """,
+            (event_id, current_user_id),
+        )
+        row = cursor.fetchone() or {}
+        if row.get('cnt', 0) > 0:
+            cursor.close()
+            return jsonify({'success': False, 'message': '您已经在该赛事中创建过队伍了'}), 400
 
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'创建队伍失败: {str(e)}'}), 500
+        now = datetime.now()
+
+        cursor.execute(
+            """
+            INSERT INTO teams (
+                event_id, team_name, team_type, team_address, team_description,
+                leader_id, leader_name, leader_position, leader_phone, leader_email,
+                status, submitted_for_review, submitted_at,
+                client_team_key, created_by, created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                event_id,
+                team_name,
+                team_type,
+                team_address,
+                team_description,
+                current_user_id,
+                leader_name,
+                leader_position,
+                leader_phone,
+                leader_email,
+                'active',
+                0,
+                None,
+                None,
+                current_user_id,
+                now,
+                now,
+            ),
+        )
+        team_id = cursor.lastrowid
+        conn.commit()
+        cursor.close()
+
+    team_data = {
+        'id': team_id,
+        'event_id': int(event_id),
+        'event_name': event.get('name'),
+        'name': team_name,
+        'team_name': team_name,
+        'team_type': team_type,
+        'address': team_address,
+        'description': team_description,
+        'leader_id': current_user_id,
+        'leader_name': leader_name,
+        'leader_position': leader_position,
+        'leader_phone': leader_phone,
+        'leader_email': leader_email,
+        'status': 'active',
+        'created_by': current_user_id,
+        'created_at': now.isoformat(),
+        'canEdit': True,
+    }
+
+    return jsonify({
+        'success': True,
+        'data': team_data,
+        'team': team_data,
+    })

@@ -1,4 +1,5 @@
 import logging
+import time
 
 from mysql.connector import Error
 
@@ -6,6 +7,11 @@ from models import Event
 
 
 logger = logging.getLogger(__name__)
+
+_event_participants_cache = {}
+_EVENT_PARTICIPANTS_CACHE_TTL = 10
+_event_count_cache = {}
+_EVENT_COUNT_CACHE_TTL = 10
 
 
 class EventDbMixin:
@@ -82,9 +88,6 @@ class EventDbMixin:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
-                # 检查并添加新列（如果不存在）
-                self._ensure_event_columns(cursor)
-                
                 cursor.execute("""
                     INSERT INTO events (name, description, start_date, end_date, location, 
                                       max_participants, registration_start_time, registration_deadline, 
@@ -111,9 +114,6 @@ class EventDbMixin:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
-                
-                # 确保新列存在
-                self._ensure_event_columns(cursor)
                 
                 cursor.execute("SELECT * FROM events WHERE event_id = %s", (event_id,))
                 row = cursor.fetchone()
@@ -153,9 +153,12 @@ class EventDbMixin:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
-                
-                # 确保新列存在
-                self._ensure_event_columns(cursor)
+
+                # 确保新列存在：仅在当前 DatabaseManager 实例生命周期内执行一次，
+                # 避免每次列表查询都跑多次 SHOW COLUMNS / ALTER TABLE 带来的额外开销
+                if not getattr(self, '_event_columns_ensured', False):
+                    self._ensure_event_columns(cursor)
+                    setattr(self, '_event_columns_ensured', True)
                 
                 # 构建查询条件
                 where_clauses = []
@@ -245,6 +248,23 @@ class EventDbMixin:
     def count_events(self, status=None, keyword=None, date_from=None, date_to=None, 
                      location=None, created_by=None, min_participants=None, max_participants=None):
         """统计赛事数量（支持筛选条件）"""
+        key = (
+            status,
+            keyword,
+            date_from,
+            date_to,
+            location,
+            created_by,
+            min_participants,
+            max_participants,
+        )
+        now = time.time()
+        entry = _event_count_cache.get(key)
+        if entry:
+            expires_at, cached_total = entry
+            if now < expires_at:
+                return cached_total
+
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -291,7 +311,10 @@ class EventDbMixin:
                     sql += " WHERE " + " AND ".join(where_clauses)
                 
                 cursor.execute(sql, params)
-                return cursor.fetchone()[0]
+                row = cursor.fetchone()
+                total = row[0] if row else 0
+                _event_count_cache[key] = (now + _EVENT_COUNT_CACHE_TTL, total)
+                return total
                 
         except Error as e:
             logger.error(f"统计赛事数量失败: {e}")
@@ -335,6 +358,15 @@ class EventDbMixin:
         """批量统计多个赛事的参赛人数，返回 {event_id: count}"""
         if not event_ids:
             return {}
+
+        key = tuple(sorted(set(event_ids)))
+        now = time.time()
+        entry = _event_participants_cache.get(key)
+        if entry:
+            expires_at, cached_result = entry
+            if now < expires_at:
+                return cached_result
+
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -357,6 +389,7 @@ class EventDbMixin:
                     for event_id, count in cursor.fetchall():
                         result[event_id] = count
 
+                _event_participants_cache[key] = (now + _EVENT_PARTICIPANTS_CACHE_TTL, result)
                 return result
         except Error as e:
             logger.error(f"批量统计参赛人数失败: {e}")
@@ -464,9 +497,6 @@ class EventDbMixin:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                
-                # 确保新列存在
-                self._ensure_event_columns(cursor)
                 
                 cursor.execute("""
                     UPDATE events SET 

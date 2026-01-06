@@ -5,10 +5,13 @@ import time
 from datetime import datetime
 
 from config import Config
+from utils.decorators import log_action, handle_db_errors
 from . import maintenance_bp, log_maintenance_operation, check_mysqldump_available
 
 
 @maintenance_bp.route('/admin/maintenance/backup', methods=['POST'])
+@log_action('执行数据库备份')
+@handle_db_errors
 def api_maintenance_backup():
     if not session.get('logged_in'):
         return jsonify({'success': False, 'message': '请先登录'}), 401
@@ -71,6 +74,11 @@ def api_maintenance_backup():
         return jsonify({
             'success': True,
             'message': f'数据库备份成功，文件大小约 {file_size:.2f} MB，耗时 {duration:.1f} 秒',
+            'data': {
+                'filename': os.path.basename(backup_file),
+                'file_size_mb': file_size,
+                'duration_seconds': duration,
+            },
         })
 
     except subprocess.TimeoutExpired:

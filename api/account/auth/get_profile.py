@@ -16,24 +16,19 @@ def get_profile():
             'message': '请先登录'
         }), 401
     
-    try:
-        user_id = session.get('user_id')
-        user = db_manager.get_user_by_id(user_id)
-        
-        if not user:
-            return jsonify({
-                'success': False,
-                'message': '用户不存在'
-            }), 404
-        
-        return jsonify({
-            'success': True,
-            'user': user.to_dict()
-        })
-        
-    except Exception as e:
-        logger.error(f"获取用户信息失败: {str(e)}")
+    user_id = session.get('user_id')
+    user = db_manager.get_user_by_id(user_id)
+    
+    if not user:
         return jsonify({
             'success': False,
-            'message': '获取用户信息失败'
-        }), 500
+            'message': '用户不存在'
+        }), 404
+    
+    user_dict = user.to_dict()
+    
+    return jsonify({
+        'success': True,
+        'data': user_dict,
+        'user': user_dict,
+    })

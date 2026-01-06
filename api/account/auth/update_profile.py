@@ -38,21 +38,13 @@ def update_profile():
             'message': '手机号格式不正确'
         }), 400
     
-    try:
-        # 这里应该添加更新用户信息的数据库操作
-        # 由于当前的 DatabaseManager 没有 update_user 方法，
-        # 这里只是示例代码
-        
-        logger.info(f"用户 {user_id} 更新个人信息")
-        
-        return jsonify({
-            'success': True,
-            'message': '信息更新成功'
-        })
-        
-    except Exception as e:
-        logger.error(f"更新用户信息失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': '更新失败，请稍后重试'
-        }), 500
+    # 这里应该添加更新用户信息的数据库操作
+    # 由于当前的 DatabaseManager 没有 update_user 方法，
+    # 这里只是示例代码
+    
+    logger.info(f"用户 {user_id} 更新个人信息")
+    
+    return jsonify({
+        'success': True,
+        'message': '信息更新成功'
+    })

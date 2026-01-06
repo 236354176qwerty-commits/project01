@@ -1,9 +1,12 @@
 from flask import jsonify
 
+from utils.decorators import log_action
+
 from . import categories_bp, logger
 
 
 @categories_bp.route('/competition', methods=['GET'])
+@log_action('获取比赛项目分类')
 def get_competition_categories():
     """获取比赛项目分类（三级结构）"""
     try:
@@ -170,7 +173,13 @@ def get_competition_categories():
             ]
         }
 
-        return jsonify(categories)
+        categories_data = categories.get('categories', [])
+
+        return jsonify({
+            'success': True,
+            'data': categories_data,
+            'categories': categories_data,
+        })
 
     except Exception as e:
         logger.error(f"获取项目分类失败: {str(e)}")

@@ -8,6 +8,7 @@ import mysql.connector
 from mysql.connector import Error, pooling
 from contextlib import contextmanager
 import logging
+import time
 
 from config import Config
 from models import DATABASE_SCHEMA
@@ -22,6 +23,44 @@ from db_modules.db_entries import EntryDbMixin
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class TimedCursorWrapper:
+    def __init__(self, cursor, slow_threshold_ms=50):
+        self._cursor = cursor
+        self._slow_threshold_ms = slow_threshold_ms
+
+    def execute(self, operation, params=None, multi=False):
+        start = time.perf_counter()
+        try:
+            return self._cursor.execute(operation, params, multi)
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+            if duration_ms >= self._slow_threshold_ms:
+                logger.warning(
+                    "Slow query took %.1f ms: %s; params=%s",
+                    duration_ms,
+                    operation,
+                    params,
+                )
+
+    def executemany(self, operation, seq_params):
+        start = time.perf_counter()
+        try:
+            return self._cursor.executemany(operation, seq_params)
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+            if duration_ms >= self._slow_threshold_ms:
+                logger.warning(
+                    "Slow query (executemany) took %.1f ms: %s; params_count=%d",
+                    duration_ms,
+                    operation,
+                    len(seq_params) if seq_params is not None else 0,
+                )
+
+    def __getattr__(self, item):
+        return getattr(self._cursor, item)
+
 
 _connection_pool = None
 
@@ -82,6 +121,16 @@ class DatabaseManager(
                 connection = self.pool.get_connection()
             else:
                 connection = mysql.connector.connect(**self.config)
+            slow_threshold_ms = getattr(Config, 'SLOW_QUERY_THRESHOLD_MS', 50)
+
+            original_cursor = connection.cursor
+
+            def timed_cursor(*args, **kwargs):
+                base_cursor = original_cursor(*args, **kwargs)
+                return TimedCursorWrapper(base_cursor, slow_threshold_ms=slow_threshold_ms)
+
+            connection.cursor = timed_cursor
+
             yield connection
         except Error as e:
             logger.error(f"数据库连接错误: {e}")
@@ -214,7 +263,7 @@ class DatabaseManager(
                 cursor.execute("ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL COMMENT '删除时间' AFTER status")
                 logger.info("添加了deleted_at列到users表")
             
-            # 检查events表是否存在registration_start_time列
+            # 确保events表存在registration_start_time列
             try:
                 cursor.execute("SHOW COLUMNS FROM events LIKE 'registration_start_time'")
                 if not cursor.fetchone():
@@ -237,6 +286,46 @@ class DatabaseManager(
                 if not cursor.fetchone():
                     cursor.execute("ALTER TABLE events ADD COLUMN end_date DATETIME NOT NULL AFTER start_date")
                     logger.info("添加了end_date列到events表")
+
+                # 确保关键索引存在，以加速赛事列表查询和统计
+                cursor.execute("SHOW INDEX FROM events WHERE Key_name = 'idx_status'")
+                rows = cursor.fetchall()
+                if not rows:
+                    cursor.execute("ALTER TABLE events ADD INDEX idx_status (status)")
+                    logger.info("添加了idx_status索引到events表")
+
+                cursor.execute("SHOW INDEX FROM events WHERE Key_name = 'idx_start_date'")
+                rows = cursor.fetchall()
+                if not rows:
+                    cursor.execute("ALTER TABLE events ADD INDEX idx_start_date (start_date)")
+                    logger.info("添加了idx_start_date索引到events表")
+
+                cursor.execute("SHOW INDEX FROM events WHERE Key_name = 'idx_registration_start'")
+                rows = cursor.fetchall()
+                if not rows:
+                    cursor.execute("ALTER TABLE events ADD INDEX idx_registration_start (registration_start_time)")
+                    logger.info("添加了idx_registration_start索引到events表")
+
+                # 新增按创建时间的索引，优化按 created_at 排序的赛事列表
+                cursor.execute("SHOW INDEX FROM events WHERE Key_name = 'idx_created_at'")
+                rows = cursor.fetchall()
+                if not rows:
+                    cursor.execute("ALTER TABLE events ADD INDEX idx_created_at (created_at)")
+                    logger.info("添加了idx_created_at索引到events表")
+
+                # 组合索引：按状态 + 开始时间筛选/排序，常见模式为 WHERE status=... ORDER BY start_date ...
+                cursor.execute("SHOW INDEX FROM events WHERE Key_name = 'idx_status_start_date'")
+                rows = cursor.fetchall()
+                if not rows:
+                    cursor.execute("ALTER TABLE events ADD INDEX idx_status_start_date (status, start_date)")
+                    logger.info("添加了idx_status_start_date组合索引到events表")
+
+                # 组合索引：按状态 + 创建时间筛选/排序，对管理后台按创建时间查看不同状态赛事有帮助
+                cursor.execute("SHOW INDEX FROM events WHERE Key_name = 'idx_status_created_at'")
+                rows = cursor.fetchall()
+                if not rows:
+                    cursor.execute("ALTER TABLE events ADD INDEX idx_status_created_at (status, created_at)")
+                    logger.info("添加了idx_status_created_at组合索引到events表")
                     
             except Error as events_error:
                 if "doesn't exist" in str(events_error):
@@ -285,6 +374,12 @@ class DatabaseManager(
                     logger.info("participants表不存在，将在后续创建")
                 else:
                     logger.warning(f"participants表迁移失败: {participants_error}")
+
+            if hasattr(self, '_ensure_event_columns'):
+                try:
+                    self._ensure_event_columns(cursor)
+                except Exception as events_extra_error:
+                    logger.warning(f"events表扩展列迁移失败: {events_extra_error}")
 
             # 扩展scores表结构（如果存在）
             if self._table_exists(cursor, 'scores'):

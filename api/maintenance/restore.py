@@ -4,10 +4,13 @@ import subprocess
 import time
 
 from config import Config
+from utils.decorators import log_action, handle_db_errors
 from . import maintenance_bp, log_maintenance_operation
 
 
 @maintenance_bp.route('/admin/maintenance/restore', methods=['POST'])
+@log_action('执行数据库还原')
+@handle_db_errors
 def api_restore_backup():
     if not session.get('logged_in'):
         return jsonify({'success': False, 'message': '请先登录'}), 401
@@ -81,6 +84,11 @@ def api_restore_backup():
         return jsonify({
             'success': True,
             'message': f'数据库还原成功，耗时 {duration:.1f} 秒，备份文件大小约 {file_size:.2f} MB',
+            'data': {
+                'filename': filename,
+                'file_size_mb': file_size,
+                'duration_seconds': duration,
+            },
         })
 
     except subprocess.TimeoutExpired:

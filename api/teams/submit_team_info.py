@@ -1,6 +1,7 @@
 from flask import request, jsonify, session
 
 from database import DatabaseManager
+from utils.decorators import log_action, handle_db_errors
 
 from . import teams_bp
 
@@ -92,68 +93,83 @@ def _persist_team_submission(team_id, current_user_id, user_role):
 
 
 @teams_bp.route('/team/submit-info', methods=['POST'])
+@log_action('提交队伍信息')
+@handle_db_errors
 def api_submit_team_info():
     if not session.get('logged_in'):
         return jsonify({'success': False, 'message': '请先登录'}), 401
 
-    try:
-        data = request.get_json() or {}
-        team_id = data.get('team_id')
-        team_name = data.get('team_name') or '队伍'
-        event_name = data.get('event_name') or '赛事'
-        member_ids = data.get('member_ids') or []
-        is_first_submit = bool(data.get('is_first_submit', False))
-        creator_username = data.get('creator_username')
+    data = request.get_json() or {}
+    team_id = data.get('team_id')
+    team_name = data.get('team_name') or '队伍'
+    event_name = data.get('event_name') or '赛事'
+    member_ids = data.get('member_ids') or []
+    is_first_submit = bool(data.get('is_first_submit', False))
+    creator_username = data.get('creator_username')
 
-        if not team_id:
-            return jsonify({'success': False, 'message': '缺少必要参数'}), 400
+    if not team_id:
+        return jsonify({'success': False, 'message': '缺少必要参数'}), 400
 
-        current_username = session.get('username')
-        current_user_id = session.get('user_id')
-        user_role = session.get('user_role')
+    current_username = session.get('username')
+    current_user_id = session.get('user_id')
+    user_role = session.get('user_role')
 
-        if not creator_username or creator_username != current_username:
-            return jsonify(
-                {
-                    'success': False,
-                    'message': '权限不足：只有领队可以提交审核',
-                }
-            ), 403
+    if not creator_username or creator_username != current_username:
+        return jsonify(
+            {
+                'success': False,
+                'message': '权限不足：只有领队可以提交审核',
+            }
+        ), 403
 
-        submission_result = _persist_team_submission(team_id, current_user_id, user_role)
-        if 'error' in submission_result:
-            return jsonify({'success': False, 'message': submission_result['error']}), submission_result['status']
+    submission_result = _persist_team_submission(team_id, current_user_id, user_role)
+    if 'error' in submission_result:
+        return jsonify({'success': False, 'message': submission_result['error']}), submission_result['status']
 
-        submitted_at_iso = (
-            submission_result['submitted_at'].isoformat()
-            if submission_result.get('submitted_at')
-            else None
-        )
+    submitted_at_iso = (
+        submission_result['submitted_at'].isoformat()
+        if submission_result.get('submitted_at')
+        else None
+    )
 
-        if is_first_submit:
-            if not member_ids:
-                return jsonify(
-                    {
-                        'success': True,
-                        'message': '队伍信息上报成功',
-                        'submitted_at': submitted_at_iso,
-                    }
-                )
-            title = '队伍报名成功'
-            content = f'您所在的【{team_name}】已成功报名【{event_name}】。队长已完成队伍信息上报，请做好参赛准备。'
-            success_count = 0
-            for member_id in member_ids:
-                if _send_system_notification(member_id, title, content, priority='important'):
-                    success_count += 1
+    if is_first_submit:
+        if not member_ids:
             return jsonify(
                 {
                     'success': True,
-                    'message': f'队伍信息上报成功，已通知 {success_count}/{len(member_ids)} 位队员',
+                    'message': '队伍信息上报成功',
                     'submitted_at': submitted_at_iso,
+                    'data': {
+                        'submitted_at': submitted_at_iso,
+                        'notified_members': 0,
+                        'total_members': 0,
+                    },
                 }
             )
+        title = '队伍报名成功'
+        content = f'您所在的【{team_name}】已成功报名【{event_name}】。队长已完成队伍信息上报，请做好参赛准备。'
+        success_count = 0
+        for member_id in member_ids:
+            if _send_system_notification(member_id, title, content, priority='important'):
+                success_count += 1
+        return jsonify(
+            {
+                'success': True,
+                'message': f'队伍信息上报成功，已通知 {success_count}/{len(member_ids)} 位队员',
+                'submitted_at': submitted_at_iso,
+                'data': {
+                    'submitted_at': submitted_at_iso,
+                    'notified_members': success_count,
+                    'total_members': len(member_ids),
+                },
+            }
+        )
 
-        return jsonify({'success': True, 'message': '队伍信息更新成功', 'submitted_at': submitted_at_iso})
-
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'操作失败: {str(e)}'}), 500
+    return jsonify({
+        'success': True,
+        'message': '队伍信息更新成功',
+        'submitted_at': submitted_at_iso,
+        'data': {
+            'submitted_at': submitted_at_iso,
+        },
+    })

@@ -2,10 +2,13 @@ from flask import jsonify, session, current_app
 import os
 import shutil
 
+from utils.decorators import log_action, handle_db_errors
 from . import maintenance_bp, log_maintenance_operation
 
 
 @maintenance_bp.route('/admin/maintenance/cleanup', methods=['POST'])
+@log_action('系统文件清理')
+@handle_db_errors
 def api_maintenance_cleanup():
     if not session.get('logged_in'):
         return jsonify({'success': False, 'message': '请先登录'}), 401
@@ -58,6 +61,10 @@ def api_maintenance_cleanup():
             'message': '系统文件清理完成',
             'cleaned_files': cleaned_files,
             'freed_space': f'{freed_mb:.2f} MB',
+            'data': {
+                'cleaned_files': cleaned_files,
+                'freed_space_mb': freed_mb,
+            },
         })
 
     except Exception as e:

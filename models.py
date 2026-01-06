@@ -311,6 +311,16 @@ DATABASE_SCHEMA = {
             INDEX idx_registration_start (registration_start_time)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='赛事表（基础信息与报名配置）';
     ''',
+
+    'system_config': '''
+        CREATE TABLE IF NOT EXISTS system_config (
+            config_key VARCHAR(100) NOT NULL,
+            config_value VARCHAR(255) NOT NULL,
+            updated_by INT NULL,
+            updated_at DATETIME NULL,
+            PRIMARY KEY (config_key)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表（键值配置，如维护模式等）';
+    ''',
     
     'participants': '''
         CREATE TABLE IF NOT EXISTS participants (

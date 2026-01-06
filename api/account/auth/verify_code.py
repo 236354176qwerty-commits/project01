@@ -31,26 +31,18 @@ def verify_code():
             'message': '验证码格式不正确'
         }), 400
     
-    try:
-        # 验证验证码并立即删除（一次性使用，防止重复验证）
-        success, message = sms_provider.verify_code(phone, code)
-        
-        if success:
-            logger.info(f"验证码验证成功并已失效: {phone}")
-            return jsonify({
-                'success': True,
-                'message': '验证码验证成功'
-            })
-        else:
-            logger.warning(f"验证码验证失败: {phone}, 原因: {message}")
-            return jsonify({
-                'success': False,
-                'message': message
-            }), 400
-            
-    except Exception as e:
-        logger.error(f"验证验证码失败: {str(e)}")
+    # 验证验证码并立即删除（一次性使用，防止重复验证）
+    success, message = sms_provider.verify_code(phone, code)
+    
+    if success:
+        logger.info(f"验证码验证成功并已失效: {phone}")
+        return jsonify({
+            'success': True,
+            'message': '验证码验证成功'
+        })
+    else:
+        logger.warning(f"验证码验证失败: {phone}, 原因: {message}")
         return jsonify({
             'success': False,
-            'message': '验证失败，请稍后重试'
-        }), 500
+            'message': message
+        }), 400

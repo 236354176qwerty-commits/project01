@@ -12,29 +12,25 @@ from . import scoring_bp, db_manager, logger
 @handle_db_errors
 def get_round_scores(participant_id, round_number):
     """获取特定轮次的评分"""
-    try:
-        scores = db_manager.get_scores_by_participant(participant_id)
-        
-        # 筛选特定轮次的评分
-        round_scores = [score for score in scores if score.round_number == round_number]
-        
-        scores_data = []
-        for score in round_scores:
-            score_dict = score.to_dict()
-            # 添加裁判姓名
-            if hasattr(score, 'judge_name'):
-                score_dict['judge_name'] = score.judge_name
-            scores_data.append(score_dict)
-        
-        return jsonify({
-            'success': True,
+    scores = db_manager.get_scores_by_participant(participant_id)
+
+    # 筛选特定轮次的评分
+    round_scores = [score for score in scores if score.round_number == round_number]
+
+    scores_data = []
+    for score in round_scores:
+        score_dict = score.to_dict()
+        # 添加裁判姓名
+        if hasattr(score, 'judge_name'):
+            score_dict['judge_name'] = score.judge_name
+        scores_data.append(score_dict)
+
+    return jsonify({
+        'success': True,
+        'data': {
             'scores': scores_data,
-            'round_number': round_number
-        })
-        
-    except Exception as e:
-        logger.error(f"获取轮次评分失败: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': '获取轮次评分失败'
-        }), 500
+            'round_number': round_number,
+        },
+        'scores': scores_data,
+        'round_number': round_number,
+    })

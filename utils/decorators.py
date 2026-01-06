@@ -10,6 +10,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+_simple_cache = {}
+
 def login_required(f):
     """登录验证装饰器"""
     @wraps(f)
@@ -203,19 +205,26 @@ def log_action(action_name):
             user_name = session.get('user_name', 'Unknown')
             
             # 记录操作开始
+            start_time = time.perf_counter()
             logger.info(f"用户 {user_name}(ID:{user_id}) 开始执行操作: {action_name}")
             
             try:
                 result = f(*args, **kwargs)
                 
+                duration_ms = (time.perf_counter() - start_time) * 1000
                 # 记录操作成功
-                logger.info(f"用户 {user_name}(ID:{user_id}) 成功完成操作: {action_name}")
+                logger.info(
+                    f"用户 {user_name}(ID:{user_id}) 成功完成操作: {action_name}, 耗时: {duration_ms:.1f} ms"
+                )
                 
                 return result
                 
             except Exception as e:
+                duration_ms = (time.perf_counter() - start_time) * 1000
                 # 记录操作失败
-                logger.error(f"用户 {user_name}(ID:{user_id}) 执行操作失败: {action_name}, 错误: {str(e)}")
+                logger.error(
+                    f"用户 {user_name}(ID:{user_id}) 执行操作失败: {action_name}, 耗时: {duration_ms:.1f} ms, 错误: {str(e)}"
+                )
                 raise
                 
         return decorated_function
@@ -234,12 +243,26 @@ def cache_result(timeout=300):
             # 简单示例，实际应用中需要更完善的实现
             
             # 生成缓存键
-            cache_key = f"{f.__name__}:{hash(str(args) + str(kwargs))}"
+            try:
+                key_base = f"{f.__name__}:{request.path}:{sorted(request.args.items())}"
+                user_id = session.get('user_id')
+                user_role = session.get('user_role')
+                cache_key = f"{key_base}:{user_id}:{user_role}"
+            except Exception:
+                cache_key = f"{f.__name__}:{hash(str(args) + str(kwargs))}"
             
             # 这里应该检查缓存并返回缓存结果
             # 如果没有缓存，执行函数并缓存结果
-            
-            return f(*args, **kwargs)
+            now = time.time()
+            entry = _simple_cache.get(cache_key)
+            if entry:
+                expires_at, value = entry
+                if now < expires_at:
+                    return value
+
+            result = f(*args, **kwargs)
+            _simple_cache[cache_key] = (now + timeout, result)
+            return result
         return decorated_function
     return decorator
 

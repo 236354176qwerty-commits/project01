@@ -2,10 +2,13 @@ from flask import jsonify, session
 import time
 
 from database import DatabaseManager
+from utils.decorators import log_action, handle_db_errors
 from . import maintenance_bp, log_maintenance_operation
 
 
 @maintenance_bp.route('/admin/maintenance/optimize', methods=['POST'])
+@log_action('执行数据库优化')
+@handle_db_errors
 def api_maintenance_optimize():
     if not session.get('logged_in'):
         return jsonify({'success': False, 'message': '请先登录'}), 401
@@ -45,6 +48,11 @@ def api_maintenance_optimize():
         return jsonify({
             'success': True,
             'message': f'数据库优化完成，成功优化 {optimized_count}/{len(tables)} 张表，耗时 {duration:.1f} 秒',
+            'data': {
+                'optimized_tables': optimized_count,
+                'total_tables': len(tables),
+                'duration_seconds': duration,
+            },
         })
 
     except Exception as e:

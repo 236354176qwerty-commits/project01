@@ -125,55 +125,50 @@ def register():
             'message': '手机号格式不正确'
         }), 400
     
-    try:
-        # 检查用户名是否已存在
-        existing_user = db_manager.get_user_by_username(username)
-        if existing_user:
-            return jsonify({
-                'success': False,
-                'message': '用户名已存在'
-            }), 400
-
-        # 检查手机号是否已存在
-        existing_phone = db_manager.get_user_by_phone(phone)
-        if existing_phone:
-            return jsonify({
-                'success': False,
-                'message': '该手机号已被注册'
-            }), 400
-        
-        # 创建新用户
-        new_user = User(
-            username=username,
-            password=password,  # 存储明文密码（与登录验证保持一致）
-            real_name=nickname,  # 使用昵称作为真实姓名字段
-            nickname=nickname,
-            email=None,  # 不再使用邮箱
-            phone=phone,
-            role=UserRole.USER
-        )
-        
-        # 保存到数据库
-        created_user = db_manager.create_user(new_user)
-        
-        # 注册成功，移除session中的验证码
-        session.pop('captcha', None)
-        logger.info(f"新用户注册成功: {username}")
-        
-        return jsonify({
-            'success': True,
-            'message': '注册成功，请登录',
-            'user': {
-                'id': created_user.user_id,
-                'username': created_user.username,
-                'nickname': created_user.nickname,
-                'phone': created_user.phone
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"注册失败: {str(e)}")
+    # 检查用户名是否已存在
+    existing_user = db_manager.get_user_by_username(username)
+    if existing_user:
         return jsonify({
             'success': False,
-            'message': '注册失败，请稍后重试'
-        }), 500
+            'message': '用户名已存在'
+        }), 400
+
+    # 检查手机号是否已存在
+    existing_phone = db_manager.get_user_by_phone(phone)
+    if existing_phone:
+        return jsonify({
+            'success': False,
+            'message': '该手机号已被注册'
+        }), 400
+    
+    # 创建新用户
+    new_user = User(
+        username=username,
+        password=password,  # 存储明文密码（与登录验证保持一致）
+        real_name=nickname,  # 使用昵称作为真实姓名字段
+        nickname=nickname,
+        email=None,  # 不再使用邮箱
+        phone=phone,
+        role=UserRole.USER
+    )
+    
+    # 保存到数据库
+    created_user = db_manager.create_user(new_user)
+
+    # 注册成功，移除session中的验证码
+    session.pop('captcha', None)
+    logger.info(f"新用户注册成功: {username}")
+
+    user_data = {
+        'id': created_user.user_id,
+        'username': created_user.username,
+        'nickname': created_user.nickname,
+        'phone': created_user.phone,
+    }
+    
+    return jsonify({
+        'success': True,
+        'message': '注册成功，请登录',
+        'data': user_data,
+        'user': user_data,
+    })

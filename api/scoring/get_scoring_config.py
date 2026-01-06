@@ -12,12 +12,13 @@ def get_scoring_config():
     """获取评分配置"""
     try:
         scoring_config = current_app.config.get('SCORING_CONFIG', {})
-        
+
         return jsonify({
             'success': True,
-            'config': scoring_config
+            'data': scoring_config,
+            'config': scoring_config,
         })
-        
+
     except Exception as e:
         logger.error(f"获取评分配置失败: {str(e)}")
         return jsonify({

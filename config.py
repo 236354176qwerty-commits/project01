@@ -56,6 +56,18 @@ class Config:
     # 日志配置
     LOG_LEVEL = os.environ.get('LOG_LEVEL') or 'INFO'
     LOG_FILE = os.environ.get('LOG_FILE') or 'wushu_system.log'
+
+    # 短信/阿里云号码认证服务配置
+    SMS_PROVIDER = os.environ.get('SMS_PROVIDER') or 'aliyun'
+    ALIYUN_ACCESS_KEY_ID = os.environ.get('ALIYUN_ACCESS_KEY_ID') or os.environ.get('ALIBABA_CLOUD_ACCESS_KEY_ID')
+    ALIYUN_ACCESS_KEY_SECRET = os.environ.get('ALIYUN_ACCESS_KEY_SECRET') or os.environ.get('ALIBABA_CLOUD_ACCESS_KEY_SECRET')
+    ALIYUN_SMS_SIGN_NAME = os.environ.get('ALIYUN_SMS_SIGN_NAME')
+    ALIYUN_SMS_TEMPLATE_CODE = os.environ.get('ALIYUN_SMS_TEMPLATE_CODE')
+    ALIYUN_SMS_SCHEME_NAME = os.environ.get('ALIYUN_SMS_SCHEME_NAME')
+    ALIYUN_SMS_INTERVAL = int(os.environ.get('ALIYUN_SMS_INTERVAL') or 60)
+    ALIYUN_SMS_VALID_TIME = int(os.environ.get('ALIYUN_SMS_VALID_TIME') or 300)
+    ALIYUN_SMS_COUNTRY_CODE = os.environ.get('ALIYUN_SMS_COUNTRY_CODE') or 'cn'
+    ALIYUN_DYPN_ENDPOINT = os.environ.get('ALIYUN_DYPN_ENDPOINT') or 'dypnsapi.aliyuncs.com'
     
     # 安全配置
     WTF_CSRF_ENABLED = True

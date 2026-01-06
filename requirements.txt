@@ -44,6 +44,11 @@ marshmallow>=3.20.0
 # HTTP request processing
 requests>=2.31.0
 
+# Aliyun SMS verification service (Dypnsapi)
+alibabacloud-dypnsapi20170525
+alibabacloud-tea-openapi
+alibabacloud-tea-util
+
 # Redis client (for OTP/session/caching)
 redis>=5.0.0
 

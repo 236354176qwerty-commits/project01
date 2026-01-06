@@ -7,15 +7,17 @@
 import random
 import string
 import time
-import hashlib
-import requests
 import logging
 from datetime import datetime, timedelta
 import os
 import json
-import hmac
-import base64
-from urllib.parse import quote, urlencode
+
+from alibabacloud_dypnsapi20170525.client import Client as Dypnsapi20170525Client
+from alibabacloud_tea_openapi import models as open_api_models
+from alibabacloud_dypnsapi20170525 import models as dypnsapi_20170525_models
+from alibabacloud_tea_util import models as util_models
+from alibabacloud_tea_util.client import Client as UtilClient
+from config import config as config_map
 
 logger = logging.getLogger(__name__)
 
@@ -167,165 +169,121 @@ class SMSService:
         return True, None
 
 
-class DemoSMSProvider(SMSService):
-    """
-    演示用短信服务商（开发测试用）
-    不实际发送短信，只在控制台打印
-    """
-    
-    @staticmethod
-    def send_verification_code(phone):
-        """发送验证码（演示模式）"""
-        try:
-            # 检查是否可以发送
-            can_send, error_msg = SMSService.can_resend(phone)
-            if not can_send:
-                return False, error_msg
-            
-            # 生成验证码
-            code = SMSService.generate_code()
-            
-            # 存储验证码
-            SMSService.store_code(phone, code)
-            
-            # 演示模式：只在控制台打印
-            logger.info(f"【演示模式】发送验证码到 {phone}: {code}")
-            print(f"\n{'='*50}")
-            print(f"【短信验证码 - 演示模式】")
-            print(f"手机号: {phone}")
-            print(f"验证码: {code}")
-            print(f"有效期: 5分钟")
-            print(f"{'='*50}\n")
-            
-            return True, code
-            
-        except Exception as e:
-            logger.error(f"发送验证码失败: {str(e)}")
-            return False, '发送失败，请稍后重试'
-
-
 class AliyunSMSProvider(SMSService):
     """
-    阿里云短信服务
-    文档: https://help.aliyun.com/document_detail/101414.html
+    阿里云短信验证服务（Dypnsapi）
+    使用阿里云官方 Python SDK 调用 SendSmsVerifyCode / CheckSmsVerifyCode。
     """
-    
+
     def __init__(self, access_key_id, access_key_secret, sign_name, template_code):
         self.access_key_id = access_key_id
         self.access_key_secret = access_key_secret
         self.sign_name = sign_name  # 短信签名
         self.template_code = template_code  # 短信模板CODE
-        self.endpoint = 'https://dysmsapi.aliyuncs.com/'
-    
-    @staticmethod
-    def _percent_encode(value):
-        return quote(str(value), safe='-_.~').replace('+', '%20').replace('*', '%2A').replace('%7E', '~')
 
-    def _sign(self, params):
-        sorted_params = sorted(params.items())
-        canonicalized = '&'.join(
-            f'{self._percent_encode(k)}={self._percent_encode(v)}' for k, v in sorted_params
-        )
-        string_to_sign = 'GET&%2F&' + self._percent_encode(canonicalized)
-        key = (self.access_key_secret + '&').encode('utf-8')
-        h = hmac.new(key, string_to_sign.encode('utf-8'), hashlib.sha1)
-        signature = base64.b64encode(h.digest()).decode('utf-8')
-        return self._percent_encode(signature)
+        env_name = os.environ.get('APP_ENV', 'default').lower()
+        config_cls = config_map.get(env_name, config_map['default'])
+
+        self.endpoint = getattr(config_cls, 'ALIYUN_DYPN_ENDPOINT', 'dypnsapi.aliyuncs.com')
+        self.scheme_name = getattr(config_cls, 'ALIYUN_SMS_SCHEME_NAME', None)
+        self.interval = getattr(config_cls, 'ALIYUN_SMS_INTERVAL', 60)
+        self.valid_time = getattr(config_cls, 'ALIYUN_SMS_VALID_TIME', 300)
+        self.country_code = getattr(config_cls, 'ALIYUN_SMS_COUNTRY_CODE', 'cn')
+
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            config = open_api_models.Config(
+                access_key_id=self.access_key_id,
+                access_key_secret=self.access_key_secret,
+            )
+            config.endpoint = self.endpoint
+            self._client = Dypnsapi20170525Client(config)
+        return self._client
 
     def send_verification_code(self, phone):
-        """发送验证码（阿里云）"""
+        """使用阿里云短信验证服务发送验证码"""
         try:
-            # 检查是否可以发送
-            can_send, error_msg = SMSService.can_resend(phone)
-            if not can_send:
-                return False, error_msg
-            
-            # 生成验证码
-            code = SMSService.generate_code()
-            
-            # 构建请求参数
-            params = {
-                'RegionId': os.getenv('ALIYUN_SMS_REGION_ID', 'cn-hangzhou'),
-                'AccessKeyId': self.access_key_id,
-                'Format': 'JSON',
-                'SignatureMethod': 'HMAC-SHA1',
-                'SignatureNonce': str(int(time.time() * 1000)),
-                'SignatureVersion': '1.0',
-                'Timestamp': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-                'Version': '2017-05-25',
-                'Action': 'SendSms',
-                'PhoneNumbers': phone,
-                'SignName': self.sign_name,
-                'TemplateCode': self.template_code,
-                'TemplateParam': json.dumps({'code': code}, ensure_ascii=False),
-                # 其他阿里云必需参数...
+            client = self._get_client()
+
+            valid_minutes = 5
+            try:
+                if self.valid_time:
+                    valid_minutes = max(1, int(self.valid_time // 60))
+            except Exception:
+                valid_minutes = 5
+
+            template_param = json.dumps({
+                "code": "##code##",
+                "min": str(valid_minutes),
+            }, ensure_ascii=False)
+
+            kwargs = {
+                "phone_number": phone,
+                "sign_name": self.sign_name,
+                "template_code": self.template_code,
+                "interval": self.interval,
+                "valid_time": self.valid_time,
+                "template_param": template_param,
+                "code_type": 1,
+                "code_length": 6,
             }
-            
-            # 发送请求
-            signature = self._sign(params)
-            query = urlencode({'Signature': signature, **params})
-            url = f'{self.endpoint}?{query}'
-            response = requests.get(url, timeout=5)
-            result = response.json()
-            
-            # if result.get('Code') == 'OK':
-            #     # 存储验证码
-            #     SMSService.store_code(phone, code)
-            #     logger.info(f"阿里云短信发送成功: {phone}")
-            #     return True, '验证码已发送'
-            # else:
-            #     logger.error(f"阿里云短信发送失败: {result}")
-            #     return False, '发送失败，请稍后重试'
-            
-            # 临时：使用演示模式
-            if result.get('Code') == 'OK':
-                SMSService.store_code(phone, code)
-                logger.info(f"阿里云短信发送成功: {phone}")
+            if self.scheme_name:
+                kwargs["scheme_name"] = self.scheme_name
+
+            request = dypnsapi_20170525_models.SendSmsVerifyCodeRequest(**kwargs)
+            runtime = util_models.RuntimeOptions()
+
+            response = client.send_sms_verify_code_with_options(request, runtime)
+            body = response.body
+
+            code_value = getattr(body, 'code', None) or getattr(body, 'Code', None)
+            if code_value == 'OK':
+                logger.info("阿里云短信验证服务发送成功: %s, response=%s", phone, body)
                 return True, '验证码已发送'
-            else:
-                logger.error(f"阿里云短信发送失败: {result}")
-                return False, result.get('Message', '发送失败，请稍后重试')
-            
+
+            message = getattr(body, 'message', None) or getattr(body, 'Message', None) or '发送失败，请稍后重试'
+            logger.error("阿里云短信验证服务发送失败: %s, code=%s, message=%s", phone, code_value, message)
+            return False, message
+
         except Exception as e:
-            logger.error(f"发送验证码失败: {str(e)}")
+            logger.error("发送验证码失败: %s", str(e))
             return False, '发送失败，请稍后重试'
 
-
-class TencentSMSProvider(SMSService):
-    """
-    腾讯云短信服务
-    文档: https://cloud.tencent.com/document/product/382
-    """
-    
-    def __init__(self, secret_id, secret_key, sms_sdk_app_id, sign_name, template_id):
-        self.secret_id = secret_id
-        self.secret_key = secret_key
-        self.sms_sdk_app_id = sms_sdk_app_id
-        self.sign_name = sign_name
-        self.template_id = template_id
-    
-    def send_verification_code(self, phone):
-        """发送验证码（腾讯云）"""
+    def verify_code(self, phone, code):
+        """使用阿里云短信验证服务校验验证码"""
         try:
-            # 检查是否可以发送
-            can_send, error_msg = SMSService.can_resend(phone)
-            if not can_send:
-                return False, error_msg
-            
-            # 生成验证码
-            code = SMSService.generate_code()
-            
-            # 腾讯云SMS实现...
-            # 临时：使用演示模式
-            logger.warning("腾讯云SMS未配置，使用演示模式")
-            return DemoSMSProvider.send_verification_code(phone)
-            
+            client = self._get_client()
+
+            kwargs = {
+                "phone_number": phone,
+                "verify_code": code,
+                "country_code": self.country_code,
+            }
+            if self.scheme_name:
+                kwargs["scheme_name"] = self.scheme_name
+
+            request = dypnsapi_20170525_models.CheckSmsVerifyCodeRequest(**kwargs)
+            runtime = util_models.RuntimeOptions()
+
+            response = client.check_sms_verify_code_with_options(request, runtime)
+            body = response.body
+
+            code_value = getattr(body, 'code', None) or getattr(body, 'Code', None)
+            if code_value == 'OK':
+                logger.info("阿里云短信验证服务校验成功: %s, response=%s", phone, body)
+                return True, '验证成功'
+
+            message = getattr(body, 'message', None) or getattr(body, 'Message', None) or '验证码验证失败'
+            logger.warning("阿里云短信验证服务校验失败: %s, code=%s, message=%s", phone, code_value, message)
+            return False, message
+
         except Exception as e:
-            logger.error(f"发送验证码失败: {str(e)}")
-            return False, '发送失败，请稍后重试'
+            logger.error("验证码验证失败: %s", str(e))
+            return False, '验证码验证失败，请稍后重试'
 
 
-# 默认使用演示模式
 def get_sms_provider():
     """
     获取短信服务提供商
@@ -333,42 +291,44 @@ def get_sms_provider():
     可以根据环境变量或配置选择不同的服务商：
     - demo: 演示模式（开发测试）
     - aliyun: 阿里云
-    - tencent: 腾讯云
     """
     import os
-    
-    provider_type = os.getenv('SMS_PROVIDER', 'demo').lower()
-    
-    if provider_type == 'aliyun':
-        # 从环境变量读取配置
-        access_key_id = os.getenv('ALIYUN_ACCESS_KEY_ID')
-        access_key_secret = os.getenv('ALIYUN_ACCESS_KEY_SECRET')
-        sign_name = os.getenv('ALIYUN_SMS_SIGN_NAME')
-        template_code = os.getenv('ALIYUN_SMS_TEMPLATE_CODE')
-        
-        if all([access_key_id, access_key_secret, sign_name, template_code]):
-            return AliyunSMSProvider(access_key_id, access_key_secret, sign_name, template_code)
-        else:
-            logger.warning("阿里云SMS配置不完整，使用演示模式")
-            return DemoSMSProvider()
-    
-    elif provider_type == 'tencent':
-        # 从环境变量读取配置
-        secret_id = os.getenv('TENCENT_SECRET_ID')
-        secret_key = os.getenv('TENCENT_SECRET_KEY')
-        sms_sdk_app_id = os.getenv('TENCENT_SMS_SDK_APP_ID')
-        sign_name = os.getenv('TENCENT_SMS_SIGN_NAME')
-        template_id = os.getenv('TENCENT_SMS_TEMPLATE_ID')
-        
-        if all([secret_id, secret_key, sms_sdk_app_id, sign_name, template_id]):
-            return TencentSMSProvider(secret_id, secret_key, sms_sdk_app_id, sign_name, template_id)
-        else:
-            logger.warning("腾讯云SMS配置不完整，使用演示模式")
-            return DemoSMSProvider()
-    
-    else:
-        # 默认使用演示模式
-        return DemoSMSProvider()
+
+    env_name = os.environ.get('APP_ENV', 'default').lower()
+    config_cls = config_map.get(env_name, config_map['default'])
+
+    provider_type = getattr(config_cls, 'SMS_PROVIDER', 'aliyun').lower()
+
+    # 从配置类读取（底层可由 .env / 环境变量或硬编码提供）
+    access_key_id = getattr(config_cls, 'ALIYUN_ACCESS_KEY_ID', None)
+    access_key_secret = getattr(config_cls, 'ALIYUN_ACCESS_KEY_SECRET', None)
+    sign_name = getattr(config_cls, 'ALIYUN_SMS_SIGN_NAME', None)
+    template_code = getattr(config_cls, 'ALIYUN_SMS_TEMPLATE_CODE', None)
+
+    if not all([access_key_id, access_key_secret, sign_name, template_code]):
+        missing = []
+        if not access_key_id:
+            missing.append('ALIYUN_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_ID')
+        if not access_key_secret:
+            missing.append('ALIYUN_ACCESS_KEY_SECRET / ALIBABA_CLOUD_ACCESS_KEY_SECRET')
+        if not sign_name:
+            missing.append('ALIYUN_SMS_SIGN_NAME')
+        if not template_code:
+            missing.append('ALIYUN_SMS_TEMPLATE_CODE')
+
+        print("阿里云SMS配置不完整，缺少: " + ", ".join(missing))
+        logger.error(
+            "阿里云SMS配置不完整，请检查环境变量: "
+            "ALIYUN_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_ID, "
+            "ALIYUN_ACCESS_KEY_SECRET / ALIBABA_CLOUD_ACCESS_KEY_SECRET, "
+            "ALIYUN_SMS_SIGN_NAME, ALIYUN_SMS_TEMPLATE_CODE"
+        )
+        raise RuntimeError("阿里云SMS配置不完整，无法初始化短信服务")
+
+    if provider_type != 'aliyun':
+        logger.warning("SMS_PROVIDER 非 aliyun，已强制使用阿里云短信验证服务")
+
+    return AliyunSMSProvider(access_key_id, access_key_secret, sign_name, template_code)
 
 
 # 创建全局SMS服务实例

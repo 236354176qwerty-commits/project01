@@ -17,7 +17,7 @@ load_dotenv()
 from config import config as config_map
 from models import UserRole, UserStatus
 from database import DatabaseManager
-
+#测试
 from api.account import auth_bp, users_bp
 from api.competition import events_bp, teams_bp, players_bp, participants_bp
 from api.communication import announcements_bp, notifications_bp

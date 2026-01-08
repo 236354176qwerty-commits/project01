@@ -119,7 +119,19 @@ def create_app():
                     flash('会话已失效，请重新登录。', 'error')
                     return redirect(url_for('login'))
 
-                if db_token and db_token != current_session_token:
+                # 数据库 token 为空/缺失：无法验证当前会话有效性，直接视为失效
+                if not db_token:
+                    session.clear()
+                    if path.startswith('/api/'):
+                        return jsonify({
+                            'success': False,
+                            'message': '会话已失效，请重新登录。',
+                            'force_logout': True,
+                        })
+                    flash('会话已失效，请重新登录。', 'error')
+                    return redirect(url_for('login'))
+
+                if db_token != current_session_token:
                     session.clear()
                     if path.startswith('/api/'):
                         return jsonify({

@@ -92,6 +92,54 @@ def create_app():
         if not username:
             return
 
+        current_user_id = session.get('user_id')
+        current_session_token = session.get('session_token')
+        if current_user_id:
+            try:
+                db_manager = DatabaseManager()
+                db_token = db_manager.get_user_session_token(current_user_id)
+
+                app.logger.info(
+                    "SSO check: path=%s user_id=%s has_session_token=%s has_db_token=%s",
+                    path,
+                    current_user_id,
+                    bool(current_session_token),
+                    bool(db_token),
+                )
+
+                # 已登录但缺少session_token：无法校验，直接视为失效
+                if not current_session_token:
+                    session.clear()
+                    if path.startswith('/api/'):
+                        return jsonify({
+                            'success': False,
+                            'message': '会话已失效，请重新登录。',
+                            'force_logout': True,
+                        })
+                    flash('会话已失效，请重新登录。', 'error')
+                    return redirect(url_for('login'))
+
+                if db_token and db_token != current_session_token:
+                    session.clear()
+                    if path.startswith('/api/'):
+                        return jsonify({
+                            'success': False,
+                            'message': '您的账号已在别处登录，请重新登录。',
+                            'force_logout': True,
+                        })
+                    flash('您的账号已在别处登录，请重新登录。', 'error')
+                    return redirect(url_for('login'))
+            except Exception:
+                session.clear()
+                if path.startswith('/api/'):
+                    return jsonify({
+                        'success': False,
+                        'message': '会话校验失败，请重新登录。',
+                        'force_logout': True,
+                    })
+                flash('会话校验失败，请重新登录。', 'error')
+                return redirect(url_for('login'))
+
         try:
             last_check = session.get('user_status_last_check')
             now_ts = time.time()

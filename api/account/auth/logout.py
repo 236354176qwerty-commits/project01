@@ -2,7 +2,7 @@ from flask import jsonify, session
 
 from utils.decorators import log_action
 
-from . import auth_bp, logger
+from . import auth_bp, db_manager, logger
 
 
 @auth_bp.route('/logout', methods=['POST'])
@@ -10,6 +10,13 @@ from . import auth_bp, logger
 def logout():
     """用户登出"""
     username = session.get('username', 'Unknown')
+
+    user_id = session.get('user_id')
+    if user_id:
+        try:
+            db_manager.update_user_session_token(user_id, None)
+        except Exception:
+            pass
     
     # 清除会话
     session.clear()

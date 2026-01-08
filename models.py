@@ -42,7 +42,7 @@ class User:
                  real_name=None, email=None, phone=None, role=UserRole.USER,
                  created_at=None, updated_at=None, is_active=True, status=UserStatus.NORMAL,
                  password=None, password_hash=None, nickname=None, team_name=None,
-                 id_card=None, gender=None, birthdate=None, deleted_at=None):
+                 session_token=None, id_card=None, gender=None, birthdate=None, deleted_at=None):
         self.user_id = user_id
         self.username = username
         self.real_name = real_name
@@ -65,6 +65,7 @@ class User:
             self.status = UserStatus.NORMAL
         self.password = password  # 明文密码
         self.password_hash = password_hash
+        self.session_token = session_token
         self.nickname = nickname  # 用户昵称
         self.team_name = team_name  # 运动队名称
         self.id_card = id_card

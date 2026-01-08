@@ -1,5 +1,7 @@
 from flask import request, jsonify, session
 
+import secrets
+
 from models import UserStatus
 from utils.decorators import validate_json, log_action, handle_db_errors
 from user_manager import user_manager
@@ -49,12 +51,21 @@ def login():
             'message': '用户名或密码错误'
         }), 401
 
+    # 单点登录：登录即生成新的会话标识，写入数据库；旧会话将被挤下线
+    session_token = secrets.token_hex(32)
+    try:
+        db_manager.update_user_session_token(user.user_id, session_token)
+    except Exception as e:
+        logger.error(f"更新用户session_token失败: {e}")
+        return jsonify({'success': False, 'message': '登录失败，请稍后重试'}), 500
+
     # 设置会话
     session['logged_in'] = True
     session['user_id'] = user.user_id
     session['user_name'] = user.nickname or user.username  # 优先使用昵称，没有昵称则使用用户名
     session['username'] = user.username
     session['user_role'] = user.role.value
+    session['session_token'] = session_token
     session.permanent = True
 
     logger.info(f"用户 {username} 登录成功")

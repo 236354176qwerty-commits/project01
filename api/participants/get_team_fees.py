@@ -37,7 +37,7 @@ def api_get_team_fees():
     with db_manager.get_connection() as conn:
         cursor = conn.cursor(dictionary=True)
 
-            # 若传入 team_id，则按 entries + events 单价计算该队伍费用（权威来源）
+        # 若传入 team_id，则按 entries + events 单价计算该队伍费用（权威来源）
         if event_id_int is not None and team_id_int is not None:
             cursor.execute(
                 """
@@ -72,42 +72,217 @@ def api_get_team_fees():
             cursor.execute(
                 """
                 SELECT
-                    entry_type,
+                    CASE
+                        WHEN ei.type = 'individual' AND ei.name LIKE '%%对练%%' THEN 'pair'
+                        WHEN ei.type = 'individual' AND ei.name LIKE '%%团体赛%%' THEN 'team'
+                        ELSE ei.type
+                    END AS item_type,
                     COUNT(*) AS cnt
-                FROM entries
-                WHERE event_id = %s
-                  AND team_id = %s
-                  AND status NOT IN ('withdrawn', 'disqualified')
-                GROUP BY entry_type
+                FROM entries e
+                JOIN event_items ei ON ei.event_item_id = e.event_item_id
+                WHERE e.event_id = %s
+                  AND e.team_id = %s
+                  AND e.status NOT IN ('withdrawn', 'disqualified')
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM participants p
+                      WHERE p.event_id = e.event_id
+                        AND p.registration_number = e.registration_number
+                  )
+                GROUP BY item_type
                 """,
                 (event_id_int, team_id_int),
             )
-            counts = {row['entry_type']: int(row['cnt'] or 0) for row in (cursor.fetchall() or [])}
+            counts = {row['item_type']: int(row['cnt'] or 0) for row in (cursor.fetchall() or [])}
 
-        individual_count = counts.get('individual', 0)
-        pair_count = counts.get('pair', 0)
-        team_count = counts.get('team', 0)
+            individual_count = counts.get('individual', 0)
+            pair_count = counts.get('pair', 0)
+            team_count = counts.get('team', 0)
 
-        used_source = 'entries_x_events'
+            used_source = 'entries_x_events'
 
-        # 历史/离线录入数据可能没有 entries.team_id 或未生成 entries，导致统计为 0。
-        # 这里回退到 team_players 解析项目字符串，保证队伍资料页费用不为 0。
-        if individual_count == 0 and pair_count == 0 and team_count == 0:
-            used_source = 'team_players_fallback'
+            # 历史/离线录入数据可能没有 entries.team_id 或未生成 entries，导致统计为 0。
+            # 这里回退到 team_players 解析项目字符串，保证队伍资料页费用不为 0。
+            if individual_count == 0 and pair_count == 0 and team_count == 0:
+                used_source = 'team_players_fallback'
+                cursor.execute(
+                    """
+                    SELECT
+                        competition_event,
+                        selected_events,
+                        COALESCE(pair_registered, 0) AS pair_registered,
+                        COALESCE(team_registered, 0) AS team_registered,
+                        COALESCE(registration_number, '') AS registration_number
+                    FROM team_players
+                    WHERE event_id = %s AND team_id = %s
+                    """,
+                    (event_id_int, team_id_int),
+                )
+                player_rows = cursor.fetchall() or []
+
+                pair_token_regex = re.compile(r'(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)')
+
+                def count_individual_from_text(text: str) -> int:
+                    if not text:
+                        return 0
+                    segments = [s.strip() for s in text.split('、') if s.strip()]
+                    segments = [
+                        s
+                        for s in segments
+                        if (
+                            '对练' not in s
+                            and '团体赛' not in s
+                            and not pair_token_regex.search(s)
+                        )
+                    ]
+                    return len(segments)
+
+                def count_pair_from_text(text: str) -> int:
+                    if not text:
+                        return 0
+                    return len(pair_token_regex.findall(text))
+
+                individual_projects = 0
+                pair_projects = 0
+                has_team_competition = False
+                for r in player_rows:
+                    competition_text = (r.get('competition_event') or '').strip()
+                    selected_text = (r.get('selected_events') or '').strip()
+
+                    individual_projects += count_individual_from_text(competition_text)
+                    pair_projects += count_pair_from_text(competition_text)
+
+                    if not has_team_competition:
+                        if r.get('team_registered'):
+                            has_team_competition = True
+                        elif '团体赛' in competition_text:
+                            has_team_competition = True
+
+                    if not competition_text and r.get('pair_registered'):
+                        pair_projects += 1
+
+                    if not competition_text and selected_text:
+                        individual_projects += count_individual_from_text(selected_text)
+                        pair_projects += count_pair_from_text(selected_text)
+                        if not has_team_competition and '团体赛' in selected_text:
+                            has_team_competition = True
+
+                pair_groups = pair_projects // 2
+                individual_count = individual_projects
+                pair_count = pair_groups
+                team_count = 1 if has_team_competition else 0
+
+            individual_fee = individual_count * individual_unit
+            pair_fee = pair_count * pair_unit
+            team_fee = team_count * team_unit
+            other_fee = 0.0
+            total_fee = individual_fee + pair_fee + team_fee + other_fee
+
+            team_fee_data = {
+                'team_id': team_id_int,
+                'team_name': team_name,
+                'event_id': event_id_int,
+                'individual_fee': float(individual_fee),
+                'pair_fee': float(pair_fee),
+                'team_fee': float(team_fee),
+                'other_fee': float(other_fee),
+                'total_fee': float(total_fee),
+                'counts': {
+                    'individual': individual_count,
+                    'pair': pair_count,
+                    'team': team_count,
+                },
+                'units': {
+                    'individual_fee': float(individual_unit),
+                    'pair_practice_fee': float(pair_unit),
+                    'team_competition_fee': float(team_unit),
+                },
+            }
+
+            debug_info = {
+                'data_source': used_source,
+                'event_id': event_id,
+                'team_id': team_id,
+            }
+
+            return jsonify({
+                'success': True,
+                'data': team_fee_data,
+                'team_fee': team_fee_data,
+                'debug_info': debug_info,
+            })
+
+        # 列表模式：仅传 event_id（用于管理员导出等）
+        if event_id_int is not None:
             cursor.execute(
                 """
                 SELECT
-                    competition_event,
-                    selected_events,
-                    COALESCE(pair_registered, 0) AS pair_registered,
-                    COALESCE(team_registered, 0) AS team_registered,
-                    COALESCE(registration_number, '') AS registration_number
-                FROM team_players
-                WHERE event_id = %s AND team_id = %s
+                    COALESCE(individual_fee, 0) AS individual_fee,
+                    COALESCE(pair_practice_fee, 0) AS pair_practice_fee,
+                    COALESCE(team_competition_fee, 0) AS team_competition_fee,
+                    name AS event_name
+                FROM events
+                WHERE event_id = %s
+                LIMIT 1
                 """,
-                (event_id_int, team_id_int),
+                (event_id_int,),
             )
-            player_rows = cursor.fetchall() or []
+            fee_row = cursor.fetchone() or {}
+            individual_unit = float(fee_row.get('individual_fee') or 0)
+            pair_unit = float(fee_row.get('pair_practice_fee') or 0)
+            team_unit = float(fee_row.get('team_competition_fee') or 0)
+            event_name = fee_row.get('event_name') or ''
+
+            cursor.execute(
+                """
+                SELECT
+                    team_id,
+                    team_name
+                FROM teams
+                WHERE event_id = %s
+                  AND status = 'active'
+                ORDER BY team_name
+                """,
+                (event_id_int,),
+            )
+            team_rows = cursor.fetchall() or []
+            team_ids = [int(r.get('team_id')) for r in team_rows if r.get('team_id') is not None]
+
+            counts_by_team = {}
+            if team_ids:
+                placeholders = ','.join(['%s'] * len(team_ids))
+                cursor.execute(
+                    f"""
+                    SELECT
+                        e.team_id,
+                        CASE
+                            WHEN ei.type = 'individual' AND ei.name LIKE '%%对练%%' THEN 'pair'
+                            WHEN ei.type = 'individual' AND ei.name LIKE '%%团体赛%%' THEN 'team'
+                            ELSE ei.type
+                        END AS item_type,
+                        COUNT(*) AS cnt
+                    FROM entries e
+                    JOIN event_items ei ON ei.event_item_id = e.event_item_id
+                    WHERE e.event_id = %s
+                      AND e.team_id IN ({placeholders})
+                      AND e.status NOT IN ('withdrawn', 'disqualified')
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM participants p
+                          WHERE p.event_id = e.event_id
+                            AND p.registration_number = e.registration_number
+                      )
+                    GROUP BY e.team_id, item_type
+                    """,
+                    tuple([event_id_int] + team_ids),
+                )
+                for row in (cursor.fetchall() or []):
+                    tid = int(row.get('team_id'))
+                    if tid not in counts_by_team:
+                        counts_by_team[tid] = {'individual': 0, 'pair': 0, 'team': 0}
+                    item_type = row.get('item_type')
+                    if item_type in ('individual', 'pair', 'team'):
+                        counts_by_team[tid][item_type] += int(row.get('cnt') or 0)
 
             pair_token_regex = re.compile(r'(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)')
 
@@ -115,8 +290,15 @@ def api_get_team_fees():
                 if not text:
                     return 0
                 segments = [s.strip() for s in text.split('、') if s.strip()]
-                # 排除对练/团体，剩余视为单人项目
-                segments = [s for s in segments if ('对练' not in s and '团体赛' not in s)]
+                segments = [
+                    s
+                    for s in segments
+                    if (
+                        '对练' not in s
+                        and '团体赛' not in s
+                        and not pair_token_regex.search(s)
+                    )
+                ]
                 return len(segments)
 
             def count_pair_from_text(text: str) -> int:
@@ -124,162 +306,111 @@ def api_get_team_fees():
                     return 0
                 return len(pair_token_regex.findall(text))
 
-            individual_projects = 0
-            pair_projects = 0
-            has_team_competition = False
-            for r in player_rows:
-                competition_text = (r.get('competition_event') or '').strip()
-                selected_text = (r.get('selected_events') or '').strip()
+            team_fees_list = []
+            for team in team_rows:
+                tid = int(team.get('team_id'))
+                tname = team.get('team_name') or '未知队伍'
+                counts = counts_by_team.get(tid, {'individual': 0, 'pair': 0, 'team': 0})
 
-                # selected_events 多为文本/JSON，不强依赖格式，优先用 competition_event 做解析
-                individual_projects += count_individual_from_text(competition_text)
-                pair_projects += count_pair_from_text(competition_text)
+                individual_count = int(counts.get('individual') or 0)
+                pair_count = int(counts.get('pair') or 0)
+                team_count = int(counts.get('team') or 0)
+                used_source = 'entries_x_events'
 
-                if not has_team_competition:
-                    if r.get('team_registered'):
-                        has_team_competition = True
-                    elif '团体赛' in competition_text:
-                        has_team_competition = True
+                if individual_count == 0 and pair_count == 0 and team_count == 0:
+                    used_source = 'team_players_fallback'
+                    cursor.execute(
+                        """
+                        SELECT
+                            competition_event,
+                            selected_events,
+                            COALESCE(pair_registered, 0) AS pair_registered,
+                            COALESCE(team_registered, 0) AS team_registered
+                        FROM team_players
+                        WHERE event_id = %s AND team_id = %s
+                        """,
+                        (event_id_int, tid),
+                    )
+                    player_rows = cursor.fetchall() or []
 
-                # 兜底：若 competition_event 为空但有 pair_registered 标记
-                if not competition_text and r.get('pair_registered'):
-                    pair_projects += 1
+                    individual_projects = 0
+                    pair_projects = 0
+                    has_team_competition = False
+                    for r in player_rows:
+                        competition_text = (r.get('competition_event') or '').strip()
+                        selected_text = (r.get('selected_events') or '').strip()
+                        individual_projects += count_individual_from_text(competition_text)
+                        pair_projects += count_pair_from_text(competition_text)
+                        if not has_team_competition:
+                            if r.get('team_registered'):
+                                has_team_competition = True
+                            elif '团体赛' in competition_text:
+                                has_team_competition = True
+                        if not competition_text and r.get('pair_registered'):
+                            pair_projects += 1
+                        if not competition_text and selected_text:
+                            individual_projects += count_individual_from_text(selected_text)
+                            pair_projects += count_pair_from_text(selected_text)
+                            if not has_team_competition and '团体赛' in selected_text:
+                                has_team_competition = True
 
-                # 极兜底：都没有但有 selected_events 文本，就按分隔符拆
-                if not competition_text and selected_text:
-                    individual_projects += len([s for s in selected_text.split('、') if s.strip()])
+                    pair_groups = pair_projects // 2
+                    individual_count = individual_projects
+                    pair_count = pair_groups
+                    team_count = 1 if has_team_competition else 0
 
-            pair_groups = pair_projects // 2
-            individual_count = individual_projects
-            pair_count = pair_groups
-            team_count = 1 if has_team_competition else 0
+                individual_fee = individual_count * individual_unit
+                pair_fee = pair_count * pair_unit
+                team_fee = team_count * team_unit
+                other_fee = 0.0
+                total_fee = individual_fee + pair_fee + team_fee + other_fee
 
-            counts = {
-                'individual': individual_count,
-                'pair': pair_count,
-                'team': team_count,
+                team_fees_list.append({
+                    'team_id': tid,
+                    'team_name': tname,
+                    'event_name': event_name,
+                    'leader_name': '',
+                    'individual_fee': float(individual_fee),
+                    'pair_fee': float(pair_fee),
+                    'team_fee': float(team_fee),
+                    'other_fee': float(other_fee),
+                    'total_fee': float(total_fee),
+                    'participants': [],
+                    'debug_source': used_source,
+                })
+
+            debug_info = {
+                'data_source': 'teams_entries_x_events',
+                'teams_count': len(team_fees_list),
+                'event_id': event_id,
             }
 
-        individual_fee = individual_count * individual_unit
-        pair_fee = pair_count * pair_unit
-        team_fee = team_count * team_unit
-        other_fee = 0.0
-        total_fee = individual_fee + pair_fee + team_fee + other_fee
+            return jsonify({
+                'success': True,
+                'data': team_fees_list,
+                'team_fees': team_fees_list,
+                'debug_info': debug_info,
+            })
 
-        team_fee_data = {
-            'team_id': team_id_int,
-            'team_name': team_name,
-            'event_id': event_id_int,
-            'individual_fee': float(individual_fee),
-            'pair_fee': float(pair_fee),
-            'team_fee': float(team_fee),
-            'other_fee': float(other_fee),
-            'total_fee': float(total_fee),
-            'counts': {
-                'individual': individual_count,
-                'pair': pair_count,
-                'team': team_count,
-            },
-            'units': {
-                'individual_fee': float(individual_unit),
-                'pair_practice_fee': float(pair_unit),
-                'team_competition_fee': float(team_unit),
-            },
-        }
-
-        debug_info = {
-            'data_source': used_source,
-            'event_id': event_id,
-            'team_id': team_id,
-        }
-
-        return jsonify({
-            'success': True,
-            'data': team_fee_data,
-            'team_fee': team_fee_data,
-            'debug_info': debug_info,
-        })
-
-        # 允许待审核(pending)和已审核(approved)的队伍费用都参与统计
-        params = []
-
-        # 列表模式：以 teams 为主表，确保导出/统计覆盖赛事内所有已提交队伍
-        if event_id_int is not None:
-            params.append(event_id_int)
-            query = """
-                SELECT
-                    t.team_name,
-                    e.name AS event_name,
-                    COALESCE(ta_id.applicant_name, ta_name.applicant_name, '') AS leader_name,
-                    COALESCE(ta_id.individual_fee, ta_name.individual_fee, 0) AS individual_fee,
-                    COALESCE(ta_id.pair_practice_fee, ta_name.pair_practice_fee, 0) AS pair_fee,
-                    COALESCE(ta_id.team_competition_fee, ta_name.team_competition_fee, 0) AS team_fee,
-                    COALESCE(ta_id.other_fee, ta_name.other_fee, 0) AS other_fee,
-                    COALESCE(ta_id.total_fee, ta_name.total_fee, 0) AS total_fee
-                FROM teams t
-                JOIN events e ON e.event_id = t.event_id
-                LEFT JOIN (
-                    SELECT
-                        ta.*
-                    FROM team_applications ta
-                    JOIN (
-                        SELECT
-                            event_id,
-                            team_id,
-                            MAX(application_id) AS max_id
-                        FROM team_applications
-                        WHERE status IN ('pending', 'approved')
-                          AND team_id IS NOT NULL
-                        GROUP BY event_id, team_id
-                    ) latest
-                      ON latest.max_id = ta.application_id
-                ) ta_id
-                  ON ta_id.event_id = t.event_id
-                 AND ta_id.team_id = t.team_id
-                LEFT JOIN (
-                    SELECT
-                        ta.*
-                    FROM team_applications ta
-                    JOIN (
-                        SELECT
-                            event_id,
-                            team_name,
-                            MAX(application_id) AS max_id
-                        FROM team_applications
-                        WHERE status IN ('pending', 'approved')
-                          AND (team_id IS NULL OR team_id = 0)
-                        GROUP BY event_id, team_name
-                    ) latest
-                      ON latest.max_id = ta.application_id
-                ) ta_name
-                  ON ta_name.event_id = t.event_id
-                 AND ta_name.team_name = t.team_name
-                WHERE t.event_id = %s
-                  AND t.status = 'active'
-                  AND t.submitted_for_review = 1
-                ORDER BY t.team_name
+        # 未指定赛事时维持原逻辑：返回 team_applications 里的所有队伍费用
+        cursor.execute(
             """
-            cursor.execute(query, tuple(params))
-            rows = cursor.fetchall()
-        else:
-            # 未指定赛事时维持原逻辑：返回 team_applications 里的所有队伍费用
-            query = """
-                SELECT
-                    ta.team_name,
-                    e.name AS event_name,
-                    ta.applicant_name AS leader_name,
-                    COALESCE(ta.individual_fee, 0) AS individual_fee,
-                    COALESCE(ta.pair_practice_fee, 0) AS pair_fee,
-                    COALESCE(ta.team_competition_fee, 0) AS team_fee,
-                    COALESCE(ta.other_fee, 0) AS other_fee,
-                    COALESCE(ta.total_fee, 0) AS total_fee
-                FROM team_applications ta
-                JOIN events e ON ta.event_id = e.event_id
-                WHERE ta.status IN ('pending', 'approved')
-                ORDER BY ta.team_name
+            SELECT
+                ta.team_name,
+                e.name AS event_name,
+                ta.applicant_name AS leader_name,
+                COALESCE(ta.individual_fee, 0) AS individual_fee,
+                COALESCE(ta.pair_practice_fee, 0) AS pair_fee,
+                COALESCE(ta.team_competition_fee, 0) AS team_fee,
+                COALESCE(ta.other_fee, 0) AS other_fee,
+                COALESCE(ta.total_fee, 0) AS total_fee
+            FROM team_applications ta
+            JOIN events e ON ta.event_id = e.event_id
+            WHERE ta.status IN ('pending', 'approved')
+            ORDER BY ta.team_name
             """
-            cursor.execute(query)
-            rows = cursor.fetchall()
+        )
+        rows = cursor.fetchall() or []
 
     team_fees_list = []
     for row in rows:
@@ -296,7 +427,7 @@ def api_get_team_fees():
         })
 
     debug_info = {
-        'data_source': 'teams_left_join_team_applications' if event_id_int is not None else 'team_applications',
+        'data_source': 'team_applications',
         'teams_count': len(team_fees_list),
         'event_id': event_id,
     }

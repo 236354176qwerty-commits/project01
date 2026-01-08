@@ -223,6 +223,16 @@ async function loadPlayerRegistrations(eventId, eventName) {
             return;
         }
 
+        try {
+            sessionStorage.setItem(`selectedTeamId_${eventId}`, String(targetTeamId));
+            const teamNameToStore = (currentEventTeam && (currentEventTeam.teamName || currentEventTeam.name)) || '';
+            if (teamNameToStore) {
+                sessionStorage.setItem(`selectedTeamName_${eventId}`, String(teamNameToStore));
+            }
+        } catch (e) {
+            console.warn('写入 selectedTeamId 失败:', e);
+        }
+
         const [playersResp, staffResp] = await Promise.all([
             fetch(`/api/team/${targetTeamId}/players`),
             fetch(`/api/team/${targetTeamId}/staff`)
@@ -650,6 +660,20 @@ function goToParticipantOverview() {
     params.set('event_id', eventId);
     if (eventName) {
         params.set('event_name', eventName);
+    }
+
+    const teamId = urlParams.get('team_id')
+        || (currentEventTeam && currentEventTeam.id)
+        || sessionStorage.getItem(`selectedTeamId_${eventId}`);
+    if (teamId) {
+        params.set('team_id', String(teamId));
+    }
+
+    const teamName = urlParams.get('team_name')
+        || (currentEventTeam && (currentEventTeam.teamName || currentEventTeam.name))
+        || sessionStorage.getItem(`selectedTeamName_${eventId}`);
+    if (teamName) {
+        params.set('team_name', String(teamName));
     }
 
     window.location.href = `/participant_overview?${params.toString()}`;

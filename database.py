@@ -262,6 +262,11 @@ class DatabaseManager(
             if not cursor.fetchone():
                 cursor.execute("ALTER TABLE users ADD COLUMN deleted_at TIMESTAMP NULL DEFAULT NULL COMMENT '删除时间' AFTER status")
                 logger.info("添加了deleted_at列到users表")
+
+            cursor.execute("SHOW COLUMNS FROM users LIKE 'session_token'")
+            if not cursor.fetchone():
+                cursor.execute("ALTER TABLE users ADD COLUMN session_token VARCHAR(64) DEFAULT NULL COMMENT '单点登录会话标识' AFTER password_hash")
+                logger.info("添加了session_token列到users表")
             
             # 确保events表存在registration_start_time列
             try:

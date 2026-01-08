@@ -46,6 +46,81 @@ def api_update_team_staff(team_id, staff_id):
         fields = []
         params = []
 
+        current_position = (staff.get('position') or '').strip() or None
+        new_position = (data.get('position') or current_position or '').strip() or None
+        new_phone = (data.get('phone') or staff.get('phone') or '').strip() or None
+        new_id_card = (data.get('id_card') or data.get('idCard') or staff.get('id_card') or '').strip() or None
+
+        if current_position == 'staff' and new_position in ('coach', 'medical'):
+            cursor.close()
+            return jsonify({
+                'success': False,
+                'message': '该人员已登记为随行人员，不能变更为教练/医务人员'
+            }), 400
+
+        if new_position == 'staff':
+            cursor.execute(
+                """
+                SELECT 1
+                FROM team_players tp
+                WHERE tp.event_id = %s
+                  AND tp.status NOT IN ('withdrawn', 'disqualified')
+                  AND ((%s IS NOT NULL AND tp.id_card = %s) OR (%s IS NOT NULL AND tp.phone = %s))
+                LIMIT 1
+                """,
+                (team.get('event_id'), new_id_card, new_id_card, new_phone, new_phone),
+            )
+            player_conflict = cursor.fetchone()
+            if player_conflict:
+                cursor.close()
+                return jsonify({
+                    'success': False,
+                    'message': '该人员已在本赛事登记为参赛人员，不能登记为随行人员'
+                }), 400
+
+            cursor.execute(
+                """
+                SELECT 1
+                FROM team_staff ts
+                WHERE ts.event_id = %s
+                  AND ts.status = 'active'
+                  AND ts.position IN ('coach', 'medical')
+                  AND ts.staff_id <> %s
+                  AND ((%s IS NOT NULL AND ts.id_card = %s) OR (%s IS NOT NULL AND ts.phone = %s))
+                LIMIT 1
+                """,
+                (team.get('event_id'), staff_id, new_id_card, new_id_card, new_phone, new_phone),
+            )
+            role_conflict = cursor.fetchone()
+            if role_conflict:
+                cursor.close()
+                return jsonify({
+                    'success': False,
+                    'message': '该人员已在本赛事登记为教练/医务人员，不能登记为随行人员'
+                }), 400
+
+        if new_position in ('coach', 'medical'):
+            cursor.execute(
+                """
+                SELECT 1
+                FROM team_staff ts
+                WHERE ts.event_id = %s
+                  AND ts.status = 'active'
+                  AND ts.position = 'staff'
+                  AND ts.staff_id <> %s
+                  AND ((%s IS NOT NULL AND ts.id_card = %s) OR (%s IS NOT NULL AND ts.phone = %s))
+                LIMIT 1
+                """,
+                (team.get('event_id'), staff_id, new_id_card, new_id_card, new_phone, new_phone),
+            )
+            staff_conflict = cursor.fetchone()
+            if staff_conflict:
+                cursor.close()
+                return jsonify({
+                    'success': False,
+                    'message': '该人员已在本赛事登记为随行人员，不能登记为教练/医务人员'
+                }), 400
+
         if 'name' in data:
             fields.append("name = %s")
             params.append(data.get('name'))
@@ -90,13 +165,13 @@ def api_update_team_staff(team_id, staff_id):
             cursor.execute(sql, tuple(params))
             conn.commit()
         except Exception as e:
+            conn.rollback()
             message = str(e)
-            # 唯一键冲突（同一赛事+队伍+身份证号），给出友好提示
             if '1062' in message and 'uniq_staff_identity' in message:
                 cursor.close()
                 return jsonify({
                     'success': False,
-                    'message': '该身份证号已在当前赛事本队登记为随队人员，不能重复使用'
+                    'message': '该身份证号已在当前赛事本队登记为随行人员，不能重复使用'
                 }), 400
             cursor.close()
             return jsonify({'success': False, 'message': f'更新随队人员信息失败: {message}'}), 500

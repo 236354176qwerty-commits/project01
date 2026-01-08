@@ -644,8 +644,8 @@ function resendSmsCode() {
                 $('#smsVerificationCode').val('');
                 $('.sms-code-input').first().focus();
                 
-                // 60秒后才能再次发送
-                let countdown = 60;
+                // 30秒后才能再次发送
+                let countdown = 30;
                 const timer = setInterval(() => {
                     countdown--;
                     resendLink.text(`${countdown}秒后重新发送`);

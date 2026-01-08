@@ -150,13 +150,6 @@
       }
       .navbar .nav-link.active i { color: #c41e3a !important; }
       
-      /* 为非超级管理员用户的导航项添加额外间距，避免拥挤 */
-      {% if is_logged_in and user_role != 'super_admin' %}
-      .navbar-nav > li:not(:last-child) {
-        margin-right: 15px;
-      }
-      {% endif %}
-      
       /* 确保导航栏和下拉菜单可以正常点击 */
       .navbar {
         position: relative;
@@ -596,6 +589,14 @@
         z-index: 1055;
       }
     </style>
+
+    {% if is_logged_in and user_role != 'super_admin' %}
+    <style>
+      .navbar-nav > li:not(:last-child) {
+        margin-right: 15px;
+      }
+    </style>
+    {% endif %}
 </head>
 <body>
     <!-- 全局飘落的竹叶特效 -->
@@ -708,15 +709,28 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <!-- 将flash消息转换为JavaScript弹窗 -->
+                <script id="flashMessagesData" type="application/json">{{ messages|tojson|safe }}</script>
                 <script>
                 document.addEventListener('DOMContentLoaded', function() {
-                    {% for category, message in messages %}
+                    let flashMessages = [];
+                    try {
+                        const el = document.getElementById('flashMessagesData');
+                        if (el && el.textContent) {
+                            flashMessages = JSON.parse(el.textContent);
+                        }
+                    } catch (e) {
+                        flashMessages = [];
+                    }
+                    flashMessages.forEach(function(item) {
+                        const category = item[0];
+                        const message = item[1];
+                        const mappedCategory = category === 'error' ? 'error' : category;
                         setTimeout(function() {
                             if (typeof showCenterMessage === 'function') {
-                                showCenterMessage('{{ message|safe }}', '{{ "error" if category == "error" else category }}');
+                                showCenterMessage(message, mappedCategory);
                             }
                         }, 100);
-                    {% endfor %}
+                    });
                 });
                 </script>
             {% endif %}
@@ -1241,6 +1255,34 @@
             }
         });
     });
+    
+    // 全局 fetch 拦截 - 检查强制登出
+    (function() {
+        const originalFetch = window.fetch;
+        if (!originalFetch) {
+            return;
+        }
+        window.fetch = function() {
+            return originalFetch.apply(this, arguments).then(async function(response) {
+                try {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        const clone = response.clone();
+                        const data = await clone.json();
+                        if (data && data.force_logout) {
+                            showCenterMessage(data.message || '您的账号已在别处登录，请重新登录。', 'error');
+                            setTimeout(function() {
+                                window.location.href = '/login';
+                            }, 2000);
+                        }
+                    }
+                } catch (e) {
+                    // ignore
+                }
+                return response;
+            });
+        };
+    })();
     
     // 刷新用户session数据
     function refreshUserSession() {

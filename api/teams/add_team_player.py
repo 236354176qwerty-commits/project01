@@ -121,6 +121,26 @@ def api_add_team_player(team_id):
             cursor.close()
             return jsonify({'success': False, 'message': '您没有权限为该队伍添加选手'}), 403
 
+        cursor.execute(
+            """
+            SELECT 1
+            FROM team_staff ts
+            WHERE ts.event_id = %s
+              AND ts.status = 'active'
+              AND ts.position = 'staff'
+              AND ((%s IS NOT NULL AND ts.id_card = %s) OR (%s IS NOT NULL AND ts.phone = %s))
+            LIMIT 1
+            """,
+            (event_id, id_card, id_card, phone, phone),
+        )
+        staff_conflict = cursor.fetchone()
+        if staff_conflict:
+            cursor.close()
+            return jsonify({
+                'success': False,
+                'message': '该人员已在本赛事登记为随行人员，不能登记为参赛人员'
+            }), 400
+
         try:
             user = db_manager.get_user_by_phone(phone)
         except Exception:

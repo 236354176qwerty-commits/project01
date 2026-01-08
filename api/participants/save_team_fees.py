@@ -18,6 +18,7 @@ def api_save_team_fees():
     data = request.get_json() or {}
 
     event_id = data.get('event_id') or data.get('eventId')
+    team_id = data.get('team_id') or data.get('teamId')
     team_name = (data.get('team_name') or data.get('teamName') or '').strip()
 
     fees = data.get('fees') or {}
@@ -39,20 +40,40 @@ def api_save_team_fees():
     except (TypeError, ValueError):
         return jsonify({'success': False, 'message': 'event_id 无效'}), 400
 
+    team_id_int = None
+    if team_id not in (None, '', 0, '0'):
+        try:
+            team_id_int = int(team_id)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'message': 'team_id 无效'}), 400
+
     db_manager = DatabaseManager()
     with db_manager.get_connection() as conn:
         cursor = conn.cursor(dictionary=True)
 
-        # 尝试查找现有记录（同一赛事下按队名唯一）
-        cursor.execute(
-            """
-            SELECT application_id
-            FROM team_applications
-            WHERE event_id = %s AND team_name = %s
-            LIMIT 1
-            """,
-            (event_id_int, team_name),
-        )
+        # 尝试查找现有记录：优先按 (event_id, team_id) 唯一更新，避免同名/历史记录导致费用回流
+        if team_id_int is not None:
+            cursor.execute(
+                """
+                SELECT application_id
+                FROM team_applications
+                WHERE event_id = %s AND team_id = %s
+                ORDER BY application_id DESC
+                LIMIT 1
+                """,
+                (event_id_int, team_id_int),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT application_id
+                FROM team_applications
+                WHERE event_id = %s AND team_name = %s
+                ORDER BY application_id DESC
+                LIMIT 1
+                """,
+                (event_id_int, team_name),
+            )
         row = cursor.fetchone()
 
         now = datetime.now()
@@ -126,6 +147,16 @@ def api_save_team_fees():
                 ),
             )
 
+            if team_id_int is not None:
+                cursor.execute(
+                    """
+                    UPDATE team_applications
+                    SET team_id = %s
+                    WHERE application_id = LAST_INSERT_ID()
+                    """,
+                    (team_id_int,),
+                )
+
         conn.commit()
         cursor.close()
 
@@ -134,6 +165,7 @@ def api_save_team_fees():
         'message': '队伍费用已同步到云端',
         'data': {
             'event_id': event_id_int,
+            'team_id': team_id_int,
             'team_name': team_name,
             'total_fee': total_fee,
         },

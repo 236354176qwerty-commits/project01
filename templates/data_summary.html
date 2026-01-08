@@ -933,6 +933,13 @@ function goBackToParticipantOverview() {
             params.set('event_name', eventName);
         }
 
+        const teamId = (summaryData.team && (summaryData.team.id || summaryData.team.team_id || summaryData.team.teamId))
+            || (window.currentEventTeam && window.currentEventTeam.id)
+            || urlParams.get('team_id');
+        if (teamId) {
+            params.set('team_id', String(teamId));
+        }
+
         window.location.href = (adminView ? '/team_review_list?' : '/participant_overview?') + params.toString();
     } catch (e) {
         console.warn('返回参赛人员列表时出错，直接回退：', e);
@@ -1078,7 +1085,7 @@ async function cleanupDeletedSubmittedSnapshots() {
         }
         snapshotsMap[key] = parsed;
         parsed.forEach(snapshot => {
-            const teamId = extractTeamIdFromSnapshot(snapshot);
+            const teamId = getTeamIdFromSnapshot(snapshot);
             if (teamId) {
                 teamIds.add(String(teamId));
             }
@@ -1098,7 +1105,7 @@ async function cleanupDeletedSubmittedSnapshots() {
 
     storageKeys.forEach(key => {
         const filtered = (snapshotsMap[key] || []).filter(snapshot => {
-            const teamId = extractTeamIdFromSnapshot(snapshot);
+            const teamId = getTeamIdFromSnapshot(snapshot);
             if (!teamId) {
                 return false;
             }
@@ -1130,17 +1137,21 @@ async function checkTeamStillExists(teamId) {
     }
 }
 
-function extractTeamIdFromSnapshot(snapshot) {
-    if (!snapshot || typeof snapshot !== 'object') {
+function getTeamIdFromSnapshot(snapshot) {
+    if (!snapshot) {
         return null;
     }
-    if (snapshot.teamId) {
-        return snapshot.teamId;
+    if (snapshot.teamId || snapshot.team_id) {
+        return snapshot.teamId || snapshot.team_id;
     }
-    if (snapshot.team && (snapshot.team.id || snapshot.team.teamId)) {
-        return snapshot.team.id || snapshot.team.teamId;
+    if (snapshot.team && (snapshot.team.id || snapshot.team.teamId || snapshot.team.team_id)) {
+        return snapshot.team.id || snapshot.team.teamId || snapshot.team.team_id;
     }
     return null;
+}
+
+function extractTeamIdFromSnapshot(snapshot) {
+    return getTeamIdFromSnapshot(snapshot);
 }
 
 $(document).ready(function() {
@@ -2047,19 +2058,12 @@ $(document).ready(function() {
         behavior: 'instant'
     });
     
-    // 先设置默认赛事（用于演示）
-    const defaultEvent = {
-        id: '123',
-        name: '123'
-    };
-    
-    // 如果没有保存的赛事信息，使用默认赛事
-    if (!getSelectedEvent()) {
-        setSelectedEvent(defaultEvent);
-    }
-    
-    // 检查URL参数
+    // 检查URL参数（优先使用 URL 恢复 event_id/event_name）
     checkEventFromUrl();
+    if (!getSelectedEvent()) {
+        showEventSelectionPrompt();
+        return;
+    }
     
     // 更新赛事信息显示
     updateEventInfoDisplay();
@@ -2140,6 +2144,15 @@ function checkEventFromUrl() {
         
         // 可以在这里添加加载相关数据的逻辑
         // loadEventData(eventId);
+    } else if (eventId && !eventName) {
+        const fallbackName = sessionStorage.getItem('selectedEventName') || '';
+        if (fallbackName) {
+            setSelectedEvent({
+                id: eventId,
+                name: fallbackName
+            });
+            updateEventInfoDisplay();
+        }
     } else {
         // 尝试从sessionStorage获取之前选择的赛事
         const savedEvent = getSelectedEvent();
@@ -2177,12 +2190,44 @@ function updateEventInfoDisplay() {
 // 获取当前选择的赛事
 function getSelectedEvent() {
     const eventStr = sessionStorage.getItem('selectedEventForSummary');
-    return eventStr ? JSON.parse(eventStr) : null;
+    if (eventStr) {
+        try {
+            const parsed = JSON.parse(eventStr);
+            if (parsed && parsed.id) {
+                return parsed;
+            }
+        } catch (e) {
+        }
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const eventId = urlParams.get('event_id');
+    const eventName = urlParams.get('event_name');
+    if (eventId && eventName) {
+        try {
+            return { id: eventId, name: decodeURIComponent(eventName) };
+        } catch (e) {
+            return { id: eventId, name: eventName };
+        }
+    }
+
+    const fallbackId = sessionStorage.getItem('selectedEventId');
+    const fallbackName = sessionStorage.getItem('selectedEventName');
+    if (fallbackId && fallbackName) {
+        return { id: fallbackId, name: fallbackName };
+    }
+    return null;
 }
 
 // 设置当前选择的赛事
 function setSelectedEvent(event) {
     sessionStorage.setItem('selectedEventForSummary', JSON.stringify(event));
+    if (event && event.id) {
+        sessionStorage.setItem('selectedEventId', String(event.id));
+    }
+    if (event && event.name) {
+        sessionStorage.setItem('selectedEventName', String(event.name));
+    }
 }
 
 // 确保赛事信息始终可见
@@ -3049,7 +3094,7 @@ async function calculateTeamFees() {
 
     // 兼容多种字段命名：teamName / name / team_name
     let teamName = summaryData.team.teamName || summaryData.team.name || summaryData.team.team_name;
-    const teamId = summaryData.team.id || summaryData.team.teamId;
+    const teamId = summaryData.team.id || summaryData.team.teamId || summaryData.team.team_id;
     if (!teamName) {
         // 如果后端队伍名称为空，则使用队伍ID构造一个稳定的占位名称，保证费用可以按同一键值读写
         teamName = teamId ? `team_${teamId}` : 'team_unknown';
@@ -3077,6 +3122,7 @@ async function calculateTeamFees() {
                         contentType: 'application/json',
                         data: JSON.stringify({
                             event_id: eventId,
+                            team_id: teamId,
                             team_name: teamName,
                             fees: normalized
                         })
@@ -3089,6 +3135,27 @@ async function calculateTeamFees() {
         } catch (e) {
             console.warn('调用 entries 计算费用失败，回退旧逻辑:', e);
         }
+
+        // 能拿到 teamId 但权威接口失败时，不再回退到旧的 team_applications 列表接口，
+        // 以免读取到历史错误费用（例如单人赛残留 60）。
+        const localFeeInfo = computeLocalTeamFees(eventId, teamName);
+        applyTeamFeesToUI(localFeeInfo, 'local');
+        try {
+            await $.ajax({
+                url: '/api/participants/team-fees',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    event_id: eventId,
+                    team_id: teamId,
+                    team_name: teamName,
+                    fees: localFeeInfo
+                })
+            });
+        } catch (syncError) {
+            console.warn('同步队伍费用到云端失败（本地计算 + teamId）:', syncError);
+        }
+        return;
     }
 
     try {
@@ -3191,7 +3258,7 @@ function computeLocalTeamFees(eventId, teamName) {
     const pairUnit = parseFloat(fees.pair_practice_fee || 0) || 0;
     const teamUnit = parseFloat(fees.team_competition_fee || 0) || 0;
 
-    const targetTeamId = summaryData.team?.id;
+    const targetTeamId = summaryData.team?.id || summaryData.team?.team_id || summaryData.team?.teamId;
     const playersOfTeam = summaryData.players.filter(player => {
         const playerTeamId = player.teamId || player.team_id;
         const playerTeamName = player.teamName || player.team_name;
@@ -3234,15 +3301,20 @@ function countIndividualProjects(player) {
         return 0;
     }
     if (Array.isArray(player.selectedEvents) && player.selectedEvents.length > 0) {
-        return player.selectedEvents.filter(Boolean).length;
+        return player.selectedEvents
+            .filter(Boolean)
+            .map(item => String(item).trim())
+            .filter(item => item && !item.includes('对练') && !item.includes('团体赛'))
+            .length;
     }
     const competitionText = player.competition_event || player.competitionEvent || '';
     if (!competitionText) {
         return player.singleRegistered ? 1 : 0;
     }
+    const pairTokenRegex = /(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)/;
     const segments = competitionText.split('、')
         .map(item => item.trim())
-        .filter(item => item && !item.includes('对练') && !item.includes('团体赛'));
+        .filter(item => item && !item.includes('对练') && !item.includes('团体赛') && !pairTokenRegex.test(item));
     if (segments.length > 0) {
         return segments.length;
     }
@@ -3258,6 +3330,15 @@ function countPairProjects(player) {
     // 1) 形如 "XXX对练（对手）" 的形式
     // 2) 形如 "徒手...（对手）" 或 "器械...（对手）" 的形式
     const pairTokenRegex = /(?:[^、]*对练（[^）]+）|(?:徒手|器械)[^、]*（[^）]+）)/g;
+    if (Array.isArray(player.selectedEvents) && player.selectedEvents.length > 0) {
+        const matches = player.selectedEvents
+            .filter(Boolean)
+            .map(item => String(item).trim())
+            .filter(item => item && (item.includes('对练') || pairTokenRegex.test(item)));
+        if (matches.length > 0) {
+            return matches.length;
+        }
+    }
     const matches = competitionText.match(pairTokenRegex);
     if (matches && matches.length > 0) {
         return matches.length;

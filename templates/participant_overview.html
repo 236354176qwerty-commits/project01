@@ -427,6 +427,17 @@ function initializeParticipantPage() {
     currentEventId = urlParams.get('event_id') || sessionStorage.getItem('selectedEventId');
     currentEventName = urlParams.get('event_name') || sessionStorage.getItem('selectedEventName');
 
+    const storedTeamKey = currentEventId ? `selectedTeamId_${currentEventId}` : null;
+    const explicitTeamId = urlParams.get('team_id') || (storedTeamKey ? sessionStorage.getItem(storedTeamKey) : null);
+    const storedTeamNameKey = currentEventId ? `selectedTeamName_${currentEventId}` : null;
+    let explicitTeamName = urlParams.get('team_name') || (storedTeamNameKey ? sessionStorage.getItem(storedTeamNameKey) : null);
+    if (explicitTeamName) {
+        try {
+            explicitTeamName = decodeURIComponent(explicitTeamName);
+        } catch (e) {
+        }
+    }
+
     if (!currentEventId || !currentEventName) {
         document.getElementById('eventMissingNotice').style.display = 'block';
         document.getElementById('participantTableWrapper').style.display = 'none';
@@ -441,6 +452,20 @@ function initializeParticipantPage() {
     document.getElementById('eventMissingNotice').style.display = 'none';
     document.getElementById('participantTableWrapper').style.display = 'block';
     document.getElementById('currentEventName').textContent = currentEventName;
+
+    if (explicitTeamId) {
+        currentEventTeam = {
+            id: String(explicitTeamId),
+            eventId: String(currentEventId),
+            teamName: explicitTeamName ? String(explicitTeamName) : ''
+        };
+        if (storedTeamKey) {
+            sessionStorage.setItem(storedTeamKey, String(explicitTeamId));
+        }
+        if (storedTeamNameKey && explicitTeamName) {
+            sessionStorage.setItem(storedTeamNameKey, String(explicitTeamName));
+        }
+    }
 
     loadParticipants(currentEventId);
     updateProjectButton(currentEventId, currentEventName);
@@ -488,7 +513,31 @@ function determineCurrentTeamForOverview(eventId) {
 async function loadParticipants(eventId) {
     try {
         if (!currentEventTeam) {
-            currentEventTeam = determineCurrentTeamForOverview(eventId);
+            const storedTeamKey = eventId ? `selectedTeamId_${eventId}` : null;
+            const storedTeamId = storedTeamKey ? sessionStorage.getItem(storedTeamKey) : null;
+            if (storedTeamId) {
+                const storedTeamNameKey = eventId ? `selectedTeamName_${eventId}` : null;
+                const storedTeamName = storedTeamNameKey ? sessionStorage.getItem(storedTeamNameKey) : null;
+                currentEventTeam = {
+                    id: String(storedTeamId),
+                    eventId: String(eventId),
+                    teamName: storedTeamName ? String(storedTeamName) : ''
+                };
+            } else {
+                currentEventTeam = determineCurrentTeamForOverview(eventId);
+            }
+        }
+
+        if (currentEventTeam && currentEventTeam.id && !(currentEventTeam.teamName || currentEventTeam.name)) {
+            const allTeams = collectAllTeams();
+            const matched = allTeams.find(t => String(t.id) === String(currentEventTeam.id));
+            if (matched && (matched.teamName || matched.name)) {
+                currentEventTeam.teamName = matched.teamName || matched.name;
+                try {
+                    sessionStorage.setItem(`selectedTeamName_${eventId}`, String(currentEventTeam.teamName));
+                } catch (e) {
+                }
+            }
         }
 
         const teamId = currentEventTeam && currentEventTeam.id;

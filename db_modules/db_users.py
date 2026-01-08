@@ -66,6 +66,7 @@ class UserDbMixin:
                         team_name=row.get('team_name'),
                         password=row.get('password'),
                         password_hash=row.get('password_hash'),
+                        session_token=row.get('session_token'),
                         id_card=row.get('id_card'),
                         gender=row.get('gender'),
                         birthdate=row.get('birthdate'),
@@ -110,6 +111,7 @@ class UserDbMixin:
                         team_name=row.get('team_name'),
                         password=row.get('password'),
                         password_hash=row.get('password_hash'),
+                        session_token=row.get('session_token'),
                         id_card=row.get('id_card'),
                         gender=row.get('gender'),
                         birthdate=row.get('birthdate'),
@@ -151,7 +153,8 @@ class UserDbMixin:
                         nickname=row.get('nickname'),
                         team_name=row.get('team_name'),
                         password=row.get('password'),
-                        password_hash=row.get('password_hash')
+                        password_hash=row.get('password_hash'),
+                        session_token=row.get('session_token'),
                     )
                 return None
                 
@@ -183,7 +186,8 @@ class UserDbMixin:
                         nickname=row.get('nickname'),
                         team_name=row.get('team_name'),
                         password=row.get('password'),
-                        password_hash=row.get('password_hash')
+                        password_hash=row.get('password_hash'),
+                        session_token=row.get('session_token'),
                     )
                 return None
                 
@@ -231,6 +235,7 @@ class UserDbMixin:
                         team_name=row.get('team_name'),
                         password=row.get('password'),
                         password_hash=row.get('password_hash'),
+                        session_token=row.get('session_token'),
                         id_card=row.get('id_card'),
                         gender=row.get('gender'),
                         birthdate=row.get('birthdate'),
@@ -375,3 +380,33 @@ class UserDbMixin:
         except Error as e:
             logger.error(f"更新用户状态失败: {e}")
             return False
+
+    def update_user_session_token(self, user_id, session_token):
+        """更新用户单点登录会话标识"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE users SET session_token = %s, updated_at = CURRENT_TIMESTAMP WHERE user_id = %s",
+                    (session_token, user_id),
+                )
+                conn.commit()
+                return cursor.rowcount > 0
+        except Error as e:
+            logger.error(f"更新用户session_token失败: {e}")
+            raise
+
+    def get_user_session_token(self, user_id):
+        """获取用户当前有效的单点登录会话标识"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute(
+                    "SELECT session_token FROM users WHERE user_id = %s LIMIT 1",
+                    (user_id,),
+                )
+                row = cursor.fetchone() or {}
+                return row.get('session_token')
+        except Error as e:
+            logger.error(f"获取用户session_token失败: {e}")
+            raise

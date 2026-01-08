@@ -34,7 +34,7 @@ def _safe_filename(value: str) -> str:
 
 
 def _format_selected_events(selected_events, competition_event) -> str:
-    def _join(items):
+    def _normalize_items(items):
         cleaned = []
         for it in items:
             if it is None:
@@ -45,34 +45,51 @@ def _format_selected_events(selected_events, competition_event) -> str:
             if s in ['和', '以及', '及', '&', 'and', 'AND', 'And']:
                 continue
             cleaned.append(s)
-        return '、'.join(cleaned)
+        return cleaned
 
-    if isinstance(selected_events, (list, tuple, set)):
-        joined = _join(list(selected_events))
-        return joined or (competition_event or '')
-
-    if isinstance(selected_events, str):
-        s = selected_events.strip()
-        if not s:
-            return competition_event or ''
-
-        parsed = None
-        if s.startswith('[') and s.endswith(']'):
-            try:
-                parsed = json.loads(s)
-            except Exception:
+    def _parse_selected(value):
+        if value is None:
+            return []
+        if isinstance(value, (list, tuple, set)):
+            return _normalize_items(list(value))
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return []
+            parsed = None
+            if s.startswith('[') and s.endswith(']'):
                 try:
-                    parsed = json.loads(s.replace("'", '"'))
+                    parsed = json.loads(s)
                 except Exception:
-                    parsed = None
+                    try:
+                        parsed = json.loads(s.replace("'", '"'))
+                    except Exception:
+                        parsed = None
+            if isinstance(parsed, list):
+                return _normalize_items(parsed)
+            return _normalize_items([s])
+        return []
 
-        if isinstance(parsed, list):
-            joined = _join(parsed)
-            return joined or (competition_event or '')
+    def _parse_competition(value):
+        if not value:
+            return []
+        tokens = [t.strip() for t in str(value).split('、')]
+        return _normalize_items(tokens)
 
-        return s
+    items = []
+    seen = set()
 
-    return competition_event or ''
+    for it in _parse_selected(selected_events):
+        if it not in seen:
+            seen.add(it)
+            items.append(it)
+
+    for it in _parse_competition(competition_event):
+        if it not in seen:
+            seen.add(it)
+            items.append(it)
+
+    return '、'.join(items)
 
 
 @teams_bp.route('/team/<int:team_id>/export', methods=['GET'])

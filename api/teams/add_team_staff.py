@@ -59,6 +59,68 @@ def api_add_team_staff(team_id):
             cursor.close()
             return jsonify({'success': False, 'message': '您没有权限为此队伍添加随行人员'}, 403)
 
+        resolved_position = position or 'staff'
+
+        if resolved_position == 'staff':
+            cursor.execute(
+                """
+                SELECT 1
+                FROM team_players tp
+                WHERE tp.event_id = %s
+                  AND tp.status NOT IN ('withdrawn', 'disqualified')
+                  AND ((%s IS NOT NULL AND tp.id_card = %s) OR (%s IS NOT NULL AND tp.phone = %s))
+                LIMIT 1
+                """,
+                (event_id, id_card, id_card, phone, phone),
+            )
+            player_conflict = cursor.fetchone()
+            if player_conflict:
+                cursor.close()
+                return jsonify({
+                    'success': False,
+                    'message': '该人员已在本赛事登记为参赛人员，不能登记为随行人员'
+                }), 400
+
+            cursor.execute(
+                """
+                SELECT ts.position
+                FROM team_staff ts
+                WHERE ts.event_id = %s
+                  AND ts.status = 'active'
+                  AND ts.position IN ('coach', 'medical')
+                  AND ((%s IS NOT NULL AND ts.id_card = %s) OR (%s IS NOT NULL AND ts.phone = %s))
+                LIMIT 1
+                """,
+                (event_id, id_card, id_card, phone, phone),
+            )
+            role_conflict = cursor.fetchone()
+            if role_conflict:
+                cursor.close()
+                return jsonify({
+                    'success': False,
+                    'message': '该人员已在本赛事登记为教练/医务人员，不能登记为随行人员'
+                }), 400
+        elif resolved_position in ('coach', 'medical'):
+            cursor.execute(
+                """
+                SELECT 1
+                FROM team_staff ts
+                WHERE ts.event_id = %s
+                  AND ts.status = 'active'
+                  AND ts.position = 'staff'
+                  AND ((%s IS NOT NULL AND ts.id_card = %s) OR (%s IS NOT NULL AND ts.phone = %s))
+                LIMIT 1
+                """,
+                (event_id, id_card, id_card, phone, phone),
+            )
+            staff_conflict = cursor.fetchone()
+            if staff_conflict:
+                cursor.close()
+                return jsonify({
+                    'success': False,
+                    'message': '该人员已在本赛事登记为随行人员，不能登记为教练/医务人员'
+                }), 400
+
         now = datetime.now()
 
         try:
@@ -77,7 +139,7 @@ def api_add_team_staff(team_id):
                     name,
                     gender,
                     age,
-                    position,
+                    resolved_position,
                     phone,
                     id_card,
                     f"staff_{event_id}_{team_id}_{id_card or name}_{int(now.timestamp())}",
@@ -89,16 +151,16 @@ def api_add_team_staff(team_id):
             staff_id = cursor.lastrowid
             conn.commit()
         except Exception as e:
+            conn.rollback()
             message = str(e)
-            cursor.close()
             if '1062' in message and 'uniq_staff_identity' in message:
                 return jsonify({
                     'success': False,
-                    'message': '该身份证号已在当前赛事本队登记为随队人员，不能重复添加'
+                    'message': '该身份证号已在当前赛事本队登记为随行人员，不能重复添加'
                 }), 400
             raise
         else:
-            cursor.close()
+            conn.commit()
 
     staff_data = {
         'staff_id': staff_id,

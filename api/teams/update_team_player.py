@@ -47,6 +47,38 @@ def api_update_team_player(team_id, player_id):
         fields = []
         params = []
 
+        candidate_id_card = None
+        if 'id_card' in data and data.get('id_card'):
+            candidate_id_card = str(data.get('id_card')).strip()
+        else:
+            candidate_id_card = (player.get('id_card') or '').strip() or None
+
+        candidate_phone = None
+        if 'phone' in data and data.get('phone'):
+            candidate_phone = str(data.get('phone')).strip()
+        else:
+            candidate_phone = (player.get('phone') or '').strip() or None
+
+        cursor.execute(
+            """
+            SELECT 1
+            FROM team_staff ts
+            WHERE ts.event_id = %s
+              AND ts.status = 'active'
+              AND ts.position = 'staff'
+              AND ((%s IS NOT NULL AND ts.id_card = %s) OR (%s IS NOT NULL AND ts.phone = %s))
+            LIMIT 1
+            """,
+            (player.get('event_id'), candidate_id_card, candidate_id_card, candidate_phone, candidate_phone),
+        )
+        staff_conflict = cursor.fetchone()
+        if staff_conflict:
+            cursor.close()
+            return jsonify({
+                'success': False,
+                'message': '该人员已在本赛事登记为随行人员，不能登记为参赛人员'
+            }), 400
+
         # 身份证号唯一性校验：同一 event_id + team_id 下不允许重复
         if 'id_card' in data and data.get('id_card'):
             new_id_card = str(data.get('id_card')).strip()

@@ -47,7 +47,7 @@ function showMessage(message, type = 'info', duration = 3000) {
     // 设置HTML内容
     alertDiv.innerHTML = `
         <i class="${iconClass}" style="margin-right: 8px;"></i>
-        ${message}
+        <span class="unified-message-text">${message}</span>
         <button type="button" onclick="this.parentElement.remove()" style="
             background: none; 
             border: none; 
@@ -93,6 +93,8 @@ function showMessage(message, type = 'info', duration = 3000) {
             }
         }, duration);
     }
+
+    return alertDiv;
 }
 
 /**

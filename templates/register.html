@@ -177,38 +177,151 @@
 // 存储待注册的用户数据
 let pendingRegistrationData = null;
 
+let smsCooldownEndAt = 0;
+let smsCooldownTimer = null;
+let smsCooldownToastTimer = null;
+
+const SMS_COOLDOWN_STORAGE_KEY = 'smsCooldownEndAt_register';
+
+function getSmsCooldownRemainingSeconds() {
+    const now = Date.now();
+    const remainingMs = Math.max(0, smsCooldownEndAt - now);
+    return Math.ceil(remainingMs / 1000);
+}
+
+function startSmsCooldown(seconds) {
+    const resendLink = $('#resendSmsLink');
+    smsCooldownEndAt = Date.now() + (seconds * 1000);
+
+    try {
+        sessionStorage.setItem(SMS_COOLDOWN_STORAGE_KEY, String(smsCooldownEndAt));
+    } catch (e) {
+        // ignore
+    }
+
+    if (smsCooldownTimer) {
+        clearInterval(smsCooldownTimer);
+        smsCooldownTimer = null;
+    }
+
+    resendLink.css('pointer-events', 'none').css('color', '#999');
+    resendLink.text(`${seconds}秒后重新发送`);
+
+    smsCooldownTimer = setInterval(() => {
+        const remaining = getSmsCooldownRemainingSeconds();
+        if (remaining <= 0) {
+            clearInterval(smsCooldownTimer);
+            smsCooldownTimer = null;
+            smsCooldownEndAt = 0;
+            try {
+                sessionStorage.removeItem(SMS_COOLDOWN_STORAGE_KEY);
+            } catch (e) {
+                // ignore
+            }
+            resendLink.text('重新发送').css('pointer-events', 'auto').css('color', '');
+            return;
+        }
+        resendLink.text(`${remaining}秒后重新发送`);
+    }, 1000);
+}
+
+function showSmsCooldownToast() {
+    const remaining = getSmsCooldownRemainingSeconds();
+    if (remaining <= 0) {
+        return;
+    }
+
+    if (smsCooldownToastTimer) {
+        clearInterval(smsCooldownToastTimer);
+        smsCooldownToastTimer = null;
+    }
+
+    const toastEl = showMessage(`距离下次发送验证码还剩${remaining}秒`, 'error', 0);
+    const textEl = toastEl ? toastEl.querySelector('.unified-message-text') : null;
+    let secondsLeft = remaining;
+
+    smsCooldownToastTimer = setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft <= 0) {
+            clearInterval(smsCooldownToastTimer);
+            smsCooldownToastTimer = null;
+            if (toastEl && toastEl.parentNode) {
+                toastEl.remove();
+            }
+            return;
+        }
+        if (textEl) {
+            textEl.textContent = `距离下次发送验证码还剩${secondsLeft}秒`;
+        }
+    }, 1000);
+
+    setTimeout(() => {
+        if (smsCooldownToastTimer) {
+            clearInterval(smsCooldownToastTimer);
+            smsCooldownToastTimer = null;
+        }
+        if (toastEl && toastEl.parentNode) {
+            toastEl.remove();
+        }
+    }, 5000);
+}
+
+function restoreSmsCooldownFromStorage() {
+    try {
+        const storedEndAt = parseInt(sessionStorage.getItem(SMS_COOLDOWN_STORAGE_KEY) || '0', 10);
+        if (storedEndAt && storedEndAt > Date.now()) {
+            smsCooldownEndAt = storedEndAt;
+            const remaining = getSmsCooldownRemainingSeconds();
+            if (remaining > 0) {
+                startSmsCooldown(remaining);
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
 $(document).ready(function() {
+
     // 检查是否已登录
     checkLoginStatus();
     
     // 初始化短信验证码输入框
     initSmsCodeInputs();
-    
+
+    restoreSmsCooldownFromStorage();
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            restoreSmsCooldownFromStorage();
+        }
+    });
+
     // 注册表单提交
     $('#registerForm').on('submit', function(e) {
         e.preventDefault();
         submitRegister();
     });
-    
+
     // 确认短信验证码按钮
     $('#confirmSmsBtn').on('click', function() {
         confirmSmsVerification();
     });
-    
+
     // 密码显示/隐藏切换
     $('#togglePassword').on('click', function() {
         togglePasswordVisibility('password', $(this));
     });
-    
+
     $('#toggleConfirmPassword').on('click', function() {
         togglePasswordVisibility('confirmPassword', $(this));
     });
-    
+
     // 密码确认验证
     $('#confirmPassword').on('input', function() {
         validatePasswordMatch();
     });
-    
+
     $('#password').on('input', function() {
         validatePasswordMatch();
     });
@@ -243,7 +356,7 @@ $(document).ready(function() {
                 });
         }
     });
-    
+
     // 输入框焦点事件
     $('.form-control').on('focus', function() {
         $(this).addClass('is-focused');
@@ -408,6 +521,13 @@ function submitRegister() {
         captcha: captcha
     };
     
+    restoreSmsCooldownFromStorage();
+    const remainingBeforeSend = getSmsCooldownRemainingSeconds();
+    if (remainingBeforeSend > 0) {
+        showSmsCooldownToast();
+        return;
+    }
+    
     // 发送短信验证码
     const registerBtn = $('#registerBtn');
     const originalText = registerBtn.html();
@@ -444,12 +564,19 @@ function submitRegister() {
                 
                 showMessage('验证码已发送至您的手机', 'success');
                 
+                startSmsCooldown(30);
+                
                 // 演示模式：在控制台显示验证码
                 if (response.code) {
                     console.log('【演示模式】短信验证码：' + response.code);
                 }
             } else {
-                showMessage(response.message || '发送验证码失败', 'error');
+                if (response && response.message && String(response.message).toLowerCase().includes('check frequency')) {
+                    restoreSmsCooldownFromStorage();
+                    showSmsCooldownToast();
+                } else {
+                    showMessage(response.message || '发送验证码失败', 'error');
+                }
                 if (response.message && response.message.includes('验证码')) {
                     refreshCaptcha();
                 }
@@ -459,7 +586,12 @@ function submitRegister() {
             registerBtn.prop('disabled', false).html(originalText);
             const response = xhr.responseJSON;
             const message = response && response.message ? response.message : '发送验证码失败，请稍后重试';
-            showMessage(message, 'error');
+            if (message && String(message).toLowerCase().includes('check frequency')) {
+                restoreSmsCooldownFromStorage();
+                showSmsCooldownToast();
+            } else {
+                showMessage(message, 'error');
+            }
         }
     });
 }
@@ -618,12 +750,19 @@ function confirmSmsVerification() {
 
 // 重新发送短信验证码
 function resendSmsCode() {
+
     if (!pendingRegistrationData || !pendingRegistrationData.phone) {
         showMessage('请重新填写注册信息', 'error');
         $('#smsVerificationModal').modal('hide');
         return;
     }
-    
+
+    const remaining = getSmsCooldownRemainingSeconds();
+    if (remaining > 0) {
+        showSmsCooldownToast();
+        return;
+    }
+
     const resendLink = $('#resendSmsLink');
     resendLink.css('pointer-events', 'none').css('color', '#999');
     
@@ -644,30 +783,31 @@ function resendSmsCode() {
                 $('#smsVerificationCode').val('');
                 $('.sms-code-input').first().focus();
                 
-                // 30秒后才能再次发送
-                let countdown = 30;
-                const timer = setInterval(() => {
-                    countdown--;
-                    resendLink.text(`${countdown}秒后重新发送`);
-                    if (countdown <= 0) {
-                        clearInterval(timer);
-                        resendLink.text('重新发送').css('pointer-events', 'auto').css('color', '');
-                    }
-                }, 1000);
+                startSmsCooldown(30);
                 
                 // 演示模式：在控制台显示验证码
                 if (response.code) {
                     console.log('【演示模式】短信验证码：' + response.code);
                 }
             } else {
-                showMessage(response.message || '发送失败', 'error');
+                if (response && response.message && String(response.message).toLowerCase().includes('check frequency')) {
+                    restoreSmsCooldownFromStorage();
+                    showSmsCooldownToast();
+                } else {
+                    showMessage(response.message || '发送失败', 'error');
+                }
                 resendLink.css('pointer-events', 'auto').css('color', '');
             }
         },
         error: function(xhr) {
             const response = xhr.responseJSON;
             const message = response && response.message ? response.message : '发送失败，请稍后重试';
-            showMessage(message, 'error');
+            if (message && String(message).toLowerCase().includes('check frequency')) {
+                restoreSmsCooldownFromStorage();
+                showSmsCooldownToast();
+            } else {
+                showMessage(message, 'error');
+            }
             resendLink.css('pointer-events', 'auto').css('color', '');
         }
     });

@@ -88,8 +88,7 @@ def create_app():
         ):
             return
 
-        username = session.get('username')
-        if not username:
+        if not session.get('logged_in'):
             return
 
         current_user_id = session.get('user_id')
@@ -151,6 +150,10 @@ def create_app():
                     })
                 flash('会话校验失败，请重新登录。', 'error')
                 return redirect(url_for('login'))
+
+        username = session.get('username')
+        if not username:
+            return
 
         try:
             last_check = session.get('user_status_last_check')

@@ -17,8 +17,8 @@
     <!-- 全局弹窗函数 - 必须在所有其他JavaScript之前定义 -->
     <script>
     // 强制中央弹窗函数
-    function showCenterMessage(message, type = 'success') {
-        console.log('显示中央弹窗:', message, type);
+    function showCenterMessage(message, type = 'success', requireConfirm = false, onConfirm) {
+        console.log('显示中央弹窗:', message, type, requireConfirm);
         
         // 移除现有弹窗
         const existing = document.querySelectorAll('.force-center-alert');
@@ -52,11 +52,24 @@
         // 创建弹窗
         const alertDiv = document.createElement('div');
         alertDiv.className = 'force-center-alert';
-        alertDiv.innerHTML = 
+        let innerHtml =
             '<div style="display: flex; align-items: center; justify-content: center;">' +
             '<i class="' + iconClass + '" style="font-size: 24px; margin-right: 12px;"></i>' +
             '<span style="font-size: 18px; font-weight: 600;">' + message + '</span>' +
             '</div>';
+
+        // 需要确认时，增加一个按钮区域
+        if (requireConfirm) {
+            innerHtml +=
+                '<div style="margin-top: 16px; text-align: center;">' +
+                '<button type="button" class="force-center-alert-confirm-btn"'
+                + ' style="min-width: 100px; padding: 6px 18px; font-size: 14px;'
+                + ' border-radius: 6px; border: none; cursor: pointer;'
+                + ' background-color: #ffffff; color: #333; font-weight: 600;">确定</button>' +
+                '</div>';
+        }
+
+        alertDiv.innerHTML = innerHtml;
         
         alertDiv.style.cssText = 
             'position: fixed !important;' +
@@ -94,19 +107,37 @@
         
         document.body.appendChild(alertDiv);
         console.log('增强版中央弹窗已添加到DOM');
-        
-        // 延长显示时间到5秒
-        setTimeout(function() {
-            if (alertDiv && alertDiv.parentNode) {
-                alertDiv.style.opacity = '0';
-                alertDiv.style.transform = 'translate(-50%, -50%) scale(0.8)';
-                setTimeout(() => {
-                    if (alertDiv.parentNode) {
-                        alertDiv.remove();
+
+        // 确认模式：点击按钮后再执行回调并关闭
+        if (requireConfirm) {
+            const btn = alertDiv.querySelector('.force-center-alert-confirm-btn');
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    try {
+                        if (typeof onConfirm === 'function') {
+                            onConfirm();
+                        }
+                    } finally {
+                        if (alertDiv && alertDiv.parentNode) {
+                            alertDiv.parentNode.removeChild(alertDiv);
+                        }
                     }
-                }, 300);
+                });
             }
-        }, 5000);
+        } else {
+            // 普通模式：延长显示时间到5秒后自动淡出
+            setTimeout(function() {
+                if (alertDiv && alertDiv.parentNode) {
+                    alertDiv.style.opacity = '0';
+                    alertDiv.style.transform = 'translate(-50%, -50%) scale(0.8)';
+                    setTimeout(() => {
+                        if (alertDiv.parentNode) {
+                            alertDiv.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
     }
     </script>
     
@@ -1248,10 +1279,15 @@
         // 全局AJAX成功处理 - 检查强制登出
         $(document).ajaxSuccess(function(event, xhr, settings) {
             if (xhr.responseJSON && xhr.responseJSON.force_logout) {
-                showCenterMessage(xhr.responseJSON.message, 'error');
-                setTimeout(function() {
-                    window.location.href = '/login';
-                }, 2000);
+                // 使用带确认按钮的中央弹窗，点击“确定”后再跳转登录页
+                showCenterMessage(
+                    xhr.responseJSON.message || '您的账号已在别处登录，请重新登录。',
+                    'error',
+                    true,
+                    function() {
+                        window.location.href = '/login';
+                    }
+                );
             }
         });
     });
@@ -1270,10 +1306,15 @@
                         const clone = response.clone();
                         const data = await clone.json();
                         if (data && data.force_logout) {
-                            showCenterMessage(data.message || '您的账号已在别处登录，请重新登录。', 'error');
-                            setTimeout(function() {
-                                window.location.href = '/login';
-                            }, 2000);
+                            // 使用带确认按钮的中央弹窗，点击“确定”后再跳转登录页
+                            showCenterMessage(
+                                data.message || '您的账号已在别处登录，请重新登录。',
+                                'error',
+                                true,
+                                function() {
+                                    window.location.href = '/login';
+                                }
+                            );
                         }
                     }
                 } catch (e) {
@@ -1299,6 +1340,61 @@
             }
         });
     }
+
+    // 会话心跳检测：在账号被其它设备挤下线时自动触发后端 SSO 校验
+    (function() {
+        // 只在已登录状态下启用心跳，避免未登录页面的无意义轮询
+        var IS_LOGGED_IN = {{ 'true' if is_logged_in else 'false' }};
+        if (!IS_LOGGED_IN) {
+            return;
+        }
+
+        var HEARTBEAT_INTERVAL_MS = 15000; // 15 秒检查一次
+        var heartbeatTimer = null;
+
+        function sendHeartbeat() {
+            try {
+                // 仅用于触发 app.before_request 的单点登录校验
+                // 响应中的 force_logout 由全局 fetch / ajax 拦截器统一处理
+                fetch('/api/check_login', {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                }).catch(function(e) {
+                    // 网络异常时静默忽略
+                });
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function startHeartbeat() {
+            if (heartbeatTimer) {
+                return;
+            }
+            sendHeartbeat();
+            heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        if (document.visibilityState === 'visible') {
+            startHeartbeat();
+        }
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                startHeartbeat();
+            } else {
+                stopHeartbeat();
+            }
+        });
+    })();
     </script>
     
     <!-- 竹叶特效连续动画脚本 -->

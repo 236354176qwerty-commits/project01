@@ -20,8 +20,12 @@ def api_check_login():
             db_token = None
             token_match = None
 
+    logged_in = session.get('logged_in', False)
+    if logged_in and token_match is False:
+        logged_in = False
+
     return jsonify({
-        'logged_in': session.get('logged_in', False),
+        'logged_in': logged_in,
         'user_id': session.get('user_id'),
         'user_name': session.get('user_name'),
         'username': session.get('username'),

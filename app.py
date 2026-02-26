@@ -93,20 +93,19 @@ def create_app():
 
         current_user_id = session.get('user_id')
         current_session_token = session.get('session_token')
+
+        # SSO + 用户状态统一使用同一个时间间隔控制，避免每个请求都查 DB
+        now_ts = time.time()
+        last_check = session.get('_combined_check_ts')
+        check_interval = app.config.get('USER_STATUS_CHECK_INTERVAL', 10)
+        if isinstance(last_check, (int, float)) and now_ts - last_check < check_interval:
+            return
+
         if current_user_id:
             try:
                 db_manager = DatabaseManager()
                 db_token = db_manager.get_user_session_token(current_user_id)
 
-                app.logger.info(
-                    "SSO check: path=%s user_id=%s has_session_token=%s has_db_token=%s",
-                    path,
-                    current_user_id,
-                    bool(current_session_token),
-                    bool(db_token),
-                )
-
-                # 已登录但缺少session_token：无法校验，直接视为失效
                 if not current_session_token:
                     session.clear()
                     if path.startswith('/api/'):
@@ -118,7 +117,6 @@ def create_app():
                     flash('会话已失效，请重新登录。', 'error')
                     return redirect(url_for('login'))
 
-                # 数据库 token 为空/缺失：无法验证当前会话有效性，直接视为失效
                 if not db_token:
                     session.clear()
                     if path.startswith('/api/'):
@@ -153,16 +151,10 @@ def create_app():
 
         username = session.get('username')
         if not username:
+            session['_combined_check_ts'] = now_ts
             return
 
         try:
-            last_check = session.get('user_status_last_check')
-            now_ts = time.time()
-            interval = app.config.get('USER_STATUS_CHECK_INTERVAL', 10)
-            if isinstance(last_check, (int, float)) and now_ts - last_check < interval:
-                return
-
-            # 使用 user_manager 复用用户缓存/管理逻辑，避免每次都直接打数据库
             user = user_manager.get_user(username)
 
             if user and not user.can_login():
@@ -170,7 +162,7 @@ def create_app():
                 if path.startswith('/api/'):
                     return jsonify({
                         'success': False,
-                        'message': '账号状态异常或被冻结，已登出，请联系管理员。', 
+                        'message': '账号状态异常或被冻结，已登出，请联系管理员。',
                         'status': user.status.value,
                         'status_display': user.get_status_display(),
                         'force_logout': True,
@@ -180,7 +172,7 @@ def create_app():
                     return redirect(url_for('login'))
 
             if user and user.can_login():
-                session['user_status_last_check'] = now_ts
+                session['_combined_check_ts'] = now_ts
 
         except Exception:
             session.clear()

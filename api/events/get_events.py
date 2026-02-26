@@ -159,43 +159,25 @@ def get_events():
 
         t_after_params = time.perf_counter()
 
-        # 查询总数
-        total = db_manager.count_events(
-            status=status_value, 
-            keyword=keyword, 
-            date_from=date_from_dt, 
-            date_to=date_to_dt, 
+        # 在同一连接中完成 count + list + participants_count，减少外网 DB 往返
+        total, events, participants_counts = db_manager.get_events_with_count(
+            status=status_value,
+            keyword=keyword,
+            date_from=date_from_dt,
+            date_to=date_to_dt,
             location=location,
             created_by=created_by_id,
             min_participants=min_participants_int,
-            max_participants=max_participants_int
-        )
-
-        t_after_count = time.perf_counter()
-
-        # 查询列表
-        events = db_manager.get_all_events(
-            status=status_value, 
-            keyword=keyword, 
-            date_from=date_from_dt, 
-            date_to=date_to_dt,
-            location=location, 
-            created_by=created_by_id,
-            min_participants=min_participants_int,
             max_participants=max_participants_int,
-            order_by=order_by, 
-            order_dir=order_dir, 
-            limit=page_size, 
+            order_by=order_by,
+            order_dir=order_dir,
+            limit=page_size,
             offset=offset
         )
 
-        t_after_list = time.perf_counter()
-
-        # 批量获取参赛人数，避免 N+1 查询
-        event_ids = [event.event_id for event in events]
-        participants_counts = db_manager.count_participants_by_events(event_ids) if event_ids else {}
-
-        t_after_participants = time.perf_counter()
+        t_after_count = time.perf_counter()
+        t_after_list = t_after_count
+        t_after_participants = t_after_count
 
         # 转换为字典格式并添加额外信息
         events_data = []

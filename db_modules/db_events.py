@@ -146,6 +146,128 @@ class EventDbMixin:
             logger.error(f"获取赛事失败: {e}")
             raise
 
+    def _build_event_where(self, status=None, keyword=None, date_from=None, date_to=None,
+                           location=None, created_by=None, min_participants=None, max_participants=None):
+        """构建赛事查询的 WHERE 子句和参数（复用于 count / list）"""
+        where_clauses = []
+        params = []
+
+        if status:
+            where_clauses.append("status = %s")
+            params.append(status)
+        if keyword:
+            where_clauses.append("name LIKE %s")
+            params.append(f"%{keyword}%")
+        if date_from:
+            where_clauses.append("start_date >= %s")
+            params.append(date_from)
+        if date_to:
+            where_clauses.append("start_date <= %s")
+            params.append(date_to)
+        if location:
+            where_clauses.append("location LIKE %s")
+            params.append(f"%{location}%")
+        if created_by:
+            where_clauses.append("created_by = %s")
+            params.append(created_by)
+        if min_participants:
+            where_clauses.append("max_participants >= %s")
+            params.append(min_participants)
+        if max_participants:
+            where_clauses.append("max_participants <= %s")
+            params.append(max_participants)
+
+        where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+        return where_sql, params
+
+    def get_events_with_count(self, status=None, keyword=None, date_from=None, date_to=None,
+                              location=None, created_by=None, min_participants=None, max_participants=None,
+                              order_by='start_date', order_dir='DESC', limit=None, offset=None):
+        """在同一连接中同时获取赛事列表和总数，减少连接开销"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+
+                if not getattr(self, '_event_columns_ensured', False):
+                    self._ensure_event_columns(cursor)
+                    setattr(self, '_event_columns_ensured', True)
+
+                where_sql, params = self._build_event_where(
+                    status=status, keyword=keyword, date_from=date_from, date_to=date_to,
+                    location=location, created_by=created_by,
+                    min_participants=min_participants, max_participants=max_participants)
+
+                # 查总数
+                cursor.execute("SELECT COUNT(*) AS cnt FROM events" + where_sql, params)
+                total = cursor.fetchone()['cnt']
+
+                # 查列表
+                allowed_order_fields = ['start_date', 'end_date', 'created_at', 'updated_at', 'name', 'max_participants']
+                if order_by in allowed_order_fields and order_dir in ['ASC', 'DESC']:
+                    order_clause = f" ORDER BY {order_by} {order_dir}"
+                else:
+                    order_clause = " ORDER BY start_date DESC"
+
+                list_sql = "SELECT * FROM events" + where_sql + order_clause
+                list_params = list(params)
+                if limit:
+                    list_sql += " LIMIT %s"
+                    list_params.append(limit)
+                    if offset:
+                        list_sql += " OFFSET %s"
+                        list_params.append(offset)
+
+                cursor.execute(list_sql, list_params)
+
+                events = []
+                for row in cursor.fetchall():
+                    events.append(Event(
+                        event_id=row['event_id'],
+                        name=row['name'],
+                        description=row['description'],
+                        start_date=row['start_date'],
+                        end_date=row['end_date'],
+                        location=row['location'],
+                        max_participants=row['max_participants'],
+                        registration_start_time=row.get('registration_start_time'),
+                        registration_deadline=row['registration_deadline'],
+                        status=row['status'],
+                        created_by=row['created_by'],
+                        created_at=row['created_at'],
+                        updated_at=row['updated_at'],
+                        contact_phone=row.get('contact_phone'),
+                        organizer=row.get('organizer'),
+                        co_organizer=row.get('co_organizer')
+                    ))
+
+                # 批量获取参赛人数（同一连接）
+                event_ids = [e.event_id for e in events]
+                participants_counts = {}
+                if event_ids:
+                    placeholders = ','.join(['%s'] * len(event_ids))
+                    cursor.execute(
+                        "SELECT event_id, COUNT(*) AS cnt FROM event_participants "
+                        f"WHERE event_id IN ({placeholders}) AND role = 'athlete' GROUP BY event_id",
+                        tuple(event_ids),
+                    )
+                    participants_counts = {row['event_id']: row['cnt'] for row in cursor.fetchall()}
+
+                    missing_ids = [eid for eid in event_ids if eid not in participants_counts]
+                    if missing_ids:
+                        ph2 = ','.join(['%s'] * len(missing_ids))
+                        cursor.execute(
+                            f"SELECT event_id, COUNT(*) AS cnt FROM participants WHERE event_id IN ({ph2}) GROUP BY event_id",
+                            tuple(missing_ids),
+                        )
+                        for row in cursor.fetchall():
+                            participants_counts[row['event_id']] = row['cnt']
+
+                return total, events, participants_counts
+
+        except Error as e:
+            logger.error(f"获取赛事列表失败: {e}")
+            raise
+
     def get_all_events(self, status=None, keyword=None, date_from=None, date_to=None, 
                        location=None, created_by=None, min_participants=None, max_participants=None,
                        order_by='start_date', order_dir='DESC', limit=None, offset=None):
@@ -154,69 +276,31 @@ class EventDbMixin:
             with self.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
 
-                # 确保新列存在：仅在当前 DatabaseManager 实例生命周期内执行一次，
-                # 避免每次列表查询都跑多次 SHOW COLUMNS / ALTER TABLE 带来的额外开销
                 if not getattr(self, '_event_columns_ensured', False):
                     self._ensure_event_columns(cursor)
                     setattr(self, '_event_columns_ensured', True)
-                
-                # 构建查询条件
-                where_clauses = []
-                params = []
-                
-                if status:
-                    where_clauses.append("status = %s")
-                    params.append(status)
-                
-                if keyword:
-                    where_clauses.append("name LIKE %s")
-                    params.append(f"%{keyword}%")
-                
-                if date_from:
-                    where_clauses.append("start_date >= %s")
-                    params.append(date_from)
-                
-                if date_to:
-                    where_clauses.append("start_date <= %s")
-                    params.append(date_to)
-                
-                if location:
-                    where_clauses.append("location LIKE %s")
-                    params.append(f"%{location}%")
-                
-                if created_by:
-                    where_clauses.append("created_by = %s")
-                    params.append(created_by)
-                
-                if min_participants:
-                    where_clauses.append("max_participants >= %s")
-                    params.append(min_participants)
-                
-                if max_participants:
-                    where_clauses.append("max_participants <= %s")
-                    params.append(max_participants)
-                
-                # 构建SQL查询
-                sql = "SELECT * FROM events"
-                if where_clauses:
-                    sql += " WHERE " + " AND ".join(where_clauses)
-                
-                # 添加排序
+
+                where_sql, params = self._build_event_where(
+                    status=status, keyword=keyword, date_from=date_from, date_to=date_to,
+                    location=location, created_by=created_by,
+                    min_participants=min_participants, max_participants=max_participants)
+
                 allowed_order_fields = ['start_date', 'end_date', 'created_at', 'updated_at', 'name', 'max_participants']
                 if order_by in allowed_order_fields and order_dir in ['ASC', 'DESC']:
-                    sql += f" ORDER BY {order_by} {order_dir}"
+                    order_clause = f" ORDER BY {order_by} {order_dir}"
                 else:
-                    sql += " ORDER BY start_date DESC"
-                
-                # 添加分页
+                    order_clause = " ORDER BY start_date DESC"
+
+                sql = "SELECT * FROM events" + where_sql + order_clause
+                list_params = list(params)
                 if limit:
                     sql += " LIMIT %s"
-                    params.append(limit)
+                    list_params.append(limit)
                     if offset:
                         sql += " OFFSET %s"
-                        params.append(offset)
+                        list_params.append(offset)
                 
-                cursor.execute(sql, params)
+                cursor.execute(sql, list_params)
                 
                 events = []
                 for row in cursor.fetchall():

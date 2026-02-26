@@ -15,6 +15,7 @@ def logout():
     if user_id:
         try:
             db_manager.update_user_session_token(user_id, None)
+            db_manager.invalidate_session_token_cache(user_id)
         except Exception:
             pass
     

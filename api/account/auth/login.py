@@ -55,6 +55,7 @@ def login():
     session_token = secrets.token_hex(32)
     try:
         db_manager.update_user_session_token(user.user_id, session_token)
+        db_manager.invalidate_session_token_cache(user.user_id)
     except Exception as e:
         logger.error(f"更新用户session_token失败: {e}")
         return jsonify({'success': False, 'message': '登录失败，请稍后重试'}), 500

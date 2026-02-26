@@ -1,4 +1,5 @@
 import logging
+import time
 
 from mysql.connector import Error
 
@@ -7,6 +8,9 @@ from utils.helpers import generate_password_hash
 
 
 logger = logging.getLogger(__name__)
+
+_session_token_cache = {}
+_SESSION_TOKEN_CACHE_TTL = 5
 
 
 class UserDbMixin:
@@ -346,11 +350,6 @@ class UserDbMixin:
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                # 首先检查是否存在nickname列，如果不存在则添加
-                cursor.execute("SHOW COLUMNS FROM users LIKE 'nickname'")
-                if not cursor.fetchone():
-                    cursor.execute("ALTER TABLE users ADD COLUMN nickname VARCHAR(100)")
-                
                 cursor.execute("""
                     UPDATE users 
                     SET real_name = %s, nickname = %s, phone = %s, updated_at = CURRENT_TIMESTAMP 
@@ -397,7 +396,14 @@ class UserDbMixin:
             raise
 
     def get_user_session_token(self, user_id):
-        """获取用户当前有效的单点登录会话标识"""
+        """获取用户当前有效的单点登录会话标识（带短期内存缓存）"""
+        now = time.time()
+        entry = _session_token_cache.get(user_id)
+        if entry:
+            expires_at, cached_token = entry
+            if now < expires_at:
+                return cached_token
+
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
@@ -406,7 +412,13 @@ class UserDbMixin:
                     (user_id,),
                 )
                 row = cursor.fetchone() or {}
-                return row.get('session_token')
+                token = row.get('session_token')
+                _session_token_cache[user_id] = (now + _SESSION_TOKEN_CACHE_TTL, token)
+                return token
         except Error as e:
             logger.error(f"获取用户session_token失败: {e}")
             raise
+
+    def invalidate_session_token_cache(self, user_id):
+        """登录/登出时主动清除 session_token 缓存"""
+        _session_token_cache.pop(user_id, None)

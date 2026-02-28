@@ -4,11 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}武术赛事管理系统{% endblock %}</title>
-    
+
+    <!-- DNS 预解析 + 预连接 CDN -->
+    <link rel="dns-prefetch" href="//cdn.bootcdn.net">
+    <link rel="preconnect" href="https://cdn.bootcdn.net" crossorigin>
+
+    <!-- 预加载关键 CSS -->
+    <link rel="preload" href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" as="style">
+    <link rel="preload" href="{{ url_for('static', filename='css/style.css') }}" as="style">
+
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.staticfile.org/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdn.staticfile.org/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome (异步加载，不阻塞渲染) -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"></noscript>
     <!-- 自定义CSS -->
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
@@ -141,485 +150,7 @@
     }
     </script>
     
-    <style>
-      /* 弹窗动画效果 */
-      @keyframes bounce {
-        0%, 20%, 50%, 80%, 100% {
-          transform: translate(-50%, -50%) translateY(0);
-        }
-        40% {
-          transform: translate(-50%, -50%) translateY(-10px);
-        }
-        60% {
-          transform: translate(-50%, -50%) translateY(-5px);
-        }
-      }
-      
-      @keyframes pulse {
-        0% {
-          transform: translate(-50%, -50%) scale(1);
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-        }
-        50% {
-          transform: translate(-50%, -50%) scale(1.05);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-        }
-        100% {
-          transform: translate(-50%, -50%) scale(1);
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-        }
-      }
-      
-      /* 高亮当前导航项 - 水墨风格 */
-      .navbar .nav-link.active {
-        color: #2c3e50 !important;
-        font-weight: 700;
-        border: 2px solid #c41e3a;
-        border-radius: 8px;
-        padding: 6px 10px;
-        background: #f5f5dc !important;
-      }
-      .navbar .nav-link.active i { color: #c41e3a !important; }
-      
-      /* 确保导航栏和下拉菜单可以正常点击 */
-      .navbar {
-        position: relative;
-        z-index: 1030 !important;
-        pointer-events: auto !important;
-      }
-      
-      .navbar .nav-link {
-        cursor: pointer !important;
-        pointer-events: auto !important;
-      }
-      
-      .navbar .dropdown-toggle {
-        cursor: pointer !important;
-        pointer-events: auto !important;
-      }
-      
-      .navbar .dropdown-menu {
-        z-index: 1031 !important;
-        pointer-events: auto !important;
-      }
-      
-      /* 优化页面跳转动画，减少闪烁 - 水墨背景 */
-      body {
-        transition: opacity 0.2s ease-in-out;
-        background: 
-          /* 水墨晕染效果 */
-          radial-gradient(circle at 10% 20%, rgba(196, 30, 58, 0.03) 0%, transparent 50%),
-          radial-gradient(circle at 90% 80%, rgba(85, 107, 47, 0.03) 0%, transparent 50%),
-          radial-gradient(circle at 50% 50%, rgba(44, 62, 80, 0.02) 0%, transparent 70%),
-          /* 主背景渐变 */
-          linear-gradient(135deg, 
-            #e8e4d9 0%,   /* 淡宣纸色 */
-            #f5f1e8 25%,
-            #ebe8e0 50%,
-            #f0ede5 75%,
-            #f5f5dc 100%  /* 宣纸色 */
-          );
-        background-attachment: fixed;
-        min-height: 100vh;
-        position: relative;
-      }
-      
-      /* 全局水墨纹理叠加 */
-      body::before {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: 
-          repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 2px,
-            rgba(85, 107, 47, 0.01) 2px,
-            rgba(85, 107, 47, 0.01) 4px
-          );
-        pointer-events: none;
-        z-index: 0;
-      }
-      
-      /* 退出登录时的淡出效果 */
-      .logout-fade {
-        opacity: 0;
-        transition: opacity 0.3s ease-out;
-      }
-      
-      /* 模态框动画优化 */
-      .modal.fade .modal-dialog {
-        transition: transform 0.2s ease-out;
-      }
-      
-      /* 退出登录确认模态框 - 直接在中心显示 */
-      .logout-modal {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        z-index: 9999 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        background-color: rgba(0, 0, 0, 0.5) !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        transition: opacity 0.15s ease-out, visibility 0.15s ease-out !important;
-      }
-      
-      /* 删除确认模态框的z-index更高 */
-      #deleteConfirmModal {
-        z-index: 10000 !important;
-      }
-      
-      .logout-modal.show {
-        opacity: 1 !important;
-        visibility: visible !important;
-      }
-      
-      .logout-modal-dialog {
-        width: 350px !important;
-        max-width: 90vw !important;
-        margin: 0 !important;
-        transform: scale(0.8) !important;
-        transition: transform 0.15s ease-out !important;
-      }
-      
-      .logout-modal.show .logout-modal-dialog {
-        transform: scale(1) !important;
-      }
-      
-      .logout-modal .modal-content {
-        border-radius: 0.5rem;
-        border: none;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        background-color: #ffffff;
-      }
-      
-      /* 退出登录模态框的关闭按钮样式（去掉白框） */
-      .logout-modal .btn-close {
-        background: transparent;
-        border: none;
-        opacity: 1;
-        padding: 0.2rem;
-        width: 20px;
-        height: 20px;
-        filter: brightness(0) invert(1);
-        font-size: 0.8rem;
-      }
-      
-      .logout-modal .btn-close:hover {
-        opacity: 0.8;
-      }
-      
-      /* 减小模态框头部高度 */
-      .logout-modal .modal-header {
-        padding: 0.3rem 0.8rem !important;
-        min-height: 28px !important;
-      }
-      
-      /* 退出登录模态框内容样式 */
-      .logout-modal .modal-body {
-        padding: 1.5rem 1.5rem !important;
-        text-align: left;
-      }
-      
-      .logout-modal .modal-body p {
-        font-size: 1.1rem;
-        margin: 0;
-        color: #333;
-      }
-      
-      .logout-modal .modal-footer {
-        padding: 1rem 1.5rem !important;
-        border-top: 1px solid #e9ecef;
-        justify-content: flex-end;
-        gap: 0.5rem;
-      }
-      
-      .logout-modal .modal-footer .btn {
-        min-width: 80px;
-        padding: 0.5rem 1.5rem;
-        font-size: 1rem;
-        border-radius: 0.375rem;
-      }
-      
-      /* 可拖动模态框样式 */
-      .draggable-modal .modal-header {
-        cursor: move;
-        user-select: none;
-      }
-      
-      .draggable-modal.dragging {
-        transition: none !important;
-      }
-      
-      /* 修复个人设置模态框显示问题 */
-      #profileModal {
-        z-index: 10500 !important;
-      }
-      
-      #profileModal .modal-dialog {
-        z-index: 10501 !important;
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        margin: 0 !important;
-        width: 90% !important;
-        max-width: 900px !important;
-      }
-      
-      #profileModal.show .modal-dialog {
-        transform: translate(-50%, -50%) !important;
-      }
-      
-      /* 个人设置弹窗内容优化 */
-      #profileModal .modal-body {
-        padding: 2rem !important;
-      }
-      
-      #profileModal .form-control {
-        padding: 0.75rem 1rem !important;
-        font-size: 1rem !important;
-      }
-      
-      #profileModal .nav-tabs {
-        border-bottom: 2px solid #dee2e6 !important;
-        margin-bottom: 1.5rem !important;
-      }
-      
-      #profileModal .nav-link {
-        padding: 1rem 1.5rem !important;
-        font-weight: 500 !important;
-      }
-      
-      /* 模态框背景遮罩已禁用 */
-      
-      /* 选项卡样式优化 */
-      .nav-tabs .nav-link.active {
-        color: #0d6efd !important;
-        background-color: #fff;
-        border-color: #dee2e6 #dee2e6 #fff;
-      }
-      
-      .nav-tabs .nav-link {
-        color: #6c757d;
-      }
-      
-      .nav-tabs .nav-link:hover {
-        color: #0d6efd;
-      }
-      
-      /* 页面标题样式 - 白色字体 */
-      .page-title h1.h3 {
-        color: #ffffff !important;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-      }
-      
-      .page-title .text-muted {
-        color: #ffffff !important;
-        opacity: 0.9;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-      }
-      
-      /* 为页面标题区域添加类名支持 */
-      .d-flex.justify-content-between.align-items-center.mb-4 h1.h3 {
-        color: #ffffff !important;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-      }
-      
-      .d-flex.justify-content-between.align-items-center.mb-4 .text-muted {
-        color: #ffffff !important;
-        opacity: 0.9;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-      }
-      
-      /* 用户管理页面标题样式 */
-      .d-flex.justify-content-between.align-items-center.mb-4 h2 {
-        color: #ffffff !important;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-      }
-      
-      /* ========== 全局飘落竹叶特效 ========== */
-      .falling-leaves {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 0;
-        overflow: visible;
-      }
-      
-      .falling-leaf {
-        position: absolute;
-        width: 30px;
-        height: 6px;
-        background: linear-gradient(90deg,
-          transparent,
-          rgba(85, 107, 47, 0.6),
-          rgba(107, 142, 35, 0.7),
-          rgba(85, 107, 47, 0.5),
-          transparent
-        );
-        border-radius: 50%;
-        opacity: 0;
-        filter: blur(0.3px);
-      }
-      
-      /* 竹叶飘落动画关键帧 */
-      @keyframes fallLeaf1 {
-        0% {
-          top: -50px;
-          opacity: 0;
-          transform: rotate(0deg) translateX(0);
-        }
-        10% {
-          opacity: 0.7;
-        }
-        50% {
-          transform: rotate(180deg) translateX(30px);
-        }
-        90% {
-          opacity: 0.5;
-        }
-        100% {
-          top: 100%;
-          opacity: 0;
-          transform: rotate(360deg) translateX(-20px);
-        }
-      }
-      
-      @keyframes fallLeaf2 {
-        0% {
-          top: -50px;
-          opacity: 0;
-          transform: rotate(0deg) translateX(0);
-        }
-        10% {
-          opacity: 0.6;
-        }
-        50% {
-          transform: rotate(-200deg) translateX(-40px);
-        }
-        90% {
-          opacity: 0.4;
-        }
-        100% {
-          top: 100%;
-          opacity: 0;
-          transform: rotate(-360deg) translateX(30px);
-        }
-      }
-      
-      @keyframes fallLeaf3 {
-        0% {
-          top: -50px;
-          opacity: 0;
-          transform: rotate(0deg) translateX(0);
-        }
-        10% {
-          opacity: 0.8;
-        }
-        50% {
-          transform: rotate(220deg) translateX(-25px);
-        }
-        90% {
-          opacity: 0.6;
-        }
-        100% {
-          top: 100%;
-          opacity: 0;
-          transform: rotate(400deg) translateX(35px);
-        }
-      }
-      
-      @keyframes fallLeaf4 {
-        0% {
-          top: -50px;
-          opacity: 0;
-          transform: rotate(0deg) translateX(0);
-        }
-        10% {
-          opacity: 0.7;
-        }
-        50% {
-          transform: rotate(-180deg) translateX(45px);
-        }
-        90% {
-          opacity: 0.5;
-        }
-        100% {
-          top: 100%;
-          opacity: 0;
-          transform: rotate(-380deg) translateX(-30px);
-        }
-      }
-      
-      @keyframes fallLeaf5 {
-        0% {
-          top: -50px;
-          opacity: 0;
-          transform: rotate(0deg) translateX(0);
-        }
-        10% {
-          opacity: 0.6;
-        }
-        50% {
-          transform: rotate(190deg) translateX(-35px);
-        }
-        90% {
-          opacity: 0.4;
-        }
-        100% {
-          top: 100%;
-          opacity: 0;
-          transform: rotate(370deg) translateX(40px);
-        }
-      }
-      
-      /* 每片竹叶的位置和动画 - 使用JavaScript动态设置延迟 */
-      .leaf-1 { left: 8%; animation: fallLeaf1 12s ease-in-out infinite; }
-      .leaf-2 { left: 22%; animation: fallLeaf2 15s ease-in-out infinite; }
-      .leaf-3 { left: 35%; animation: fallLeaf3 14s ease-in-out infinite; }
-      .leaf-4 { left: 48%; animation: fallLeaf4 13s ease-in-out infinite; }
-      .leaf-5 { left: 62%; animation: fallLeaf5 16s ease-in-out infinite; }
-      .leaf-6 { left: 75%; animation: fallLeaf1 13s ease-in-out infinite; }
-      .leaf-7 { left: 88%; animation: fallLeaf2 11s ease-in-out infinite; }
-      .leaf-8 { left: 18%; animation: fallLeaf3 14s ease-in-out infinite; }
-      .leaf-9 { left: 55%; animation: fallLeaf4 12s ease-in-out infinite; }
-      .leaf-10 { left: 92%; animation: fallLeaf5 15s ease-in-out infinite; }
-      
-      /* 移动端隐藏飘落特效 */
-      @media (max-width: 768px) {
-        .falling-leaves {
-          display: none;
-        }
-      }
-      
-      /* 确保导航栏和主要内容在竹叶特效之上 */
-      .navbar {
-        position: relative;
-        z-index: 10;
-      }
-      
-      main, .container, .card {
-        position: relative;
-        z-index: 1;
-      }
-      
-      /* 确保模态框正确显示 */
-      .modal {
-        z-index: 1055;
-      }
-    </style>
+    <link href="{{ url_for('static', filename='css/base-components.css') }}" rel="stylesheet">
 
     {% if is_logged_in and user_role != 'super_admin' %}
     <style>
@@ -846,7 +377,7 @@
     </div>
 
     <!-- Bootstrap JS -->
-    <script src="https://cdn.staticfile.org/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     
     <!-- 退出登录确认模态框 -->
     <div id="logoutConfirmModal" class="logout-modal">
@@ -884,7 +415,9 @@
         </div>
     </div>
     <!-- jQuery -->
-    <script src="https://cdn.staticfile.org/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <!-- 公共工具函数 -->
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <!-- 自定义JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     
@@ -951,6 +484,8 @@
         });
     }
     
+    $.ajaxSetup({ timeout: 30000 });
+
     // 确认退出登录
     $(document).ready(function() {
         console.log('页面加载完成，初始化导航栏功能');
@@ -1271,9 +806,15 @@
             $(e.target).addClass('text-primary');
         });
         
-        // 页面加载时刷新用户session数据，确保显示最新的昵称
+        // 仅在首次登录后的第一个页面刷新昵称，之后利用 sessionStorage 避免重复请求
         if ($('#currentUserDisplay').length > 0) {
-            refreshUserSession();
+            var cachedName = sessionStorage.getItem('_displayName');
+            var cacheTs = parseInt(sessionStorage.getItem('_displayNameTs') || '0', 10);
+            if (cachedName && (Date.now() - cacheTs < 300000)) {
+                $('#currentUserDisplay').text(cachedName);
+            } else {
+                refreshUserSession();
+            }
         }
         
         // 全局AJAX成功处理 - 检查强制登出
@@ -1325,7 +866,6 @@
         };
     })();
     
-    // 刷新用户session数据
     function refreshUserSession() {
         $.ajax({
             url: '/api/refresh_session',
@@ -1333,6 +873,8 @@
             success: function(response) {
                 if (response.success && response.display_name) {
                     $('#currentUserDisplay').text(response.display_name);
+                    sessionStorage.setItem('_displayName', response.display_name);
+                    sessionStorage.setItem('_displayNameTs', String(Date.now()));
                 }
             },
             error: function() {
@@ -1349,7 +891,7 @@
             return;
         }
 
-        var HEARTBEAT_INTERVAL_MS = 15000; // 15 秒检查一次
+        var HEARTBEAT_INTERVAL_MS = 60000; // 60 秒检查一次
         var heartbeatTimer = null;
 
         function sendHeartbeat() {

@@ -640,40 +640,6 @@ function buildLocalPlayerKey(name, idCard) {
     return '';
 }
 
-// 从身份证号提取性别
-function extractGenderFromIdCard(idCard) {
-    if (!idCard || idCard.length < 17) {
-        return '';
-    }
-    
-    // 18位身份证号的第17位数字表示性别，奇数为男，偶数为女
-    const genderDigit = parseInt(idCard.charAt(16));
-    if (isNaN(genderDigit)) {
-        return '';
-    }
-    
-    return genderDigit % 2 === 1 ? '男' : '女';
-}
-
-// 从身份证号计算年龄
-function calculateAgeFromIdCard(idCard) {
-    if (!idCard || idCard.length < 14) return '';
-    const year = parseInt(idCard.substring(6, 10));
-    const month = parseInt(idCard.substring(10, 12));
-    const day = parseInt(idCard.substring(12, 14));
-    
-    const today = new Date();
-    const birthDate = new Date(year, month - 1, day);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-    }
-    
-    return age;
-}
-
 // 从身份证号提取出生日期
 function extractBirthDateFromIdCard(idCard) {
     if (!idCard || idCard.length < 14) return '';

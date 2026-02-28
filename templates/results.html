@@ -948,13 +948,24 @@ function createAnnouncement() {
     });
 }
 
+var _loadingSafetyTimer = null;
+
 function showLoading() {
     $('#loading').show();
     $('#announcement-list, #no-data, #pagination-container').hide();
+    if (_loadingSafetyTimer) clearTimeout(_loadingSafetyTimer);
+    _loadingSafetyTimer = setTimeout(function() {
+        if ($('#loading').is(':visible')) {
+            hideLoading();
+            $('#no-data').show();
+            showCenterMessage('加载超时，请刷新页面重试', 'error');
+        }
+    }, 35000);
 }
 
 function hideLoading() {
     $('#loading').hide();
+    if (_loadingSafetyTimer) { clearTimeout(_loadingSafetyTimer); _loadingSafetyTimer = null; }
 }
 
 function showAnnouncementList() {
@@ -965,24 +976,6 @@ function showAnnouncementList() {
 function showNoData() {
     $('#no-data').show();
     $('#announcement-list, #pagination-container').hide();
-}
-
-function formatDate(dateString) {
-    let date = new Date(dateString);
-    let year = date.getFullYear();
-    let month = String(date.getMonth() + 1).padStart(2, '0');
-    let day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function formatDateTime(dateString) {
-    let date = new Date(dateString);
-    return date.toLocaleString('zh-CN');
-}
-
-function truncateText(text, maxLength) {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
 }
 
 function showMessage(message, type) {

@@ -112,29 +112,7 @@ function getMessageIcon(type) {
     return icons[type] || icons.info;
 }
 
-/**
- * 格式化日期时间
- * @param {string|Date} date - 日期
- * @param {string} format - 格式类型
- * @returns {string} 格式化后的日期
- */
-function formatDateTime(date, format = 'datetime') {
-    if (!date) return '-';
-    
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return '-';
-    
-    const options = {
-        date: { year: 'numeric', month: '2-digit', day: '2-digit' },
-        time: { hour: '2-digit', minute: '2-digit' },
-        datetime: { 
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit'
-        }
-    };
-    
-    return d.toLocaleString('zh-CN', options[format] || options.datetime);
-}
+// formatDateTime 已移至 utils.js，统一全局定义
 
 /**
  * 防抖函数
@@ -865,7 +843,6 @@ $(document).ready(function() {
 
 // ==================== 导出到全局 ====================
 window.showMessage = showMessage;
-window.formatDateTime = formatDateTime;
 window.debounce = debounce;
 window.throttle = throttle;
 window.validateEmail = validateEmail;

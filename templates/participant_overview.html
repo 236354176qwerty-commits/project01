@@ -722,29 +722,6 @@ function filterParticipants() {
     });
 }
 
-function maskIdCard(idCard) {
-    if (!idCard || idCard.length < 8) return idCard || '-';
-    return `${idCard.substring(0, 6)}****${idCard.substring(idCard.length - 4)}`;
-}
-
-function calculateAgeFromIdCard(idCard) {
-    if (!idCard || idCard.length < 14) return '';
-    const year = parseInt(idCard.substring(6, 10), 10);
-    const month = parseInt(idCard.substring(10, 12), 10) - 1;
-    const day = parseInt(idCard.substring(12, 14), 10);
-    if (isNaN(year) || isNaN(month) || isNaN(day)) {
-        return '';
-    }
-    const birth = new Date(year, month, day);
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-    }
-    return age >= 0 && age <= 120 ? age : '';
-}
-
 function buildPlayerKey(name, idCard) {
     const safeName = (name || '').trim();
     const safeId = (idCard || '').trim();

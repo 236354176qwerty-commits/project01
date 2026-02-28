@@ -405,15 +405,18 @@ function loadEvents(page = 1) {
         url: '/api/events/',
         method: 'GET',
         data: {
-            page: 1,
-            page_size: 1000,  // 获取所有赛事，前端分页
+            page: page,
+            page_size: eventsPerPage,
             ...currentFilters
         },
         success: function(response) {
             if (response.success) {
                 allEvents = response.events;
-                filteredEvents = response.events;  // 初始时所有赛事都是筛选结果
-                displayEventsWithPagination();
+                filteredEvents = response.events;
+                totalPages = response.pagination ? response.pagination.total_pages : 1;
+                var totalCount = response.pagination ? response.pagination.total : filteredEvents.length;
+                displayEvents(filteredEvents);
+                updatePaginationInfo(totalCount);
             } else {
                 showNoEvents();
             }
@@ -427,40 +430,22 @@ function loadEvents(page = 1) {
     });
 }
 
-// 分页显示赛事
+// 分页显示赛事（后端已分页，直接展示当前页数据）
 function displayEventsWithPagination() {
     if (filteredEvents.length === 0) {
         showNoEvents();
         return;
     }
     
-    // 计算总页数
-    totalPages = Math.ceil(filteredEvents.length / eventsPerPage);
-    
-    // 确保当前页在有效范围内
-    if (currentPage > totalPages) {
-        currentPage = totalPages;
-    }
-    if (currentPage < 1) {
-        currentPage = 1;
-    }
-    
-    // 获取当前页的赛事
-    const startIndex = (currentPage - 1) * eventsPerPage;
-    const endIndex = startIndex + eventsPerPage;
-    const currentPageEvents = filteredEvents.slice(startIndex, endIndex);
-    
-    // 显示赛事
-    displayEvents(currentPageEvents);
-    
-    // 更新分页信息
+    displayEvents(filteredEvents);
     updatePaginationInfo();
 }
 
 // 更新分页信息
-function updatePaginationInfo() {
+function updatePaginationInfo(totalCount) {
+    var total = totalCount !== undefined ? totalCount : filteredEvents.length;
     $('#pageInfo').text(`第 ${currentPage} 页，共 ${totalPages} 页`);
-    $('#totalInfo').text(`共 ${filteredEvents.length} 个赛事`);
+    $('#totalInfo').text(`共 ${total} 个赛事`);
     $('#currentPageSpan').text(currentPage);
     
     // 更新分页按钮状态
@@ -697,13 +682,24 @@ function createEventRow(event) {
     return rowHtml;
 }
 
+var _loadingSafetyTimer = null;
+
 function showLoading() {
     $('#loading-events').show();
     $('#events-card-view, #events-list-view, #no-events').hide();
+    if (_loadingSafetyTimer) clearTimeout(_loadingSafetyTimer);
+    _loadingSafetyTimer = setTimeout(function() {
+        if ($('#loading-events').is(':visible')) {
+            hideLoading();
+            showNoEvents();
+            showCenterMessage('加载超时，请刷新页面重试', 'error');
+        }
+    }, 35000);
 }
 
 function hideLoading() {
     $('#loading-events').hide();
+    if (_loadingSafetyTimer) { clearTimeout(_loadingSafetyTimer); _loadingSafetyTimer = null; }
 }
 
 function showNoEvents() {
@@ -999,17 +995,6 @@ function getStatusColor(status) {
     return colors[status] || 'secondary';
 }
 
-function getStatusText(status) {
-    const texts = {
-        'draft': '报名未开始',
-        'published': '未开始',
-        'ongoing': '进行中',
-        'completed': '已结束',
-        'cancelled': '已结束'
-    };
-    return texts[status] || '未开始';
-}
-
 // 根据时间自动计算状态
 function getAutoStatus(event) {
     const now = new Date();
@@ -1035,18 +1020,6 @@ function getDisplayStatus(event) {
 function getDisplayStatusColor(event) {
     const autoStatus = getAutoStatus(event);
     return getStatusColor(autoStatus);
-}
-
-function formatDateTime(dateString) {
-    if (!dateString) return '待定';
-    const date = new Date(dateString);
-    return date.toLocaleString('zh-CN');
-}
-
-function formatDateTimeForInput(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toISOString().slice(0, 16);
 }
 
 // --- 动态状态更新逻辑 ---

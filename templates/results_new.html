@@ -550,24 +550,6 @@ function showNoData() {
     $('#announcement-list, #pagination-container').hide();
 }
 
-function formatDate(dateString) {
-    let date = new Date(dateString);
-    let year = date.getFullYear();
-    let month = String(date.getMonth() + 1).padStart(2, '0');
-    let day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function formatDateTime(dateString) {
-    let date = new Date(dateString);
-    return date.toLocaleString('zh-CN');
-}
-
-function truncateText(text, maxLength) {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-}
-
 function showMessage(message, type) {
     // 这里可以使用你现有的消息提示系统
     if (type === 'success') {

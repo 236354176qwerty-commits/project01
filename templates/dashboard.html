@@ -640,17 +640,6 @@ function getCountdown(eventTime) {
     return '即将开始';
 }
 
-// 格式化日期时间（用于赛程列表）
-function formatDateTimeShort(dateString) {
-    if (!dateString) return '待定';
-    const date = new Date(dateString);
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${month}月${day}日 ${hours}:${minutes}`;
-}
-
 // 签到功能
 function checkIn(eventId) {
     // TODO: 调用后端签到接口
@@ -856,13 +845,6 @@ function showEventDetailModal(event) {
     console.log('✅ 模态框已显示（无背景遮罩）');
 }
 
-// 格式化日期时间
-function formatDateTime(dateString) {
-    if (!dateString) return '待定';
-    const date = new Date(dateString);
-    return date.toLocaleString('zh-CN');
-}
-
 // 计算报名状态（与赛事大全保持一致）
 function getRegistrationStatus(event) {
     const now = new Date();
@@ -1008,23 +990,6 @@ function getStatusColor(status) {
         'cancelled': 'danger'
     };
     return colors[status] || 'secondary';
-}
-
-function getStatusText(status) {
-    const texts = {
-        'draft': '报名未开始',
-        'published': '已发布',
-        'ongoing': '进行中',
-        'completed': '已完成',
-        'cancelled': '已取消'
-    };
-    return texts[status] || '未知';
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '待定';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN');
 }
 
 // 根据时间自动计算赛事状态

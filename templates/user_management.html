@@ -498,12 +498,6 @@ function getRoleDisplayName(role) {
     return names[role] || '未知角色';
 }
 
-function formatDateTime(dateStr) {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleString('zh-CN');
-}
-
 function showRoleModal(username, realName, currentRole, currentStatus) {
     console.log('showRoleModal被调用:', username, realName, currentRole, currentStatus);
     

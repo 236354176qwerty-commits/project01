@@ -388,23 +388,6 @@ function getPositionText(position) {
     return positions[position] || position;
 }
 
-function maskIdCard(idCard) {
-    if (!idCard || idCard.length < 8) return idCard;
-    return idCard.substring(0, 6) + '****' + idCard.substring(idCard.length - 4);
-}
-
-// 从身份证号提取性别
-function extractGenderFromIdCard(idCard) {
-    if (!idCard || idCard.length !== 18) return '-';
-    
-    // 第17位数字：奇数为男，偶数为女
-    const genderDigit = parseInt(idCard.charAt(16));
-    
-    if (isNaN(genderDigit)) return '-';
-    
-    return genderDigit % 2 === 1 ? '男' : '女';
-}
-
 // 页面加载时检查URL参数中的赛事信息
 $(document).ready(function() {
     checkEventFromUrl();

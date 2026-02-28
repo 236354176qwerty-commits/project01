@@ -4790,19 +4790,6 @@ function limitCategorySelection(checkbox) {
     });
 }
 
-// 辅助函数 - 从赛事大全页面复制
-function formatDateTime(dateTimeStr) {
-    if (!dateTimeStr) return '';
-    const date = new Date(dateTimeStr);
-    return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
 // 计算报名状态
 function getRegistrationStatus(event) {
     const now = new Date();

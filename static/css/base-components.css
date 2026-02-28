@@ -1,0 +1,174 @@
+/* base-components.css - 从 base.html 提取的内联样式 */
+
+/* 弹窗动画效果 */
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translate(-50%, -50%) translateY(0); }
+  40% { transform: translate(-50%, -50%) translateY(-10px); }
+  60% { transform: translate(-50%, -50%) translateY(-5px); }
+}
+@keyframes pulse {
+  0%   { transform: translate(-50%, -50%) scale(1);    box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+  50%  { transform: translate(-50%, -50%) scale(1.05); box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+  100% { transform: translate(-50%, -50%) scale(1);    box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+}
+
+/* 高亮当前导航项 */
+.navbar .nav-link.active {
+  color: #2c3e50 !important; font-weight: 700;
+  border: 2px solid #c41e3a; border-radius: 8px;
+  padding: 6px 10px; background: #f5f5dc !important;
+}
+.navbar .nav-link.active i { color: #c41e3a !important; }
+
+/* 导航栏可点击 */
+.navbar { position: relative; z-index: 1030 !important; pointer-events: auto !important; }
+.navbar .nav-link { cursor: pointer !important; pointer-events: auto !important; }
+.navbar .dropdown-toggle { cursor: pointer !important; pointer-events: auto !important; }
+.navbar .dropdown-menu { z-index: 1031 !important; pointer-events: auto !important; }
+
+/* 水墨背景 */
+body {
+  transition: opacity .2s ease-in-out;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(196,30,58,.03) 0%, transparent 50%),
+    radial-gradient(circle at 90% 80%, rgba(85,107,47,.03) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(44,62,80,.02) 0%, transparent 70%),
+    linear-gradient(135deg, #e8e4d9 0%, #f5f1e8 25%, #ebe8e0 50%, #f0ede5 75%, #f5f5dc 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  position: relative;
+}
+body::before {
+  content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(85,107,47,.01) 2px, rgba(85,107,47,.01) 4px);
+  pointer-events: none; z-index: 0;
+}
+
+/* 退出登录淡出 */
+.logout-fade { opacity: 0; transition: opacity .3s ease-out; }
+.modal.fade .modal-dialog { transition: transform .2s ease-out; }
+
+/* 退出登录确认模态框 */
+.logout-modal {
+  position: fixed !important; top: 0 !important; left: 0 !important;
+  width: 100vw !important; height: 100vh !important; z-index: 9999 !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  background-color: rgba(0,0,0,.5) !important;
+  opacity: 0 !important; visibility: hidden !important;
+  transition: opacity .15s ease-out, visibility .15s ease-out !important;
+}
+#deleteConfirmModal { z-index: 10000 !important; }
+.logout-modal.show { opacity: 1 !important; visibility: visible !important; }
+.logout-modal-dialog {
+  width: 350px !important; max-width: 90vw !important; margin: 0 !important;
+  transform: scale(.8) !important; transition: transform .15s ease-out !important;
+}
+.logout-modal.show .logout-modal-dialog { transform: scale(1) !important; }
+.logout-modal .modal-content {
+  border-radius: .5rem; border: none;
+  box-shadow: 0 10px 40px rgba(0,0,0,.3); background-color: #fff;
+}
+.logout-modal .btn-close {
+  background: transparent; border: none; opacity: 1; padding: .2rem;
+  width: 20px; height: 20px; filter: brightness(0) invert(1); font-size: .8rem;
+}
+.logout-modal .btn-close:hover { opacity: .8; }
+.logout-modal .modal-header { padding: .3rem .8rem !important; min-height: 28px !important; }
+.logout-modal .modal-body { padding: 1.5rem !important; text-align: left; }
+.logout-modal .modal-body p { font-size: 1.1rem; margin: 0; color: #333; }
+.logout-modal .modal-footer {
+  padding: 1rem 1.5rem !important; border-top: 1px solid #e9ecef;
+  justify-content: flex-end; gap: .5rem;
+}
+.logout-modal .modal-footer .btn {
+  min-width: 80px; padding: .5rem 1.5rem; font-size: 1rem; border-radius: .375rem;
+}
+
+/* 可拖动模态框 */
+.draggable-modal .modal-header { cursor: move; user-select: none; }
+.draggable-modal.dragging { transition: none !important; }
+
+/* 个人设置模态框 */
+#profileModal { z-index: 10500 !important; }
+#profileModal .modal-dialog {
+  z-index: 10501 !important; position: fixed !important;
+  top: 50% !important; left: 50% !important;
+  transform: translate(-50%,-50%) !important; margin: 0 !important;
+  width: 90% !important; max-width: 900px !important;
+}
+#profileModal.show .modal-dialog { transform: translate(-50%,-50%) !important; }
+#profileModal .modal-body { padding: 2rem !important; }
+#profileModal .form-control { padding: .75rem 1rem !important; font-size: 1rem !important; }
+#profileModal .nav-tabs { border-bottom: 2px solid #dee2e6 !important; margin-bottom: 1.5rem !important; }
+#profileModal .nav-link { padding: 1rem 1.5rem !important; font-weight: 500 !important; }
+
+/* 选项卡 */
+.nav-tabs .nav-link.active { color: #0d6efd !important; background-color: #fff; border-color: #dee2e6 #dee2e6 #fff; }
+.nav-tabs .nav-link { color: #6c757d; }
+.nav-tabs .nav-link:hover { color: #0d6efd; }
+
+/* 页面标题 */
+.page-title h1.h3 { color: #fff !important; text-shadow: 1px 1px 2px rgba(0,0,0,.3); }
+.page-title .text-muted { color: #fff !important; opacity: .9; text-shadow: 1px 1px 2px rgba(0,0,0,.3); }
+.d-flex.justify-content-between.align-items-center.mb-4 h1.h3 { color: #fff !important; text-shadow: 1px 1px 2px rgba(0,0,0,.3); }
+.d-flex.justify-content-between.align-items-center.mb-4 .text-muted { color: #fff !important; opacity: .9; text-shadow: 1px 1px 2px rgba(0,0,0,.3); }
+.d-flex.justify-content-between.align-items-center.mb-4 h2 { color: #fff !important; text-shadow: 1px 1px 2px rgba(0,0,0,.3); }
+
+/* ========== 全局飘落竹叶特效 ========== */
+.falling-leaves { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+.falling-leaf {
+  position: absolute; width: 30px; height: 6px;
+  background: linear-gradient(90deg, transparent, rgba(85,107,47,.6), rgba(107,142,35,.7), rgba(85,107,47,.5), transparent);
+  border-radius: 50%; opacity: 0; filter: blur(.3px);
+}
+@keyframes fallLeaf1 {
+  0%   { top: -50px; opacity: 0; transform: rotate(0) translateX(0); }
+  10%  { opacity: .7; }
+  50%  { transform: rotate(180deg) translateX(30px); }
+  90%  { opacity: .5; }
+  100% { top: 100%; opacity: 0; transform: rotate(360deg) translateX(-20px); }
+}
+@keyframes fallLeaf2 {
+  0%   { top: -50px; opacity: 0; transform: rotate(0) translateX(0); }
+  10%  { opacity: .6; }
+  50%  { transform: rotate(-200deg) translateX(-40px); }
+  90%  { opacity: .4; }
+  100% { top: 100%; opacity: 0; transform: rotate(-360deg) translateX(30px); }
+}
+@keyframes fallLeaf3 {
+  0%   { top: -50px; opacity: 0; transform: rotate(0) translateX(0); }
+  10%  { opacity: .8; }
+  50%  { transform: rotate(220deg) translateX(-25px); }
+  90%  { opacity: .6; }
+  100% { top: 100%; opacity: 0; transform: rotate(400deg) translateX(35px); }
+}
+@keyframes fallLeaf4 {
+  0%   { top: -50px; opacity: 0; transform: rotate(0) translateX(0); }
+  10%  { opacity: .7; }
+  50%  { transform: rotate(-180deg) translateX(45px); }
+  90%  { opacity: .5; }
+  100% { top: 100%; opacity: 0; transform: rotate(-380deg) translateX(-30px); }
+}
+@keyframes fallLeaf5 {
+  0%   { top: -50px; opacity: 0; transform: rotate(0) translateX(0); }
+  10%  { opacity: .6; }
+  50%  { transform: rotate(190deg) translateX(-35px); }
+  90%  { opacity: .4; }
+  100% { top: 100%; opacity: 0; transform: rotate(370deg) translateX(40px); }
+}
+.leaf-1  { left: 8%;  animation: fallLeaf1 12s ease-in-out infinite; }
+.leaf-2  { left: 22%; animation: fallLeaf2 15s ease-in-out infinite; }
+.leaf-3  { left: 35%; animation: fallLeaf3 14s ease-in-out infinite; }
+.leaf-4  { left: 48%; animation: fallLeaf4 13s ease-in-out infinite; }
+.leaf-5  { left: 62%; animation: fallLeaf5 16s ease-in-out infinite; }
+.leaf-6  { left: 75%; animation: fallLeaf1 13s ease-in-out infinite; }
+.leaf-7  { left: 88%; animation: fallLeaf2 11s ease-in-out infinite; }
+.leaf-8  { left: 18%; animation: fallLeaf3 14s ease-in-out infinite; }
+.leaf-9  { left: 55%; animation: fallLeaf4 12s ease-in-out infinite; }
+.leaf-10 { left: 92%; animation: fallLeaf5 15s ease-in-out infinite; }
+
+@media (max-width: 768px) { .falling-leaves { display: none; } }
+
+.navbar { position: relative; z-index: 10; }
+main, .container, .card { position: relative; z-index: 1; }
+.modal { z-index: 1055; }

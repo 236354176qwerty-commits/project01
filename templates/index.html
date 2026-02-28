@@ -882,28 +882,6 @@ function getStatusColor(status) {
     return colors[status] || 'secondary';
 }
 
-function getStatusText(status) {
-    const texts = {
-        'published': '已发布',
-        'ongoing': '进行中',
-        'completed': '已完成',
-        'cancelled': '已取消'
-    };
-    return texts[status] || '';
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '待定';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN');
-}
-
-function formatDateTime(dateString) {
-    if (!dateString) return '待定';
-    const date = new Date(dateString);
-    return date.toLocaleString('zh-CN');
-}
-
 // 创建报名按钮
 function createRegistrationButton(event) {
     // 根据报名状态显示不同的报名按钮

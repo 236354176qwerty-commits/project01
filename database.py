@@ -108,19 +108,33 @@ class DatabaseManager(
             'raise_on_warnings': False,
             'pool_size': 10,
             'pool_reset_session': True,
-            'connection_timeout': 30
+            'connection_timeout': 15
         }
         self.pool = _get_connection_pool(self.config)
 
     @contextmanager
     def get_connection(self):
-        """获取数据库连接的上下文管理器"""
+        """获取数据库连接的上下文管理器，带连接池耗尽重试"""
         connection = None
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                if hasattr(self, 'pool') and self.pool:
+                    connection = self.pool.get_connection()
+                else:
+                    connection = mysql.connector.connect(**self.config)
+                break
+            except pooling.PoolError as e:
+                if attempt < max_retries:
+                    logger.warning(f"连接池耗尽，第{attempt + 1}次重试 (共{max_retries}次)...")
+                    time.sleep(0.3 * (attempt + 1))
+                    continue
+                logger.error(f"连接池耗尽，所有重试均失败: {e}")
+                raise
+            except Error as e:
+                logger.error(f"数据库连接错误: {e}")
+                raise
         try:
-            if hasattr(self, 'pool') and self.pool:
-                connection = self.pool.get_connection()
-            else:
-                connection = mysql.connector.connect(**self.config)
             slow_threshold_ms = getattr(Config, 'SLOW_QUERY_THRESHOLD_MS', 50)
 
             original_cursor = connection.cursor
@@ -133,7 +147,7 @@ class DatabaseManager(
 
             yield connection
         except Error as e:
-            logger.error(f"数据库连接错误: {e}")
+            logger.error(f"数据库操作错误: {e}")
             if connection:
                 connection.rollback()
             raise

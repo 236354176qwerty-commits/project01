@@ -68,6 +68,9 @@ Pillow>=10.0.0
 # Caching (optional)
 Flask-Caching>=2.1.0
 
+# Response compression (gzip/brotli)
+flask-compress>=1.13
+
 # API documentation (optional)
 Flask-RESTX>=1.2.0
 

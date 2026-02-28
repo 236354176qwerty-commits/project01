@@ -1095,39 +1095,6 @@ async function loadParticipants() {
     }
 }
 
-// 从身份证号提取性别
-function extractGenderFromIdCard(idCard) {
-    if (!idCard || idCard.length !== 18) return '';
-    try {
-        const genderDigit = parseInt(idCard.charAt(16));
-        return genderDigit % 2 === 1 ? '男' : '女';
-    } catch (e) {
-        return '';
-    }
-}
-
-// 从身份证号计算年龄
-function calculateAgeFromIdCard(idCard) {
-    if (!idCard || idCard.length !== 18) return '';
-    try {
-        const birthYear = parseInt(idCard.substring(6, 10));
-        const birthMonth = parseInt(idCard.substring(10, 12));
-        const birthDay = parseInt(idCard.substring(12, 14));
-        
-        const today = new Date();
-        let age = today.getFullYear() - birthYear;
-        
-        if (today.getMonth() + 1 < birthMonth || 
-            (today.getMonth() + 1 === birthMonth && today.getDate() < birthDay)) {
-            age--;
-        }
-        
-        return age >= 0 && age <= 150 ? age : '';
-    } catch (e) {
-        return '';
-    }
-}
-
 // 根据年龄计算年龄组
 function calculateAgeGroup(age) {
     if (!age || age === '-') return '-';
@@ -1291,19 +1258,28 @@ function createParticipantRow(participant, index) {
     `;
 }
 
+var _loadingSafetyTimer = null;
+
 function showLoading(message = '正在加载数据...') {
     $('#loading-participants').show();
     $('#participants-table, #no-participants').hide();
-    
-    // 更新加载消息
+
     const loadingText = $('#loading-participants').find('.loading-text');
     if (loadingText.length > 0) {
         loadingText.text(message);
     }
+    if (_loadingSafetyTimer) clearTimeout(_loadingSafetyTimer);
+    _loadingSafetyTimer = setTimeout(function() {
+        if ($('#loading-participants').is(':visible')) {
+            hideLoading();
+            showCenterMessage('加载超时，请刷新页面重试', 'error');
+        }
+    }, 35000);
 }
 
 function hideLoading() {
     $('#loading-participants').hide();
+    if (_loadingSafetyTimer) { clearTimeout(_loadingSafetyTimer); _loadingSafetyTimer = null; }
 }
 
 function showNoParticipants() {
@@ -1823,30 +1799,6 @@ function confirmExportEvent() {
     
     // 执行导出
     performExport(eventId);
-}
-
-// 辅助函数：从身份证号计算年龄
-function calculateAgeFromIdCard(idCard) {
-    if (!idCard || idCard.length < 14) return null;
-    try {
-        const year = parseInt(idCard.substring(6, 10));
-        const month = parseInt(idCard.substring(10, 12));
-        const day = parseInt(idCard.substring(12, 14));
-        
-        const today = new Date();
-        const birthDate = new Date(year, month - 1, day);
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        
-        return age;
-    } catch (error) {
-        console.error('计算年龄失败:', error);
-        return null;
-    }
 }
 
 // 辅助函数：获取年龄组
@@ -3491,13 +3443,6 @@ function generateTeamFeesExcel(teamFeesData, eventInfo) {
         console.error('导出失败:', error);
         showCenterMessage('导出队伍费用数据失败：' + error.message, 'error');
     }
-}
-
-// 工具函数
-function formatDateTime(dateString) {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleString('zh-CN');
 }
 
 // 显示赛事切换模态框

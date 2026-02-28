@@ -1455,46 +1455,6 @@ function extractGenderFromIdCard(idCard) {
     return genderDigit % 2 === 1 ? 'male' : 'female';
 }
 
-// 从身份证号计算年龄
-function calculateAgeFromIdCard(idCard) {
-    if (!idCard || idCard.length < 14) {
-        return '';
-    }
-    
-    let birthYear, birthMonth, birthDay;
-    
-    if (idCard.length === 18) {
-        // 18位身份证
-        birthYear = parseInt(idCard.substring(6, 10));
-        birthMonth = parseInt(idCard.substring(10, 12));
-        birthDay = parseInt(idCard.substring(12, 14));
-    } else if (idCard.length === 15) {
-        // 15位身份证（老式）
-        birthYear = 1900 + parseInt(idCard.substring(6, 8));
-        birthMonth = parseInt(idCard.substring(8, 10));
-        birthDay = parseInt(idCard.substring(10, 12));
-    } else {
-        return '';
-    }
-    
-    if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) {
-        return '';
-    }
-    
-    const today = new Date();
-    const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
-    
-    let age = today.getFullYear() - birthYear;
-    
-    // 如果今年的生日还没过，年龄减1
-    if (today.getMonth() < birthMonth - 1 || 
-        (today.getMonth() === birthMonth - 1 && today.getDate() < birthDay)) {
-        age--;
-    }
-    
-    return age >= 0 && age <= 150 ? age : '';
-}
-
 // 跳转到管理参赛选手页面（我是队员-加入队伍页面）
 function goToPlayerManagement() {
     console.log('跳转到加入队伍页面');
@@ -2645,27 +2605,6 @@ function deleteTeamMember(memberType, memberId, memberName) {
             }
         }
     });
-}
-
-// 从身份证号提取性别（用于展示）
-function extractGenderFromIdCard(idCard) {
-    if (!idCard || idCard.length < 17) {
-        return '-';
-    }
-    const genderDigit = parseInt(idCard.charAt(16));
-    if (isNaN(genderDigit)) {
-        return '-';
-    }
-    return genderDigit % 2 === 1 ? '男' : '女';
-}
-
-// 身份证号掩码函数
-function maskIdCard(idCard) {
-    if (!idCard || idCard.length < 8) return idCard;
-    const start = idCard.substring(0, 4);
-    const end = idCard.substring(idCard.length - 4);
-    const middle = '*'.repeat(idCard.length - 8);
-    return start + middle + end;
 }
 
 function normalizeRecordPartner(record) {

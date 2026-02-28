@@ -13,6 +13,8 @@ _EVENT_PARTICIPANTS_CACHE_TTL = 10
 _event_count_cache = {}
 _EVENT_COUNT_CACHE_TTL = 10
 
+_event_columns_ensured = False
+
 
 class EventDbMixin:
     """赛事相关数据库操作 mixin。
@@ -188,27 +190,23 @@ class EventDbMixin:
             with self.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
 
-                if not getattr(self, '_event_columns_ensured', False):
+                global _event_columns_ensured
+                if not _event_columns_ensured:
                     self._ensure_event_columns(cursor)
-                    setattr(self, '_event_columns_ensured', True)
+                    _event_columns_ensured = True
 
                 where_sql, params = self._build_event_where(
                     status=status, keyword=keyword, date_from=date_from, date_to=date_to,
                     location=location, created_by=created_by,
                     min_participants=min_participants, max_participants=max_participants)
 
-                # 查总数
-                cursor.execute("SELECT COUNT(*) AS cnt FROM events" + where_sql, params)
-                total = cursor.fetchone()['cnt']
-
-                # 查列表
                 allowed_order_fields = ['start_date', 'end_date', 'created_at', 'updated_at', 'name', 'max_participants']
                 if order_by in allowed_order_fields and order_dir in ['ASC', 'DESC']:
                     order_clause = f" ORDER BY {order_by} {order_dir}"
                 else:
                     order_clause = " ORDER BY start_date DESC"
 
-                list_sql = "SELECT * FROM events" + where_sql + order_clause
+                list_sql = "SELECT SQL_CALC_FOUND_ROWS * FROM events" + where_sql + order_clause
                 list_params = list(params)
                 if limit:
                     list_sql += " LIMIT %s"
@@ -240,27 +238,23 @@ class EventDbMixin:
                         co_organizer=row.get('co_organizer')
                     ))
 
-                # 批量获取参赛人数（同一连接）
+                cursor.execute("SELECT FOUND_ROWS() AS cnt")
+                total = cursor.fetchone()['cnt']
+
+                # 批量获取参赛人数（单次查询合并两张表）
                 event_ids = [e.event_id for e in events]
                 participants_counts = {}
                 if event_ids:
                     placeholders = ','.join(['%s'] * len(event_ids))
                     cursor.execute(
-                        "SELECT event_id, COUNT(*) AS cnt FROM event_participants "
-                        f"WHERE event_id IN ({placeholders}) AND role = 'athlete' GROUP BY event_id",
-                        tuple(event_ids),
+                        "SELECT event_id, SUM(cnt) AS cnt FROM ("
+                        f"  SELECT event_id, COUNT(*) AS cnt FROM event_participants WHERE event_id IN ({placeholders}) AND role = 'athlete' GROUP BY event_id"
+                        f"  UNION ALL"
+                        f"  SELECT event_id, COUNT(*) AS cnt FROM participants WHERE event_id IN ({placeholders}) AND event_id NOT IN (SELECT DISTINCT event_id FROM event_participants WHERE role = 'athlete') GROUP BY event_id"
+                        ") t GROUP BY event_id",
+                        tuple(event_ids) + tuple(event_ids),
                     )
                     participants_counts = {row['event_id']: row['cnt'] for row in cursor.fetchall()}
-
-                    missing_ids = [eid for eid in event_ids if eid not in participants_counts]
-                    if missing_ids:
-                        ph2 = ','.join(['%s'] * len(missing_ids))
-                        cursor.execute(
-                            f"SELECT event_id, COUNT(*) AS cnt FROM participants WHERE event_id IN ({ph2}) GROUP BY event_id",
-                            tuple(missing_ids),
-                        )
-                        for row in cursor.fetchall():
-                            participants_counts[row['event_id']] = row['cnt']
 
                 return total, events, participants_counts
 
@@ -276,9 +270,10 @@ class EventDbMixin:
             with self.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
 
-                if not getattr(self, '_event_columns_ensured', False):
+                global _event_columns_ensured
+                if not _event_columns_ensured:
                     self._ensure_event_columns(cursor)
-                    setattr(self, '_event_columns_ensured', True)
+                    _event_columns_ensured = True
 
                 where_sql, params = self._build_event_where(
                     status=status, keyword=keyword, date_from=date_from, date_to=date_to,

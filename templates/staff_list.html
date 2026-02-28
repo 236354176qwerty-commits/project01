@@ -394,21 +394,6 @@ function getPositionOrder(position) {
     return orderMap[position] || 99;
 }
 
-// 从身份证号提取性别
-function extractGenderFromIdCard(idCard) {
-    if (!idCard || idCard.length < 17) {
-        return '';
-    }
-    
-    // 18位身份证号的第17位数字表示性别，奇数为男，偶数为女
-    const genderDigit = parseInt(idCard.charAt(16));
-    if (isNaN(genderDigit)) {
-        return '';
-    }
-    
-    return genderDigit % 2 === 1 ? '男' : '女';
-}
-
 // 别名函数
 function getGenderFromIdCard(idCard) {
     return extractGenderFromIdCard(idCard);
@@ -416,46 +401,6 @@ function getGenderFromIdCard(idCard) {
 
 function getAgeFromIdCard(idCard) {
     return calculateAgeFromIdCard(idCard);
-}
-
-// 从身份证号计算年龄
-function calculateAgeFromIdCard(idCard) {
-    if (!idCard || idCard.length < 14) {
-        return '';
-    }
-    
-    let birthYear, birthMonth, birthDay;
-    
-    if (idCard.length === 18) {
-        // 18位身份证
-        birthYear = parseInt(idCard.substring(6, 10));
-        birthMonth = parseInt(idCard.substring(10, 12));
-        birthDay = parseInt(idCard.substring(12, 14));
-    } else if (idCard.length === 15) {
-        // 15位身份证（老式）
-        birthYear = 1900 + parseInt(idCard.substring(6, 8));
-        birthMonth = parseInt(idCard.substring(8, 10));
-        birthDay = parseInt(idCard.substring(10, 12));
-    } else {
-        return '';
-    }
-    
-    if (isNaN(birthYear) || isNaN(birthMonth) || isNaN(birthDay)) {
-        return '';
-    }
-    
-    const today = new Date();
-    const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
-    
-    let age = today.getFullYear() - birthYear;
-    
-    // 如果今年的生日还没过，年龄减1
-    if (today.getMonth() < birthMonth - 1 || 
-        (today.getMonth() === birthMonth - 1 && today.getDate() < birthDay)) {
-        age--;
-    }
-    
-    return age >= 0 && age <= 150 ? age : '';
 }
 
 // 渲染随队人员表格

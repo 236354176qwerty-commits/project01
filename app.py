@@ -11,6 +11,10 @@ from dotenv import load_dotenv
 from utils.excel_handler import ExcelHandler
 from io import BytesIO
 from werkzeug.middleware.proxy_fix import ProxyFix
+try:
+    from flask_compress import Compress
+except ImportError:
+    Compress = None
 
 load_dotenv()
 
@@ -35,6 +39,19 @@ def create_app():
 
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+    # Jinja2 模板空白压缩
+    app.jinja_env.trim_blocks = True
+    app.jinja_env.lstrip_blocks = True
+
+    # gzip/brotli 响应压缩
+    if Compress is not None:
+        app.config.setdefault('COMPRESS_MIMETYPES', [
+            'text/html', 'text/css', 'text/xml', 'text/javascript',
+            'application/json', 'application/javascript',
+        ])
+        app.config.setdefault('COMPRESS_MIN_SIZE', 256)
+        Compress(app)
+
     @app.before_request
     def start_request_timer():
         g.request_start_time = time.perf_counter()
@@ -51,6 +68,9 @@ def create_app():
                 duration_ms,
                 response.status_code,
             )
+        path = request.path or ''
+        if path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'public, max-age=604800'
         return response
 
     # 应用启动时进行一次数据库结构检查与迁移（只增量修复，不重建）
